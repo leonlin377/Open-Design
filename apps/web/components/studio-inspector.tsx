@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
   SandpackCodeEditor,
   SandpackFileExplorer,
@@ -42,30 +42,67 @@ type StudioInspectorProps = {
   artifactSwitcher: ReactNode;
 };
 
+function normalizeFiles(files: Record<string, string>) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(files)
+        .map(([filePath, value]) => [filePath, value])
+        .sort(([left], [right]) => left.localeCompare(right))
+    )
+  );
+}
+
 function SaveCodeWorkspaceForm(props: {
   projectId: string;
   artifactId: string;
+  sourceBundleFiles: Record<string, string>;
   sceneVersion: number;
   codeWorkspaceBaseSceneVersion: number | null;
   codeWorkspaceUpdatedAt: string | null;
   saveCodeWorkspaceAction: (formData: FormData) => void | Promise<void>;
 }) {
   const { sandpack } = useSandpack();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const files = Object.fromEntries(
     Object.entries(sandpack.files).map(([filePath, value]) => [
       filePath,
       typeof value === "string" ? value : value.code
     ])
   );
+  const normalizedSavedFiles = normalizeFiles(props.sourceBundleFiles);
   const hasSceneDrift =
     props.codeWorkspaceBaseSceneVersion !== null &&
     props.codeWorkspaceBaseSceneVersion !== props.sceneVersion;
+  const hasUnsavedDraft = sandpack.editorState === "dirty";
+
+  useEffect(() => {
+    setFeedback(
+      props.codeWorkspaceUpdatedAt
+        ? "Loaded the latest saved code workspace into the Studio session."
+        : null
+    );
+  }, [normalizedSavedFiles]);
+
+  function handleSave() {
+    const formData = new FormData();
+    formData.set("projectId", props.projectId);
+    formData.set("artifactId", props.artifactId);
+    formData.set("filesJson", JSON.stringify(files));
+
+    startTransition(async () => {
+      await props.saveCodeWorkspaceAction(formData);
+      setFeedback("Saved code workspace. ZIP export now follows the updated scaffold.");
+    });
+  }
+
+  function handleReset() {
+    setFeedback("Reset the session draft back to the saved code workspace.");
+    sandpack.resetAllFiles();
+  }
 
   return (
-    <form action={props.saveCodeWorkspaceAction} className="stack-form">
-      <input type="hidden" name="projectId" value={props.projectId} />
-      <input type="hidden" name="artifactId" value={props.artifactId} />
-      <input type="hidden" name="filesJson" value={JSON.stringify(files)} />
+    <div className="stack-form">
       <div className="project-meta">
         <span>
           {props.codeWorkspaceUpdatedAt
@@ -78,10 +115,42 @@ function SaveCodeWorkspaceForm(props: {
             : "ZIP export follows the saved code workspace when present"}
         </span>
       </div>
-      <button type="submit" className="button-link ghost studio-inline-button">
-        Save Code Workspace
-      </button>
-    </form>
+      <div className="studio-status-row">
+        <span className={hasUnsavedDraft ? "status-pill warning" : "status-pill success"}>
+          {hasUnsavedDraft ? "Unsaved Draft" : "Draft Matches Saved"}
+        </span>
+        <span className="footer-note">
+          {hasUnsavedDraft
+            ? "The current Sandpack session differs from the saved code workspace."
+            : "The current Sandpack session matches the saved code workspace."}
+        </span>
+      </div>
+      {feedback ? <div className="studio-feedback success">{feedback}</div> : null}
+      <div className="artifact-action-grid">
+        <button
+          type="button"
+          className="button-link ghost studio-inline-button"
+          onClick={handleSave}
+          disabled={isPending}
+        >
+          {isPending ? "Saving..." : "Save Code Workspace"}
+        </button>
+        <button
+          type="button"
+          className="button-link ghost studio-inline-button"
+          onClick={handleReset}
+          disabled={isPending || !hasUnsavedDraft}
+        >
+          Reset To Saved
+        </button>
+      </div>
+      <SandpackLayout className="studio-code-layout">
+        <SandpackFileExplorer autoHiddenFiles={false} />
+        <div className="studio-code-column">
+          <SandpackCodeEditor showTabs showLineNumbers showInlineErrors wrapContent />
+        </div>
+      </SandpackLayout>
+    </div>
   );
 }
 
@@ -171,6 +240,7 @@ export function StudioInspector({
               <SaveCodeWorkspaceForm
                 projectId={projectId}
                 artifactId={artifactId}
+                sourceBundleFiles={sourceBundle.files}
                 sceneVersion={sceneVersion}
                 codeWorkspaceBaseSceneVersion={codeWorkspaceBaseSceneVersion}
                 codeWorkspaceUpdatedAt={codeWorkspaceUpdatedAt}
@@ -178,17 +248,10 @@ export function StudioInspector({
               />
             </Surface>
             <div className="studio-sandpack-shell">
-              <SandpackLayout className="studio-code-layout">
-                <SandpackFileExplorer autoHiddenFiles={false} />
-                <div className="studio-code-column">
-                  <SandpackCodeEditor
-                    showTabs
-                    showLineNumbers
-                    showInlineErrors
-                    wrapContent
-                  />
-                </div>
-              </SandpackLayout>
+              <div className="footer-note">
+                Reset always returns to the saved code workspace currently loaded into
+                Studio. Restore Version swaps that saved baseline for the selected snapshot.
+              </div>
             </div>
           </div>
         </SandpackProvider>

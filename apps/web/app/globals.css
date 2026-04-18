@@ -369,6 +369,49 @@ main {
   font-size: 0.9rem;
 }
 
+.studio-status-row {
+  display: grid;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid var(--stroke);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.status-pill.success {
+  color: var(--accent);
+  border-color: rgba(214, 255, 95, 0.45);
+  background: rgba(214, 255, 95, 0.08);
+}
+
+.status-pill.warning {
+  color: #ffd36d;
+  border-color: rgba(255, 211, 109, 0.45);
+  background: rgba(255, 211, 109, 0.08);
+}
+
+.studio-feedback {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke);
+  padding: 12px 14px;
+  font-size: 0.9rem;
+}
+
+.studio-feedback.success {
+  color: #dfffb3;
+  border-color: rgba(214, 255, 95, 0.35);
+  background: rgba(214, 255, 95, 0.08);
+}
+
 .auth-panel,
 .stack-form,
 .auth-fields {
@@ -401,6 +444,13 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.artifact-action-grid button:disabled,
+.artifact-action-grid a[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .scene-node-list {

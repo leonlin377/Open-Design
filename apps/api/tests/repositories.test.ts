@@ -204,6 +204,36 @@ describe("PostgresArtifactWorkspaceRepository", () => {
     expect(workspace?.sceneDocument.nodes).toHaveLength(1);
   });
 
+  it("updates workspace intent and returns the persisted workspace", async () => {
+    const query = createQueryMock([
+      {
+        artifact_id: "artifact-1",
+        intent: "Generate a launch surface for Atlas Commerce.",
+        active_version_id: "version-1",
+        scene_document: {
+          id: "scene-1",
+          artifactId: "artifact-1",
+          kind: "website",
+          version: 2,
+          nodes: [],
+          metadata: {}
+        },
+        code_workspace_files: null,
+        code_workspace_updated_at: null,
+        created_at: new Date("2026-04-18T08:30:00.000Z"),
+        updated_at: new Date("2026-04-18T08:36:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactWorkspaceRepository({ query });
+    const workspace = await repository.updateIntent(
+      "artifact-1",
+      "Generate a launch surface for Atlas Commerce."
+    );
+
+    expect(workspace?.intent).toBe("Generate a launch surface for Atlas Commerce.");
+  });
+
   it("updates code workspace files and returns the persisted workspace", async () => {
     const query = createQueryMock([
       {

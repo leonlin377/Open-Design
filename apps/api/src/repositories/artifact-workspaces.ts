@@ -37,6 +37,10 @@ export interface ArtifactWorkspaceRepository {
     artifactId: string,
     activeVersionId: string | null
   ): Promise<ArtifactWorkspaceRecord | null>;
+  updateIntent(
+    artifactId: string,
+    intent: string
+  ): Promise<ArtifactWorkspaceRecord | null>;
   updateSceneDocument(
     artifactId: string,
     sceneDocument: SceneDocument
@@ -128,6 +132,25 @@ export class InMemoryArtifactWorkspaceRepository implements ArtifactWorkspaceRep
     const updated: ArtifactWorkspaceRecord = {
       ...workspace,
       activeVersionId,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.workspaces.set(artifactId, updated);
+    return updated;
+  }
+
+  async updateIntent(
+    artifactId: string,
+    intent: string
+  ): Promise<ArtifactWorkspaceRecord | null> {
+    const workspace = this.workspaces.get(artifactId);
+    if (!workspace) {
+      return null;
+    }
+
+    const updated: ArtifactWorkspaceRecord = {
+      ...workspace,
+      intent,
       updatedAt: new Date().toISOString()
     };
 
@@ -276,6 +299,34 @@ export class PostgresArtifactWorkspaceRepository implements ArtifactWorkspaceRep
                  code_workspace_files, code_workspace_updated_at,
                  created_at, updated_at`,
       [artifactId, activeVersionId]
+    );
+
+    const workspace = result.rows[0];
+    return workspace ? mapWorkspaceRecord(workspace) : null;
+  }
+
+  async updateIntent(
+    artifactId: string,
+    intent: string
+  ): Promise<ArtifactWorkspaceRecord | null> {
+    const result = await this.database.query<{
+      artifact_id: string;
+      intent: string;
+      active_version_id: string | null;
+      scene_document: unknown;
+      code_workspace_files: unknown | null;
+      code_workspace_updated_at: string | Date | null;
+      created_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      `update artifact_workspaces
+       set intent = $2,
+           updated_at = now()
+       where artifact_id = $1
+       returning artifact_id, intent, active_version_id, scene_document,
+                 code_workspace_files, code_workspace_updated_at,
+                 created_at, updated_at`,
+      [artifactId, intent]
     );
 
     const workspace = result.rows[0];

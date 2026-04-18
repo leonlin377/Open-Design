@@ -258,6 +258,70 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("generates an artifact pass from a prompt and persists the resulting workspace", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Prompt Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Prompt Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const generateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: {
+          prompt: "Create a launch page with a feature grid and a conversion CTA."
+        }
+      });
+
+      expect(generateResponse.statusCode).toBe(201);
+      expect(generateResponse.json()).toMatchObject({
+        plan: {
+          provider: "heuristic",
+          sections: ["hero", "feature-grid", "cta"]
+        },
+        version: {
+          artifactId: artifact.id,
+          source: "prompt"
+        },
+        workspace: {
+          activeVersionId: generateResponse.json().version.id
+        }
+      });
+      expect(generateResponse.json().appendedNodes).toHaveLength(3);
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace).toMatchObject({
+        intent:
+          "Generate a website artifact for Prompt Artifact: Create a launch page with a feature grid and a conversion CTA.",
+        activeVersionId: generateResponse.json().version.id,
+        sceneDocument: {
+          version: 4
+        }
+      });
+      expect(workspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(3);
+      expect(workspaceResponse.json().versions[0]).toMatchObject({
+        source: "prompt"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("updates feature-grid title and items", async () => {
     const app = await buildApp();
     try {

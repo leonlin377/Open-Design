@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type {
   ArtifactComment,
+  ArtifactGenerationPlan,
   ArtifactWorkspace,
   SceneTemplateKind,
   ArtifactVersionSnapshot
@@ -220,6 +221,40 @@ export async function createArtifactVersion(input: {
   }
 
   return (await response.json()) as ApiArtifactVersion;
+}
+
+export async function generateArtifact(input: {
+  projectId: string;
+  artifactId: string;
+  prompt: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/generate`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt: input.prompt
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate artifact (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    plan: ArtifactGenerationPlan;
+    appendedNodes: Array<{
+      id: string;
+      type: string;
+      name: string;
+    }>;
+    version: ApiArtifactVersion;
+    workspace: ApiArtifactWorkspace;
+  };
 }
 
 export async function restoreArtifactVersion(input: {

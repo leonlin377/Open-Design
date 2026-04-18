@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   appendSceneTemplate,
   createArtifactComment,
+  generateArtifact,
   createArtifactVersion,
   resolveArtifactComment,
   restoreArtifactVersion,
@@ -30,6 +31,24 @@ export async function createArtifactVersionAction(formData: FormData) {
     artifactId,
     label,
     summary: summary || undefined
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function generateArtifactAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const prompt = String(formData.get("prompt") ?? "").trim();
+
+  if (!projectId || !artifactId || !prompt) {
+    throw new Error("Project, artifact, and prompt are required.");
+  }
+
+  await generateArtifact({
+    projectId,
+    artifactId,
+    prompt
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

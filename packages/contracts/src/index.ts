@@ -108,6 +108,14 @@ export const ArtifactCodeWorkspaceSchema = z.object({
   updatedAt: z.string().min(1)
 });
 
+export const ArtifactGenerationPlanSchema = z.object({
+  prompt: z.string().min(1),
+  intent: z.string().min(1),
+  rationale: z.string().min(1),
+  sections: z.array(SceneTemplateKindSchema).min(1).max(6),
+  provider: z.enum(["litellm", "heuristic"])
+});
+
 export const ArtifactWorkspaceSchema = z.object({
   artifactId: z.string().min(1),
   intent: z.string().min(1),
@@ -161,6 +169,7 @@ export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
 export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSchema>;
 export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
 export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
+export type ArtifactGenerationPlan = z.infer<typeof ArtifactGenerationPlanSchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;

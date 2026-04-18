@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `45%`
+Current estimated product completion for a serious V1: `50%`
 
 ```
-[#########-----------] 45%
+[##########----------] 50%
 ```
 
 ## Current Reality
@@ -60,13 +60,13 @@ The order below is the build order I will keep following unless a lower-level bl
 
 Goal: Move from manual scene editing to a real artifact-generation system.
 
-- [ ] Wire LiteLLM into the actual artifact generation flow
+- [~] Wire LiteLLM into the actual artifact generation flow
   Done when:
   API routes can call a configured gateway and receive streamed responses.
 - [ ] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
   Done when:
   Shared contracts exist and API handlers validate them before applying patches.
-- [ ] Add generation route for prompt-driven artifact creation
+- [~] Add generation route for prompt-driven artifact creation
   Done when:
   Studio can submit a prompt and receive scene/code updates from the backend.
 - [ ] Add streaming status/events for generation progress
@@ -86,17 +86,18 @@ Goal: Make scene editing and code editing feel like one system instead of parall
 - [ ] Implement supported `code -> scene` back-sync for the safe subset
   Done when:
   Edits to supported files can update scene nodes or sections.
-- [~] Show saved code workspace boundaries clearly in Studio
+- [x] Show saved code workspace boundaries clearly in Studio
   Current:
-  Saved code state, scene drift warning, and version restore are implemented.
-  Remaining:
-  Explicit dirty state, reset action, and clearer draft-vs-saved messaging.
-- [ ] Add session draft dirty-state detection in the code editor
+  Saved code state, scene drift warning, dirty-state, reset-to-saved, and restore-aware messaging are implemented.
+- [x] Add session draft dirty-state detection in the code editor
   Done when:
   Studio clearly shows when current code differs from saved code workspace.
-- [ ] Add reset-to-saved action for the code editor
+- [x] Add reset-to-saved action for the code editor
   Done when:
   Users can discard local draft edits and return to the saved scaffold instantly.
+- [x] Add explicit generation, save, restore, and export feedback states in UI
+  Done when:
+  Users always know what changed and what the current source of truth is.
 - [ ] Add scene/code diff support in the Versions lane
   Done when:
   Restores are previewable and users can inspect what changed before switching.
@@ -191,9 +192,6 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [ ] Replace section-form sprawl in Studio page with reusable editor modules
   Done when:
   Scene inspector logic is no longer concentrated in one large page file.
-- [ ] Add explicit generation, save, restore, and export feedback states in UI
-  Done when:
-  Users always know what changed and what the current source of truth is.
 - [ ] Improve visual hierarchy and artifact canvas fidelity
   Done when:
   Studio feels like an intentional product, not an internal tool shell.
@@ -208,9 +206,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 This is the immediate build sequence I should continue with next:
 
-- [ ] Add code editor dirty-state detection
-- [ ] Add reset-to-saved code workspace action
-- [ ] Add clearer restore/save success feedback in Studio
-- [ ] Start wiring LiteLLM-backed generation route
+- [ ] Add scene/code diff preview in Versions lane
+- [ ] Harden generation route from fallback-only into streamed LiteLLM execution
+- [ ] Add generation status and failure UI in Chat Rail
 - [ ] Move section editing out of the Studio page into reusable editor components
-

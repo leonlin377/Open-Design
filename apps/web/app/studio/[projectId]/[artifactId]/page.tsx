@@ -15,6 +15,7 @@ import {
   appendSceneTemplateAction,
   createArtifactCommentAction,
   createArtifactVersionAction,
+  generateArtifactAction,
   resolveArtifactCommentAction,
   restoreArtifactVersionAction,
   saveCodeWorkspaceAction,
@@ -199,6 +200,32 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <Surface className="kv">
             <span>Comment Queue</span>
             {activeCommentCount} open comment{activeCommentCount === 1 ? "" : "s"}
+          </Surface>
+          <Surface className="project-card" as="section">
+            <div>
+              <h3>Generate Artifact</h3>
+              <p className="footer-note">
+                Send a prompt into the generation pipeline. When LiteLLM is configured,
+                the backend will try the gateway first and fall back to a heuristic plan.
+              </p>
+            </div>
+            <form action={generateArtifactAction} className="stack-form">
+              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="artifactId" value={artifact.id} />
+              <label className="field">
+                <span>Prompt</span>
+                <textarea
+                  name="prompt"
+                  rows={4}
+                  defaultValue={workspace.intent}
+                  placeholder="Design a cinematic launch surface with a strong hero, proof points, and a conversion CTA."
+                  required
+                />
+              </label>
+              <Button variant="primary" type="submit">
+                Generate Pass
+              </Button>
+            </form>
           </Surface>
         </aside>
 

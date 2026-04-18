@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   ArtifactCommentSchema,
+  ArtifactGenerationPlanSchema,
   ArtifactKindSchema,
   ArtifactVersionSnapshotSchema,
   ArtifactWorkspaceSchema,
@@ -175,6 +176,21 @@ describe("ArtifactCommentSchema", () => {
 
     expect(comment.anchor.elementId).toBe("hero");
     expect(comment.status).toBe("open");
+  });
+});
+
+describe("ArtifactGenerationPlanSchema", () => {
+  test("accepts validated generation plans", () => {
+    const plan = ArtifactGenerationPlanSchema.parse({
+      prompt: "Create a cinematic landing page for Atlas Commerce.",
+      intent: "Build a cinematic launch surface for Atlas Commerce.",
+      rationale: "The page needs a hero, supporting features, and a CTA to close the story.",
+      sections: ["hero", "feature-grid", "cta"],
+      provider: "heuristic"
+    });
+
+    expect(plan.sections).toHaveLength(3);
+    expect(plan.provider).toBe("heuristic");
   });
 });
 

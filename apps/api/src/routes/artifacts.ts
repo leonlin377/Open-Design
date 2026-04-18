@@ -1,5 +1,6 @@
 import {
   ArtifactKindSchema,
+  ArtifactGenerationPlanSchema,
   ArtifactVersionSourceSchema,
   CommentAnchorSchema,
   SceneTemplateKindSchema,
@@ -19,6 +20,7 @@ import {
 } from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { generateArtifactPlan } from "../generation";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
 import type { ArtifactVersionRepository } from "../repositories/artifact-versions";
@@ -49,6 +51,10 @@ const createArtifactVersionBodySchema = z.object({
 const createArtifactCommentBodySchema = z.object({
   body: z.string().min(1),
   anchor: CommentAnchorSchema
+});
+
+const generateArtifactBodySchema = z.object({
+  prompt: z.string().min(1)
 });
 
 const appendSceneTemplateBodySchema = z.object({
@@ -529,6 +535,85 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
       await options.workspaces.updateActiveVersion(artifact.id, version.id);
       return reply.code(201).send(version);
+    });
+
+    app.post("/projects/:projectId/artifacts/:artifactId/generate", async (request, reply) => {
+      const params = artifactDetailParamsSchema.parse(request.params);
+      const body = generateArtifactBodySchema.parse(request.body);
+      const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+      if (!project) {
+        return reply.code(404).send({
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND"
+        });
+      }
+
+      if (!artifact) {
+        return reply.code(404).send({
+          error: "Artifact not found",
+          code: "ARTIFACT_NOT_FOUND"
+        });
+      }
+
+      const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+      const plan = ArtifactGenerationPlanSchema.parse(
+        await generateArtifactPlan({
+          artifactKind: artifact.kind,
+          artifactName: artifact.name,
+          prompt: body.prompt
+        })
+      );
+
+      let sceneDocument = workspace.sceneDocument;
+      const appendedNodes: SceneNode[] = [];
+
+      for (const template of plan.sections) {
+        const node = buildTemplateNode({
+          artifact,
+          intent: plan.intent,
+          template
+        });
+        sceneDocument = appendRootSceneNode(sceneDocument, node);
+        appendedNodes.push(node);
+      }
+
+      const intentWorkspace = await options.workspaces.updateIntent(artifact.id, plan.intent);
+      const sceneWorkspace = await options.workspaces.updateSceneDocument(
+        artifact.id,
+        sceneDocument
+      );
+
+      if (!intentWorkspace || !sceneWorkspace) {
+        return reply.code(500).send({
+          error: "Workspace update failed",
+          code: "WORKSPACE_UPDATE_FAILED"
+        });
+      }
+
+      const version = await options.versions.create({
+        artifactId: artifact.id,
+        label: `Prompt ${versions.length + 1}`,
+        summary: `Generated from prompt: ${body.prompt.slice(0, 120)}`,
+        source: "prompt",
+        sceneVersion: sceneWorkspace.sceneDocument.version,
+        sceneDocument: sceneWorkspace.sceneDocument,
+        codeWorkspace: sceneWorkspace.codeWorkspace
+      });
+
+      const activeWorkspace =
+        (await options.workspaces.updateActiveVersion(artifact.id, version.id)) ?? sceneWorkspace;
+
+      return reply.code(201).send({
+        plan,
+        appendedNodes,
+        version,
+        workspace: buildWorkspacePayload({
+          workspace: activeWorkspace,
+          versions: [version, ...versions],
+          comments
+        })
+      });
     });
 
     app.post(
