@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { Badge, Button, Surface } from "@opendesign/ui";
+import { Badge, Surface } from "@opendesign/ui";
 import { buildArtifactSourceBundle } from "@opendesign/exporters";
+import { StudioCommentsPanel } from "../../../../components/studio-comments-panel";
+import { StudioExportPanel } from "../../../../components/studio-export-panel";
 import {
   StudioInspector,
   type StudioInspectorTab
 } from "../../../../components/studio-inspector";
 import { StudioGeneratePanel } from "../../../../components/studio-generate-panel";
+import { StudioSceneSectionsPanel } from "../../../../components/studio-scene-sections-panel";
+import { StudioVersionsPanel } from "../../../../components/studio-versions-panel";
 import {
+  type ApiArtifactVersionDiff,
   getArtifactWorkspace,
   getArtifactVersionDiff,
   getProject,
@@ -53,40 +58,6 @@ function readInspectorTab(value: string | string[] | undefined): StudioInspector
     ? (candidate as StudioInspectorTab)
     : "preview";
 }
-
-function readFeatureGridItems(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter(
-    (
-      item
-    ): item is {
-      label: string;
-      body: string;
-    } =>
-      typeof item === "object" &&
-      item !== null &&
-      typeof (item as { label?: unknown }).label === "string" &&
-      typeof (item as { body?: unknown }).body === "string"
-  );
-}
-
-const defaultFeatureGridItems = [
-  {
-    label: "Scene",
-    body: "Sections stay versioned and ready for review snapshots."
-  },
-  {
-    label: "Design",
-    body: "Brand rhythm and layout motifs stay attached to the workspace."
-  },
-  {
-    label: "Export",
-    body: "Preview, handoff, and export flows derive from one source of truth."
-  }
-];
 
 export default async function StudioPage({ params, searchParams }: StudioPageProps) {
   const resolvedSearchParams = await searchParams;
@@ -142,11 +113,6 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
         files: workspace.codeWorkspace.files
       }
     : generatedSourceBundle;
-  const sceneTemplates = [
-    { template: "hero" as const, label: "Add Hero" },
-    { template: "feature-grid" as const, label: "Add Feature Grid" },
-    { template: "cta" as const, label: "Add CTA" }
-  ];
   const versionDiffEntries = await Promise.all(
     versions.map(
       async (
@@ -161,7 +127,9 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
       ]
     )
   );
-  const versionDiffMap = new Map(versionDiffEntries);
+  const versionDiffById = Object.fromEntries(
+    versionDiffEntries.map(([versionId, payload]) => [versionId, payload?.diff ?? null])
+  ) as Record<string, ApiArtifactVersionDiff | null>;
 
   return (
     <main className="studio-shell">
@@ -239,152 +207,13 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               </p>
             </div>
           </div>
-          <Surface className="project-card" as="section">
-            <div>
-              <h3>Scene Sections</h3>
-              <p className="footer-note">
-                Append a root section template to the current scene document.
-              </p>
-            </div>
-            <div className="artifact-action-grid">
-              {sceneTemplates.map((entry) => (
-                <form key={entry.template} action={appendSceneTemplateAction}>
-                  <input type="hidden" name="projectId" value={project.id} />
-                  <input type="hidden" name="artifactId" value={artifact.id} />
-                  <input type="hidden" name="template" value={entry.template} />
-                  <Button variant="outline" size="sm" type="submit">
-                    {entry.label}
-                  </Button>
-                </form>
-              ))}
-            </div>
-            <div className="scene-node-list">
-              {sceneNodes.length === 0 ? (
-                <div className="footer-note">No scene sections yet.</div>
-              ) : null}
-              {sceneNodes.map((node) => (
-                (() => {
-                  const featureItems = readFeatureGridItems(node.props.items);
-                  const template = String(node.props.template ?? node.type);
-                  const featureItemsTail =
-                    template === "feature-grid" && featureItems.length > 3
-                      ? featureItems.slice(3)
-                      : [];
-                  const editableFeatureItems =
-                    template === "feature-grid"
-                      ? [0, 1, 2].map((index) => ({
-                          label:
-                            featureItems[index]?.label ?? defaultFeatureGridItems[index]!.label,
-                          body:
-                            featureItems[index]?.body ?? defaultFeatureGridItems[index]!.body
-                        }))
-                      : [];
-
-                  return (
-                    <Surface key={node.id} className="project-card" as="section">
-                      <div>
-                        <h3>{node.name}</h3>
-                        <p className="footer-note">
-                          {template} · {node.id.slice(-8)}
-                        </p>
-                      </div>
-                      <form action={updateSceneNodeAction} className="stack-form">
-                        <input type="hidden" name="projectId" value={project.id} />
-                        <input type="hidden" name="artifactId" value={artifact.id} />
-                        <input type="hidden" name="nodeId" value={node.id} />
-                        {featureItemsTail.length > 0 ? (
-                          <input
-                            type="hidden"
-                            name="itemsTailJson"
-                            value={JSON.stringify(featureItemsTail)}
-                          />
-                        ) : null}
-                        <label className="field">
-                          <span>Section Name</span>
-                          <input name="name" defaultValue={node.name} />
-                        </label>
-                        {typeof node.props.eyebrow === "string" ? (
-                          <label className="field">
-                            <span>Eyebrow</span>
-                            <input name="eyebrow" defaultValue={node.props.eyebrow} />
-                          </label>
-                        ) : null}
-                        {typeof node.props.title === "string" ? (
-                          <label className="field">
-                            <span>Title</span>
-                            <input name="title" defaultValue={node.props.title} />
-                          </label>
-                        ) : null}
-                        {template === "feature-grid" ? (
-                          <div className="scene-item-grid">
-                            {[0, 1, 2].map((index) => (
-                              <Surface
-                                key={`${node.id}-item-${index}`}
-                                className="kv"
-                                as="section"
-                              >
-                                <span>Item {index + 1}</span>
-                                <label className="field">
-                                  <span>Label</span>
-                                  <input
-                                    name={`item${index}Label`}
-                                    defaultValue={editableFeatureItems[index]?.label ?? ""}
-                                    required
-                                  />
-                                </label>
-                                <label className="field">
-                                  <span>Body</span>
-                                  <textarea
-                                    name={`item${index}Body`}
-                                    defaultValue={editableFeatureItems[index]?.body ?? ""}
-                                    rows={3}
-                                    required
-                                  />
-                                </label>
-                              </Surface>
-                            ))}
-                          </div>
-                        ) : null}
-                        {typeof node.props.headline === "string" ? (
-                          <label className="field">
-                            <span>Headline</span>
-                            <input name="headline" defaultValue={node.props.headline} />
-                          </label>
-                        ) : null}
-                        {typeof node.props.body === "string" ? (
-                          <label className="field">
-                            <span>Body</span>
-                            <textarea name="body" defaultValue={node.props.body} rows={4} />
-                          </label>
-                        ) : null}
-                        {typeof node.props.primaryAction === "string" ? (
-                          <label className="field">
-                            <span>Primary Action</span>
-                            <input
-                              name="primaryAction"
-                              defaultValue={node.props.primaryAction}
-                            />
-                          </label>
-                        ) : null}
-                        {typeof node.props.secondaryAction === "string" ? (
-                          <label className="field">
-                            <span>Secondary Action</span>
-                            <input
-                              name="secondaryAction"
-                              defaultValue={node.props.secondaryAction}
-                            />
-                          </label>
-                        ) : null}
-                        <Button variant="ghost" size="sm" type="submit">
-                          Update Section
-                        </Button>
-                      </form>
-                    </Surface>
-                  );
-                })()
-              ))}
-            </div>
-          </Surface>
+          <StudioSceneSectionsPanel
+            projectId={project.id}
+            artifactId={artifact.id}
+            sceneNodes={sceneNodes}
+            appendSceneTemplateAction={appendSceneTemplateAction}
+            updateSceneNodeAction={updateSceneNodeAction}
+          />
           <div className="project-meta">
             <span>Sync: {workspace.syncPlan.mode}</span>
             <span>Scope: {workspace.syncPlan.changeScope}</span>
@@ -409,205 +238,34 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           }
           saveCodeWorkspaceAction={saveCodeWorkspaceAction}
           inspectorPanel={
-            <>
-              <Surface className="kv">
-                <span>Artifact Intent</span>
-                {workspace.intent}
-              </Surface>
-              <Surface className="kv">
-                <span>Active Frame</span>
-                {frameLabel}
-              </Surface>
-              <Surface className="kv">
-                <span>Sync Strategy</span>
-                {workspace.syncPlan.mode} · {workspace.syncPlan.targetMode}
-              </Surface>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Add Comment</h3>
-                  <p className="footer-note">
-                    Comments are anchored to the current canvas until direct element
-                    selection lands.
-                  </p>
-                </div>
-                <form action={createArtifactCommentAction} className="stack-form">
-                  <input type="hidden" name="projectId" value={project.id} />
-                  <input type="hidden" name="artifactId" value={artifact.id} />
-                  <label className="field">
-                    <span>Comment</span>
-                    <textarea
-                      name="body"
-                      placeholder="Tighten the left rail spacing and raise the eyebrow."
-                      rows={3}
-                      required
-                    />
-                  </label>
-                  <Button variant="outline" type="submit">
-                    Add Comment
-                  </Button>
-                </form>
-              </Surface>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Comment Threads</h3>
-                  <p className="footer-note">
-                    Resolve feedback as the artifact converges.
-                  </p>
-                </div>
-                <div className="stack-form">
-                  {comments.length === 0 ? (
-                    <div className="footer-note">No comments yet.</div>
-                  ) : null}
-                  {comments.map((comment) => (
-                    <Surface key={comment.id} className="kv">
-                      <span>
-                        {comment.status} · {comment.anchor.elementId ?? "artifact-canvas"}
-                      </span>
-                      {comment.body}
-                      {comment.status === "open" ? (
-                        <form action={resolveArtifactCommentAction}>
-                          <input type="hidden" name="projectId" value={project.id} />
-                          <input type="hidden" name="artifactId" value={artifact.id} />
-                          <input type="hidden" name="commentId" value={comment.id} />
-                          <Button variant="ghost" size="sm" type="submit">
-                            Resolve
-                          </Button>
-                        </form>
-                      ) : null}
-                    </Surface>
-                  ))}
-                </div>
-              </Surface>
-            </>
+            <StudioCommentsPanel
+              projectId={project.id}
+              artifactId={artifact.id}
+              workspaceIntent={workspace.intent}
+              frameLabel={frameLabel}
+              syncStrategy={`${workspace.syncPlan.mode} · ${workspace.syncPlan.targetMode}`}
+              comments={comments}
+              createArtifactCommentAction={createArtifactCommentAction}
+              resolveArtifactCommentAction={resolveArtifactCommentAction}
+            />
           }
           versionsPanel={
-            <>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Create Snapshot</h3>
-                  <p className="footer-note">
-                    Capture the current scene and saved code workspace as a named version.
-                  </p>
-                </div>
-                <form action={createArtifactVersionAction} className="stack-form">
-                  <input type="hidden" name="projectId" value={project.id} />
-                  <input type="hidden" name="artifactId" value={artifact.id} />
-                  <label className="field">
-                    <span>Label</span>
-                    <input name="label" placeholder="V2 Review" required />
-                  </label>
-                  <label className="field">
-                    <span>Summary</span>
-                    <input name="summary" placeholder="Review-ready snapshot for export." />
-                  </label>
-                  <Button variant="primary" type="submit">
-                    Save Snapshot
-                  </Button>
-                </form>
-              </Surface>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Version History</h3>
-                  <p className="footer-note">
-                    Newest snapshots stay at the top. Restore rewinds scene and saved
-                    code workspace together.
-                  </p>
-                </div>
-                <div className="stack-form">
-                  {versions.map((version) => (
-                    (() => {
-                      const diffSummary = versionDiffMap.get(version.id)?.diff ?? null;
-
-                      return (
-                        <Surface key={version.id} className="kv">
-                          <span>
-                            {version.label}
-                            {version.id === workspace.activeVersionId ? " · active" : ""}
-                          </span>
-                          {version.summary}
-                          <span className="footer-note">
-                            Scene v{version.sceneVersion} ·{" "}
-                            {version.hasCodeWorkspaceSnapshot ? "Code Snapshot" : "Scene Only"}
-                          </span>
-                          {diffSummary ? (
-                            <div className="version-diff-grid">
-                              <div className="version-diff-card">
-                                <strong>Scene Diff</strong>
-                                <span>
-                                  +{diffSummary.scene.addedNodeCount} / -
-                                  {diffSummary.scene.removedNodeCount} / ~
-                                  {diffSummary.scene.changedNodeCount}
-                                </span>
-                              </div>
-                              <div className="version-diff-card">
-                                <strong>Code Diff</strong>
-                                <span>
-                                  {diffSummary.code.changedFileCount} file
-                                  {diffSummary.code.changedFileCount === 1 ? "" : "s"} changed
-                                </span>
-                              </div>
-                            </div>
-                          ) : null}
-                          {version.id !== workspace.activeVersionId ? (
-                            <form action={restoreArtifactVersionAction}>
-                              <input type="hidden" name="projectId" value={project.id} />
-                              <input type="hidden" name="artifactId" value={artifact.id} />
-                              <input type="hidden" name="versionId" value={version.id} />
-                              <Button variant="ghost" size="sm" type="submit">
-                                Restore Version
-                              </Button>
-                            </form>
-                          ) : null}
-                        </Surface>
-                      );
-                    })()
-                  ))}
-                </div>
-              </Surface>
-            </>
+            <StudioVersionsPanel
+              projectId={project.id}
+              artifactId={artifact.id}
+              activeVersionId={workspace.activeVersionId}
+              versions={versions}
+              versionDiffById={versionDiffById}
+              createArtifactVersionAction={createArtifactVersionAction}
+              restoreArtifactVersionAction={restoreArtifactVersionAction}
+            />
           }
           exportPanel={
-            <>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Export Surface</h3>
-                  <p className="footer-note">
-                    Download a runnable source scaffold or a standalone HTML render. ZIP
-                    follows the saved code workspace when present; HTML stays scene-based.
-                  </p>
-                </div>
-                <div className="artifact-action-grid">
-                  <Link
-                    href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
-                    className="button-link ghost"
-                  >
-                    Download ZIP
-                  </Link>
-                  <Link
-                    href={`/studio/${project.id}/${artifact.id}/export/html`}
-                    className="button-link primary"
-                  >
-                    Download HTML
-                  </Link>
-                </div>
-              </Surface>
-              <Surface className="project-card" as="section">
-                <div>
-                  <h3>Bundle Manifest</h3>
-                  <p className="footer-note">
-                    Current scaffold is generated directly from the live scene document.
-                  </p>
-                </div>
-                <div className="stack-form">
-                  {Object.entries(sourceBundle.files).map(([filePath, content]) => (
-                    <Surface key={filePath} className="kv">
-                      <span>{filePath}</span>
-                      {content.split("\n").length} lines
-                    </Surface>
-                  ))}
-                </div>
-              </Surface>
-            </>
+            <StudioExportPanel
+              projectId={project.id}
+              artifactId={artifact.id}
+              sourceBundleFiles={sourceBundle.files}
+            />
           }
           artifactSwitcher={artifacts.map((entry) => (
             <Link key={entry.id} href={`/studio/${project.id}/${entry.id}`}>

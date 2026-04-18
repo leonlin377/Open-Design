@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `57%`
+Current estimated product completion for a serious V1: `59%`
 
 ```
-[###########---------] 57%
+[############--------] 59%
 ```
 
 ## Current Reality
@@ -189,7 +189,7 @@ Goal: Make the product stable enough for serious usage.
 
 Goal: Close the gap between a functional system and a high-quality product.
 
-- [ ] Replace section-form sprawl in Studio page with reusable editor modules
+- [x] Replace section-form sprawl in Studio page with reusable editor modules
   Done when:
   Scene inspector logic is no longer concentrated in one large page file.
 - [ ] Improve visual hierarchy and artifact canvas fidelity
@@ -209,4 +209,6 @@ This is the immediate build sequence I should continue with next:
 - [x] Add scene/code diff preview in Versions lane
 - [x] Harden generation route from fallback-only into streamed LiteLLM execution
 - [x] Add generation status and failure UI in Chat Rail
-- [ ] Move section editing out of the Studio page into reusable editor components
+- [x] Move section editing out of the Studio page into reusable editor components
+- [ ] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
+- [ ] Add structured API error model and recovery paths
