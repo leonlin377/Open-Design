@@ -6,6 +6,7 @@ import {
   createArtifactComment,
   createArtifactVersion,
   resolveArtifactComment,
+  saveArtifactCodeWorkspace,
   updateSceneNode
 } from "../../../../lib/opendesign-api";
 
@@ -144,6 +145,43 @@ export async function updateSceneNodeAction(formData: FormData) {
     items: items.length > 0 || itemsTail.length > 0 ? [...items, ...itemsTail] : undefined,
     primaryAction: String(formData.get("primaryAction") ?? "").trim() || undefined,
     secondaryAction: String(formData.get("secondaryAction") ?? "").trim() || undefined
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function saveCodeWorkspaceAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const filesJson = String(formData.get("filesJson") ?? "").trim();
+
+  if (!projectId || !artifactId || !filesJson) {
+    throw new Error("Project, artifact, and code workspace files are required.");
+  }
+
+  let files: Record<string, string>;
+
+  try {
+    const parsed = JSON.parse(filesJson) as unknown;
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      Object.values(parsed as Record<string, unknown>).some((value) => typeof value !== "string")
+    ) {
+      throw new Error("Invalid code workspace payload.");
+    }
+
+    files = parsed as Record<string, string>;
+  } catch {
+    throw new Error("Invalid code workspace payload.");
+  }
+
+  await saveArtifactCodeWorkspace({
+    projectId,
+    artifactId,
+    files
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

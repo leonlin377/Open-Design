@@ -101,11 +101,18 @@ export const ArtifactCommentSchema = z.object({
   updatedAt: z.string().min(1)
 });
 
+export const ArtifactCodeWorkspaceSchema = z.object({
+  files: z.record(z.string(), z.string()).default({}),
+  baseSceneVersion: z.number().int().positive(),
+  updatedAt: z.string().min(1)
+});
+
 export const ArtifactWorkspaceSchema = z.object({
   artifactId: z.string().min(1),
   intent: z.string().min(1),
   activeVersionId: z.string().min(1).nullable(),
   sceneDocument: SceneDocumentSchema,
+  codeWorkspace: ArtifactCodeWorkspaceSchema.nullable().default(null),
   syncPlan: ArtifactSyncPlanSchema,
   versionCount: z.number().int().nonnegative(),
   openCommentCount: z.number().int().nonnegative(),
@@ -152,6 +159,7 @@ export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSourceSchema>;
 export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
 export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSchema>;
 export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
+export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;

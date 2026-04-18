@@ -464,4 +464,87 @@ describe("Projects and artifacts", () => {
       await app.close();
     }
   });
+
+  it("persists code workspaces and exports the saved scaffold", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Code Workspace Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Code Workspace Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const saveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Saved scaffold</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: rgb(214, 255, 95); }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"saved-workspace","private":true}'
+          }
+        }
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().workspace.codeWorkspace).toMatchObject({
+        baseSceneVersion: 1,
+        files: {
+          "/App.tsx": "export default function App() { return <main>Saved scaffold</main>; }"
+        }
+      });
+      expect(saveResponse.json().previousCodeWorkspaceUpdatedAt).toBeNull();
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace.codeWorkspace).toMatchObject({
+        baseSceneVersion: 1,
+        files: {
+          "/styles.css": "main { color: rgb(214, 255, 95); }"
+        }
+      });
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/source-bundle`
+      });
+
+      expect(exportResponse.statusCode).toBe(200);
+      expect(exportResponse.json()).toMatchObject({
+        filenameBase: "code-workspace-artifact",
+        files: {
+          "/App.tsx": "export default function App() { return <main>Saved scaffold</main>; }",
+          "/styles.css": "main { color: rgb(214, 255, 95); }",
+          "/package.json": '{"name":"saved-workspace","private":true}'
+        }
+      });
+
+      const htmlExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/html`
+      });
+
+      expect(htmlExportResponse.statusCode).toBe(200);
+      expect(htmlExportResponse.body).toContain(
+        "Code Workspace Artifact is ready for the first scene section."
+      );
+      expect(htmlExportResponse.body).not.toContain("Saved scaffold");
+    } finally {
+      await app.close();
+    }
+  });
 });

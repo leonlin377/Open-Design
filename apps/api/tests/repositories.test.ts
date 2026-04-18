@@ -121,6 +121,8 @@ describe("PostgresArtifactWorkspaceRepository", () => {
           nodes: [],
           metadata: {}
         },
+        code_workspace_files: null,
+        code_workspace_updated_at: null,
         created_at: new Date("2026-04-18T08:30:00.000Z"),
         updated_at: new Date("2026-04-18T08:35:00.000Z")
       }
@@ -141,6 +143,7 @@ describe("PostgresArtifactWorkspaceRepository", () => {
         nodes: [],
         metadata: {}
       },
+      codeWorkspace: null,
       createdAt: "2026-04-18T08:30:00.000Z",
       updatedAt: "2026-04-18T08:35:00.000Z"
     });
@@ -170,6 +173,8 @@ describe("PostgresArtifactWorkspaceRepository", () => {
           ],
           metadata: {}
         },
+        code_workspace_files: null,
+        code_workspace_updated_at: null,
         created_at: new Date("2026-04-18T08:30:00.000Z"),
         updated_at: new Date("2026-04-18T08:36:00.000Z")
       }
@@ -197,6 +202,61 @@ describe("PostgresArtifactWorkspaceRepository", () => {
 
     expect(workspace?.sceneDocument.version).toBe(2);
     expect(workspace?.sceneDocument.nodes).toHaveLength(1);
+  });
+
+  it("updates code workspace files and returns the persisted workspace", async () => {
+    const query = createQueryMock([
+      {
+        artifact_id: "artifact-1",
+        intent: "Build a cinematic hero.",
+        active_version_id: "version-1",
+        scene_document: {
+          id: "scene-1",
+          artifactId: "artifact-1",
+          kind: "website",
+          version: 2,
+          nodes: [],
+          metadata: {}
+        },
+        code_workspace_files: {
+          files: {
+            "/App.tsx": "export default function App() { return <div>Saved</div>; }",
+            "/main.tsx": 'import App from "./App";',
+            "/styles.css": "body { color: white; }",
+            "/index.html": '<div id="root"></div>',
+            "/package.json": '{"name":"saved-workspace"}'
+          },
+          baseSceneVersion: 2
+        },
+        code_workspace_updated_at: new Date("2026-04-18T08:37:00.000Z"),
+        created_at: new Date("2026-04-18T08:30:00.000Z"),
+        updated_at: new Date("2026-04-18T08:37:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactWorkspaceRepository({ query });
+    const workspace = await repository.updateCodeWorkspace("artifact-1", {
+      files: {
+        "/App.tsx": "export default function App() { return <div>Saved</div>; }",
+        "/main.tsx": 'import App from "./App";',
+        "/styles.css": "body { color: white; }",
+        "/index.html": '<div id="root"></div>',
+        "/package.json": '{"name":"saved-workspace"}'
+      },
+      baseSceneVersion: 2
+    });
+
+    expect(workspace?.codeWorkspace).toEqual({
+      files: {
+        "/App.tsx": "export default function App() { return <div>Saved</div>; }",
+        "/main.tsx": 'import App from "./App";',
+        "/styles.css": "body { color: white; }",
+        "/index.html": '<div id="root"></div>',
+        "/package.json": '{"name":"saved-workspace"}'
+      },
+      baseSceneVersion: 2,
+      updatedAt: "2026-04-18T08:37:00.000Z"
+    });
   });
 });
 

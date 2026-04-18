@@ -16,6 +16,7 @@ import {
   createArtifactCommentAction,
   createArtifactVersionAction,
   resolveArtifactCommentAction,
+  saveCodeWorkspaceAction,
   updateSceneNodeAction
 } from "./actions";
 
@@ -126,12 +127,18 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const frameLabel = rootNode?.name ?? "Empty canvas";
   const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
-  const sourceBundle = buildArtifactSourceBundle({
+  const generatedSourceBundle = buildArtifactSourceBundle({
     artifactKind,
     artifactName: artifact.name,
     prompt: workspace.intent,
     sceneNodes
   });
+  const sourceBundle = workspace.codeWorkspace
+    ? {
+        ...generatedSourceBundle,
+        files: workspace.codeWorkspace.files
+      }
+    : generatedSourceBundle;
   const sceneTemplates = [
     { template: "hero" as const, label: "Add Hero" },
     { template: "feature-grid" as const, label: "Add Feature Grid" },
@@ -363,8 +370,13 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
         </section>
 
         <StudioInspector
+          projectId={project.id}
+          artifactId={artifact.id}
           initialTab={activeTab}
           sourceBundle={sourceBundle}
+          sceneVersion={workspace.sceneDocument.version}
+          codeWorkspaceBaseSceneVersion={workspace.codeWorkspace?.baseSceneVersion ?? null}
+          codeWorkspaceUpdatedAt={workspace.codeWorkspace?.updatedAt ?? null}
           frameLabel={frameLabel}
           syncStrategy={`${workspace.syncPlan.mode} · ${workspace.syncPlan.targetMode}`}
           versionLane={
@@ -372,6 +384,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               ? `${latestVersion.label} · ${latestVersion.source} · ${versions.length} snapshots`
               : "No snapshots yet"
           }
+          saveCodeWorkspaceAction={saveCodeWorkspaceAction}
           inspectorPanel={
             <>
               <Surface className="kv">
@@ -491,7 +504,8 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                 <div>
                   <h3>Export Surface</h3>
                   <p className="footer-note">
-                    Download a runnable source scaffold or a standalone HTML render.
+                    Download a runnable source scaffold or a standalone HTML render. ZIP
+                    follows the saved code workspace when present; HTML stays scene-based.
                   </p>
                 </div>
                 <div className="artifact-action-grid">

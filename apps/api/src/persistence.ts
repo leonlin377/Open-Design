@@ -125,9 +125,21 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
       intent text not null,
       active_version_id text references artifact_versions(id) on delete set null,
       scene_document jsonb not null,
+      code_workspace_files jsonb,
+      code_workspace_updated_at timestamptz,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )`
+  );
+
+  await pool.query(
+    `alter table artifact_workspaces
+     add column if not exists code_workspace_files jsonb`
+  );
+
+  await pool.query(
+    `alter table artifact_workspaces
+     add column if not exists code_workspace_updated_at timestamptz`
   );
 
   await pool.query(

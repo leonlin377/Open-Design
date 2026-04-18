@@ -83,6 +83,18 @@ const updateSceneNodeBodySchema = z
     message: "At least one field must be provided."
   });
 
+const saveCodeWorkspaceBodySchema = z.object({
+  files: z.record(z.string(), z.string())
+});
+
+const requiredCodeWorkspaceFiles = [
+  "/App.tsx",
+  "/main.tsx",
+  "/styles.css",
+  "/index.html",
+  "/package.json"
+] as const;
+
 const artifactCommentParamsSchema = z.object({
   projectId: z.string().min(1),
   artifactId: z.string().min(1),
@@ -282,6 +294,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         intent: input.workspace.intent,
         activeVersionId: input.workspace.activeVersionId,
         sceneDocument: input.workspace.sceneDocument,
+        codeWorkspace: input.workspace.codeWorkspace,
         syncPlan,
         versionCount: input.versions.length,
         openCommentCount: input.comments.filter((comment) => comment.status === "open").length,
@@ -437,12 +450,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         }
 
         const { workspace } = await ensureWorkspaceState(artifact);
-        const bundle = buildArtifactSourceBundle({
+        const generatedBundle = buildArtifactSourceBundle({
           artifactKind: artifact.kind,
           artifactName: artifact.name,
           prompt: workspace.intent,
           sceneNodes: workspace.sceneDocument.nodes
         });
+        const bundle = workspace.codeWorkspace
+          ? {
+              ...generatedBundle,
+              files: workspace.codeWorkspace.files
+            }
+          : generatedBundle;
 
         return reply.send(bundle);
       }
@@ -547,6 +566,65 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         appendedNode: node
       });
     });
+
+    app.post(
+      "/projects/:projectId/artifacts/:artifactId/code-workspace",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const body = saveCodeWorkspaceBodySchema.parse(request.body);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+        const missingRequiredFiles = requiredCodeWorkspaceFiles.filter((filePath) => {
+          const value = body.files[filePath];
+          return typeof value !== "string" || value.trim().length === 0;
+        });
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        if (missingRequiredFiles.length > 0) {
+          return reply.code(400).send({
+            error: `Code workspace is missing required scaffold files: ${missingRequiredFiles.join(", ")}`,
+            code: "INVALID_CODE_WORKSPACE"
+          });
+        }
+
+        const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+        const updatedWorkspace = await options.workspaces.updateCodeWorkspace(
+          artifact.id,
+          {
+            files: body.files,
+            baseSceneVersion: workspace.sceneDocument.version
+          }
+        );
+
+        if (!updatedWorkspace) {
+          return reply.code(500).send({
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED"
+          });
+        }
+
+        return {
+          workspace: buildWorkspacePayload({
+            workspace: updatedWorkspace,
+            versions,
+            comments
+          }),
+          previousCodeWorkspaceUpdatedAt: workspace.codeWorkspace?.updatedAt ?? null
+        };
+      }
+    );
 
     app.post(
       "/projects/:projectId/artifacts/:artifactId/scene/nodes/:nodeId",

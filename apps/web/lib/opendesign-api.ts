@@ -362,3 +362,31 @@ export async function updateSceneNode(input: {
     workspace: ApiArtifactWorkspace;
   };
 }
+
+export async function saveArtifactCodeWorkspace(input: {
+  projectId: string;
+  artifactId: string;
+  files: Record<string, string>;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/code-workspace`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        files: input.files
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to save code workspace (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    workspace: ApiArtifactWorkspace;
+    previousCodeWorkspaceUpdatedAt: string | null;
+  };
+}

@@ -6,7 +6,8 @@ import {
   SandpackFileExplorer,
   SandpackLayout,
   SandpackPreview,
-  SandpackProvider
+  SandpackProvider,
+  useSandpack
 } from "@codesandbox/sandpack-react";
 import { Surface } from "@opendesign/ui";
 
@@ -21,26 +22,81 @@ const inspectorTabs = [
 export type StudioInspectorTab = (typeof inspectorTabs)[number]["id"];
 
 type StudioInspectorProps = {
+  projectId: string;
+  artifactId: string;
   initialTab: StudioInspectorTab;
   sourceBundle: {
     filenameBase: string;
     files: Record<string, string>;
   };
+  sceneVersion: number;
+  codeWorkspaceBaseSceneVersion: number | null;
+  codeWorkspaceUpdatedAt: string | null;
   frameLabel: string;
   syncStrategy: string;
   versionLane: string;
+  saveCodeWorkspaceAction: (formData: FormData) => void | Promise<void>;
   inspectorPanel: ReactNode;
   versionsPanel: ReactNode;
   exportPanel: ReactNode;
   artifactSwitcher: ReactNode;
 };
 
+function SaveCodeWorkspaceForm(props: {
+  projectId: string;
+  artifactId: string;
+  sceneVersion: number;
+  codeWorkspaceBaseSceneVersion: number | null;
+  codeWorkspaceUpdatedAt: string | null;
+  saveCodeWorkspaceAction: (formData: FormData) => void | Promise<void>;
+}) {
+  const { sandpack } = useSandpack();
+  const files = Object.fromEntries(
+    Object.entries(sandpack.files).map(([filePath, value]) => [
+      filePath,
+      typeof value === "string" ? value : value.code
+    ])
+  );
+  const hasSceneDrift =
+    props.codeWorkspaceBaseSceneVersion !== null &&
+    props.codeWorkspaceBaseSceneVersion !== props.sceneVersion;
+
+  return (
+    <form action={props.saveCodeWorkspaceAction} className="stack-form">
+      <input type="hidden" name="projectId" value={props.projectId} />
+      <input type="hidden" name="artifactId" value={props.artifactId} />
+      <input type="hidden" name="filesJson" value={JSON.stringify(files)} />
+      <div className="project-meta">
+        <span>
+          {props.codeWorkspaceUpdatedAt
+            ? `Saved from scene v${props.codeWorkspaceBaseSceneVersion} at ${new Date(props.codeWorkspaceUpdatedAt).toLocaleString("zh-CN")}`
+            : "No saved code workspace yet"}
+        </span>
+        <span>
+          {hasSceneDrift
+            ? `Scene is now v${props.sceneVersion}; save again to refresh ZIP and preview from the latest scene baseline`
+            : "ZIP export follows the saved code workspace when present"}
+        </span>
+      </div>
+      <button type="submit" className="button-link ghost studio-inline-button">
+        Save Code Workspace
+      </button>
+    </form>
+  );
+}
+
 export function StudioInspector({
+  projectId,
+  artifactId,
   initialTab,
   sourceBundle,
+  sceneVersion,
+  codeWorkspaceBaseSceneVersion,
+  codeWorkspaceUpdatedAt,
   frameLabel,
   syncStrategy,
   versionLane,
+  saveCodeWorkspaceAction,
   inspectorPanel,
   versionsPanel,
   exportPanel,
@@ -74,8 +130,8 @@ export function StudioInspector({
         >
           <div className={activeTab === "preview" ? "studio-tab-panel active" : "studio-tab-panel"}>
             <div className="footer-note">
-              Preview runs from the live session bundle. Code edits here stay local until
-              save/back-sync lands.
+              Preview runs from the live session bundle. Saved code workspaces seed this
+              bundle when present, while snapshots and HTML export stay scene-based.
             </div>
             <div className="studio-sandpack-shell">
               <SandpackPreview
@@ -104,14 +160,22 @@ export function StudioInspector({
               <div>
                 <h3>Session Code Workspace</h3>
                 <p className="footer-note">
-                  Edit the generated scaffold locally in this session. Exports still derive
-                  from the scene document until code sync save lands.
+                  Edit the scaffold locally, then save it as a persisted code workspace.
+                  Scene snapshots and HTML export still follow the scene document.
                 </p>
               </div>
               <div className="project-meta">
                 <span>{sourceBundle.filenameBase}</span>
                 <span>{Object.keys(sourceBundle.files).length} files</span>
               </div>
+              <SaveCodeWorkspaceForm
+                projectId={projectId}
+                artifactId={artifactId}
+                sceneVersion={sceneVersion}
+                codeWorkspaceBaseSceneVersion={codeWorkspaceBaseSceneVersion}
+                codeWorkspaceUpdatedAt={codeWorkspaceUpdatedAt}
+                saveCodeWorkspaceAction={saveCodeWorkspaceAction}
+              />
             </Surface>
             <div className="studio-sandpack-shell">
               <SandpackLayout className="studio-code-layout">
