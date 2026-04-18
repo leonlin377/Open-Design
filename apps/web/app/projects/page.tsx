@@ -1,77 +1,116 @@
 import Link from "next/link";
-import { Badge, Surface } from "@opendesign/ui";
+import { Badge, Button, Surface } from "@opendesign/ui";
+import { AuthPanel } from "../../components/auth-panel";
+import { getSession, listArtifacts, listProjects } from "../../lib/opendesign-api";
+import { createArtifactAction, createProjectAction } from "./actions";
 
-const projects = [
-  {
-    id: "atlas",
-    name: "Atlas Commerce",
-    summary: "Global storefront refresh with dynamic merchandising.",
-    artifacts: [
-      { id: "website", label: "Website" },
-      { id: "prototype", label: "Prototype" }
-    ]
-  },
-  {
-    id: "signal",
-    name: "Signal Deck",
-    summary: "Series A storytelling kit with branded motion.",
-    artifacts: [{ id: "slides", label: "Slides" }]
-  },
-  {
-    id: "harbor",
-    name: "Harbor Mobile",
-    summary: "High-fidelity mobile banking prototype.",
-    artifacts: [
-      { id: "prototype", label: "Prototype" },
-      { id: "website", label: "Website" }
-    ]
-  }
-];
+const artifactKinds = ["website", "prototype", "slides"] as const;
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const [session, projects] = await Promise.all([getSession(), listProjects()]);
+  const projectsWithArtifacts = await Promise.all(
+    projects.map(async (project) => ({
+      project,
+      artifacts: await listArtifacts(project.id)
+    }))
+  );
+
   return (
     <main className="page">
       <section className="hero">
-        <Badge tone="outline">Projects</Badge>
-        <h1>Your OpenDesign artifacts.</h1>
+        <Badge tone={session ? "accent" : "outline"}>Projects</Badge>
+        <h1>
+          {session
+            ? `Workspace for ${session.user.name || session.user.email || "your account"}.`
+            : "OpenDesign projects and artifacts."}
+        </h1>
         <p>
-          Jump into an artifact to steer the canvas, update structure, and ship
-          the latest version.
+          {session
+            ? "Projects created from this browser session are scoped to your account. Spin up artifacts and jump straight into the studio."
+            : "You can still create local projects without signing in, but an authenticated session keeps projects scoped to your account and portable across restarts."}
         </p>
         <div className="hero-actions">
-          <Link href="/studio/atlas/website" className="button-link primary">
-            Resume Latest
-          </Link>
           <Link href="/" className="button-link ghost">
             Back to Landing
           </Link>
         </div>
       </section>
 
+      <section className="projects-dashboard">
+        <AuthPanel session={session} />
+        <Surface className="project-card" as="section">
+          <div>
+            <h3>Create Project</h3>
+            <p className="footer-note">
+              Start a new workspace. If you are signed in, it will be owned by your
+              current account.
+            </p>
+          </div>
+          <form action={createProjectAction} className="stack-form">
+            <label className="field">
+              <span>Project Name</span>
+              <input name="name" placeholder="Atlas Commerce" required />
+            </label>
+            <Button variant="primary" type="submit">
+              Create Project
+            </Button>
+          </form>
+        </Surface>
+      </section>
+
       <h2 className="section-title">Active Projects</h2>
       <div className="projects-grid">
-        {projects.map((project) => (
+        {projectsWithArtifacts.length === 0 ? (
+          <Surface className="project-card" as="article">
+            <div>
+              <h3>No projects yet</h3>
+              <p className="footer-note">
+                Create the first workspace above, then add a website, prototype, or
+                slides artifact.
+              </p>
+            </div>
+          </Surface>
+        ) : null}
+
+        {projectsWithArtifacts.map(({ project, artifacts }) => (
           <Surface key={project.id} className="project-card" as="article">
             <div>
               <h3>{project.name}</h3>
-              <p className="footer-note">{project.summary}</p>
+              <p className="footer-note">
+                {project.ownerUserId
+                  ? "Owned workspace with session-scoped artifacts."
+                  : "Local unowned workspace from the lightweight flow."}
+              </p>
             </div>
             <div className="project-meta">
-              {project.artifacts.map((artifact) => (
+              {artifacts.map((artifact) => (
                 <Badge key={artifact.id} tone="outline">
-                  {artifact.label}
+                  {artifact.kind}
                 </Badge>
               ))}
+              {artifacts.length === 0 ? <span>No artifacts yet</span> : null}
             </div>
             <div className="hero-actions">
-              {project.artifacts.map((artifact) => (
+              {artifacts.map((artifact) => (
                 <Link
                   key={artifact.id}
                   href={`/studio/${project.id}/${artifact.id}`}
                   className="button-link ghost"
                 >
-                  Open {artifact.label}
+                  Open {artifact.kind}
                 </Link>
+              ))}
+            </div>
+            <div className="artifact-action-grid">
+              {artifactKinds.map((kind) => (
+                <form key={kind} action={createArtifactAction}>
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="projectName" value={project.name} />
+                  <input type="hidden" name="kind" value={kind} />
+                  <Button variant="outline" size="sm" type="submit">
+                    Create {kind}
+                  </Button>
+                </form>
               ))}
             </div>
           </Surface>

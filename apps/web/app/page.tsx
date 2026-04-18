@@ -18,8 +18,8 @@ export default function HomePage() {
           <Link href="/projects" className="button-link primary">
             Enter Studio
           </Link>
-          <Link href="/studio/atlas/website" className="button-link ghost">
-            View Demo Project
+          <Link href="/projects" className="button-link ghost">
+            Open Live Projects
           </Link>
         </div>
         <div className="project-meta">

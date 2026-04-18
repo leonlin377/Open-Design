@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, Button, Surface } from "@opendesign/ui";
 import { ArtifactPreview } from "../../../../components/artifact-preview";
+import { getSession, listArtifacts, listProjects } from "../../../../lib/opendesign-api";
 
 const artifactLabels: Record<string, string> = {
   website: "Website",
@@ -15,17 +16,45 @@ type StudioPageProps = {
   };
 };
 
-export default function StudioPage({ params }: StudioPageProps) {
-  const projectLabel =
-    params.projectId.slice(0, 1).toUpperCase() + params.projectId.slice(1);
-  const artifactLabel = artifactLabels[params.artifactId] ?? "Artifact";
+export default async function StudioPage({ params }: StudioPageProps) {
+  const [session, projects] = await Promise.all([getSession(), listProjects()]);
+  const project = projects.find((entry) => entry.id === params.projectId) ?? null;
+  const artifacts = project ? await listArtifacts(project.id) : [];
+  const artifact = artifacts.find((entry) => entry.id === params.artifactId) ?? null;
+
+  if (!project || !artifact) {
+    return (
+      <main className="page">
+        <section className="hero">
+          <Badge tone="outline">Studio</Badge>
+          <h1>Artifact not found.</h1>
+          <p>
+            The requested project or artifact is not available in the current workspace
+            snapshot. Return to projects and create a new artifact.
+          </p>
+          <div className="hero-actions">
+            <Link href="/projects" className="button-link primary">
+              Back to Projects
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const projectLabel = project.name;
+  const artifactKind = artifact.kind;
+  const artifactLabel = artifactLabels[artifactKind] ?? "Artifact";
 
   return (
     <main className="studio-shell">
       <header className="studio-header">
         <div className="studio-title">
           <h2>{projectLabel}</h2>
-          <span>{artifactLabel} · Studio</span>
+          <span>
+            {artifactLabel} · Studio
+            {session?.user.email ? ` · ${session.user.email}` : ""}
+          </span>
         </div>
         <div className="hero-actions">
           <Link href="/projects" className="button-link ghost">
@@ -55,6 +84,10 @@ export default function StudioPage({ params }: StudioPageProps) {
             <span>Intent</span>
             Create a bold hero with layered typography, metallic accents, and a
             persistent artifact strip.
+          </Surface>
+          <Surface className="kv">
+            <span>Artifact Record</span>
+            {artifact.name}
           </Surface>
         </aside>
 
@@ -98,13 +131,7 @@ export default function StudioPage({ params }: StudioPageProps) {
           <div className="inspector-section">
             <div className="footer-note">Preview powered by Sandpack</div>
             <ArtifactPreview
-              artifactKind={
-                params.artifactId === "website" ||
-                params.artifactId === "prototype" ||
-                params.artifactId === "slides"
-                  ? params.artifactId
-                  : "website"
-              }
+              artifactKind={artifactKind}
               artifactName={`${projectLabel} ${artifactLabel}`}
               prompt={`Build a cinematic ${artifactLabel.toLowerCase()} for ${projectLabel} with layered typography, intentional spacing, and a clear export path.`}
             />
@@ -123,6 +150,15 @@ export default function StudioPage({ params }: StudioPageProps) {
             <div className="footer-note">
               Inspector tools will surface layout, tokens, and export presets in
               this column.
+            </div>
+            <div className="project-meta">
+              {artifacts.map((entry) => (
+                <Link key={entry.id} href={`/studio/${project.id}/${entry.id}`}>
+                  <Badge tone={entry.id === artifact.id ? "accent" : "outline"}>
+                    {entry.kind}
+                  </Badge>
+                </Link>
+              ))}
             </div>
           </div>
         </aside>

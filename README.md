@@ -12,7 +12,7 @@ Three Docker paths are checked in:
 
 The full containerized path is the safest default for demos, shared environments, and parity checks because the browser-facing app and API stop depending on host Node/npm state.
 
-When `DATABASE_URL` is present, the API now boots with Postgres-backed repositories and runs Better Auth plus application table migrations during startup. Without `DATABASE_URL`, it falls back to the in-memory repositories used by the lightweight test/dev path.
+When `DATABASE_URL` is present, the API now boots with Postgres-backed repositories and runs Better Auth plus application table migrations during startup. Without `DATABASE_URL`, it falls back to the in-memory repositories used by the lightweight test/dev path. The web app uses `OPENDESIGN_API_INTERNAL_URL` for server-side fetches and `NEXT_PUBLIC_API_ORIGIN` for browser-side auth calls.
 
 ## Open-Source Stack
 
