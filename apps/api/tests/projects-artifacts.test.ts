@@ -304,6 +304,105 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("auto-syncs a scene-derived code workspace when scene sections are appended", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Auto Sync Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Auto Sync Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendResponse.statusCode).toBe(201);
+      expect(appendResponse.json().workspace.codeWorkspace).toMatchObject({
+        baseSceneVersion: 2
+      });
+      expect(
+        appendResponse.json().workspace.codeWorkspace.files["/App.tsx"]
+      ).toContain("Hero Section");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("preserves a user-modified code workspace when later scene edits occur", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Preserve Code Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Preserve Code Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+      const appendedNodeId = appendResponse.json().appendedNode.id as string;
+
+      const saveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx":
+              "export default function App() { return <main>custom preserved scaffold</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: rebeccapurple; }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"preserve-code","private":true}'
+          },
+          expectedUpdatedAt: appendResponse.json().workspace.codeWorkspace.updatedAt
+        }
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+
+      const updateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${appendedNodeId}`,
+        payload: {
+          headline: "Updated cinematic headline"
+        }
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+      expect(
+        updateResponse.json().workspace.codeWorkspace.files["/App.tsx"]
+      ).toContain("custom preserved scaffold");
+      expect(updateResponse.json().workspace.codeWorkspace.baseSceneVersion).toBe(2);
+    } finally {
+      await app.close();
+    }
+  });
+
   it("generates an artifact pass from a prompt and persists the resulting workspace", async () => {
     const app = await buildApp();
     try {
@@ -356,7 +455,8 @@ describe("Projects and artifacts", () => {
             ]
           },
           codePatch: {
-            mode: "unchanged"
+            mode: "synced",
+            filesTouched: expect.arrayContaining(["/App.tsx"])
           },
           commentResolution: {
             mode: "none"
@@ -367,7 +467,10 @@ describe("Projects and artifacts", () => {
           source: "prompt"
         },
         workspace: {
-          activeVersionId: generateResponse.json().version.id
+          activeVersionId: generateResponse.json().version.id,
+          codeWorkspace: {
+            baseSceneVersion: 4
+          }
         }
       });
       expect(generateResponse.json().generation.scenePatch.appendedNodes).toHaveLength(3);
@@ -1115,11 +1218,11 @@ describe("Projects and artifacts", () => {
         method: "POST",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
         payload: {
-          files: initialFiles
+          files: initialFiles,
+          expectedUpdatedAt: appendHeroResponse.json().workspace.codeWorkspace.updatedAt
         }
       });
       expect(firstSaveResponse.statusCode).toBe(200);
-      const savedUpdatedAt = firstSaveResponse.json().workspace.codeWorkspace.updatedAt as string;
 
       const versionResponse = await app.inject({
         method: "POST",
@@ -1149,7 +1252,7 @@ describe("Projects and artifacts", () => {
             ...initialFiles,
             "/App.tsx": 'export default function App() { return <main>Version B</main>; }'
           },
-          expectedUpdatedAt: savedUpdatedAt
+          expectedUpdatedAt: appendCtaResponse.json().workspace.codeWorkspace.updatedAt
         }
       });
       expect(secondSaveResponse.statusCode).toBe(200);
@@ -1209,7 +1312,7 @@ describe("Projects and artifacts", () => {
       });
       const heroNodeId = appendHeroResponse.json().appendedNode.id as string;
 
-      await app.inject({
+      const updateHeroResponse = await app.inject({
         method: "POST",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${heroNodeId}`,
         payload: {
@@ -1228,7 +1331,8 @@ describe("Projects and artifacts", () => {
             "/styles.css": "main { color: teal; }",
             "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
             "/package.json": '{"name":"snapshot-a","private":true}'
-          }
+          },
+          expectedUpdatedAt: updateHeroResponse.json().workspace.codeWorkspace.updatedAt
         }
       });
 
@@ -1246,7 +1350,7 @@ describe("Projects and artifacts", () => {
         hasCodeWorkspaceSnapshot: true
       });
 
-      await app.inject({
+      const appendCtaResponse = await app.inject({
         method: "POST",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
         payload: {
@@ -1264,7 +1368,8 @@ describe("Projects and artifacts", () => {
             "/styles.css": "main { color: purple; }",
             "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
             "/package.json": '{"name":"snapshot-b","private":true}'
-          }
+          },
+          expectedUpdatedAt: appendCtaResponse.json().workspace.codeWorkspace.updatedAt
         }
       });
 

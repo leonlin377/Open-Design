@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@opendesign/contracts": "workspace:*",
+    "@opendesign/exporters": "workspace:*",
     "@opendesign/scene-engine": "workspace:*"
   }
 }
-

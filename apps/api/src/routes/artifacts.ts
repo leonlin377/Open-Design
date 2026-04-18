@@ -17,7 +17,7 @@ import {
   type SceneNode,
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
-import { planSyncPatch } from "@opendesign/code-sync";
+import { planSyncPatch, syncSceneToCodeWorkspace } from "@opendesign/code-sync";
 import {
   buildArtifactHtmlExport,
   buildArtifactSourceBundle
@@ -136,6 +136,10 @@ export interface ArtifactRouteOptions {
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
+    type EnsuredWorkspace = NonNullable<
+      Awaited<ReturnType<typeof ensureWorkspaceState>>["workspace"]
+    >;
+
     function buildTemplateNode(input: {
       artifact: {
         id: string;
@@ -471,19 +475,30 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
       }
 
+      const { workspace: syncedWorkspace, decision: codeSyncDecision } =
+        await applySceneDerivedCodeWorkspaceSync({
+          artifact: input.artifact,
+          previousWorkspace: workspace,
+          nextIntent: plan.intent,
+          nextSceneDocument: sceneWorkspace.sceneDocument,
+          stage: "generate-code-sync"
+        });
+
+      const persistedWorkspace = syncedWorkspace ?? sceneWorkspace;
+
       const version = await options.versions.create({
         artifactId: input.artifact.id,
         label: `Prompt ${versions.length + 1}`,
         summary: `Generated from prompt: ${input.prompt.slice(0, 120)}`,
         source: "prompt",
-        sceneVersion: sceneWorkspace.sceneDocument.version,
-        sceneDocument: sceneWorkspace.sceneDocument,
-        codeWorkspace: sceneWorkspace.codeWorkspace
+        sceneVersion: persistedWorkspace.sceneDocument.version,
+        sceneDocument: persistedWorkspace.sceneDocument,
+        codeWorkspace: persistedWorkspace.codeWorkspace
       });
 
       const activeWorkspace =
         (await options.workspaces.updateActiveVersion(input.artifact.id, version.id)) ??
-        sceneWorkspace;
+        persistedWorkspace;
 
       const generationRun = ArtifactGenerationRunSchema.parse({
         plan,
@@ -504,10 +519,9 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           }))
         }),
         codePatch: ArtifactCodePatchSchema.parse({
-          mode: "unchanged",
-          rationale:
-            "Saved code workspaces remain unchanged until scene/code synchronization is implemented.",
-          filesTouched: []
+          mode: codeSyncDecision.applied ? "synced" : "unchanged",
+          rationale: codeSyncDecision.reason,
+          filesTouched: codeSyncDecision.filesTouched
         }),
         commentResolution: ArtifactCommentResolutionSchema.parse({
           mode: "none",
@@ -528,7 +542,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
     }
 
     function buildWorkspacePayload(input: {
-      workspace: NonNullable<Awaited<ReturnType<typeof ensureWorkspaceState>>["workspace"]>;
+      workspace: EnsuredWorkspace;
       versions: ArtifactVersionSnapshot[];
       comments: ArtifactComment[];
     }) {
@@ -628,6 +642,56 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           currentHasCodeWorkspace: Boolean(input.currentCodeWorkspace)
         }
       });
+    }
+
+    async function applySceneDerivedCodeWorkspaceSync(input: {
+      artifact: {
+        id: string;
+        kind: z.infer<typeof ArtifactKindSchema>;
+        name: string;
+      };
+      previousWorkspace: EnsuredWorkspace;
+      nextIntent: string;
+      nextSceneDocument: EnsuredWorkspace["sceneDocument"];
+      stage: string;
+    }) {
+      const decision = syncSceneToCodeWorkspace({
+        artifactKind: input.artifact.kind,
+        artifactName: input.artifact.name,
+        previousIntent: input.previousWorkspace.intent,
+        nextIntent: input.nextIntent,
+        previousSceneDocument: input.previousWorkspace.sceneDocument,
+        nextSceneDocument: input.nextSceneDocument,
+        currentCodeWorkspace: input.previousWorkspace.codeWorkspace
+      });
+
+      if (!decision.applied || !decision.codeWorkspace) {
+        return {
+          decision,
+          workspace: null
+        };
+      }
+
+      const updatedWorkspace = await options.workspaces.updateCodeWorkspace(
+        input.artifact.id,
+        decision.codeWorkspace
+      );
+
+      if (!updatedWorkspace) {
+        throw buildApiError({
+          error: "Workspace update failed",
+          code: "WORKSPACE_UPDATE_FAILED",
+          recoverable: true,
+          details: {
+            stage: input.stage
+          }
+        });
+      }
+
+      return {
+        decision,
+        workspace: updatedWorkspace
+      };
     }
 
     async function resolveAuthorizedProject(request: FastifyRequest, projectId: string) {
@@ -1116,9 +1180,19 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
       }
 
+      const { workspace: syncedWorkspace } = await applySceneDerivedCodeWorkspaceSync({
+        artifact,
+        previousWorkspace: workspace,
+        nextIntent: workspace.intent,
+        nextSceneDocument: updatedWorkspace.sceneDocument,
+        stage: "append-scene-template-code-sync"
+      });
+
+      const persistedWorkspace = syncedWorkspace ?? updatedWorkspace;
+
       return reply.code(201).send({
         workspace: buildWorkspacePayload({
-          workspace: updatedWorkspace,
+          workspace: persistedWorkspace,
           versions,
           comments
         }),
@@ -1272,9 +1346,19 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             });
           }
 
+          const { workspace: syncedWorkspace } = await applySceneDerivedCodeWorkspaceSync({
+            artifact,
+            previousWorkspace: workspace,
+            nextIntent: workspace.intent,
+            nextSceneDocument: updatedWorkspace.sceneDocument,
+            stage: "update-scene-node-code-sync"
+          });
+
+          const persistedWorkspace = syncedWorkspace ?? updatedWorkspace;
+
           return {
             workspace: buildWorkspacePayload({
-              workspace: updatedWorkspace,
+              workspace: persistedWorkspace,
               versions,
               comments
             })

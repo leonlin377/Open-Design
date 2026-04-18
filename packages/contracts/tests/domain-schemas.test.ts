@@ -228,9 +228,9 @@ describe("ArtifactGenerationRunSchema", () => {
         ]
       },
       codePatch: {
-        mode: "unchanged",
-        rationale: "Saved code workspaces remain unchanged until scene/code sync is implemented.",
-        filesTouched: []
+        mode: "synced",
+        rationale: "Saved code workspace was regenerated from the latest scene-derived scaffold.",
+        filesTouched: ["/App.tsx"]
       },
       commentResolution: {
         mode: "none",
@@ -240,7 +240,7 @@ describe("ArtifactGenerationRunSchema", () => {
     });
 
     expect(run.scenePatch.appendedNodes[0]?.template).toBe("hero");
-    expect(run.codePatch.mode).toBe("unchanged");
+    expect(run.codePatch.mode).toBe("synced");
   });
 });
 
@@ -267,9 +267,9 @@ describe("ArtifactGenerateResponseSchema", () => {
           appendedNodes: []
         },
         codePatch: {
-          mode: "unchanged",
-          rationale: "Saved code workspaces remain unchanged until scene/code sync is implemented.",
-          filesTouched: []
+          mode: "synced",
+          rationale: "Saved code workspace was regenerated from the latest scene-derived scaffold.",
+          filesTouched: ["/App.tsx"]
         },
         commentResolution: {
           mode: "none",
@@ -344,9 +344,9 @@ describe("ArtifactGenerateStreamEventSchema", () => {
             appendedNodes: []
           },
           codePatch: {
-            mode: "unchanged",
-            rationale: "Saved code workspaces remain unchanged until sync is implemented.",
-            filesTouched: []
+            mode: "synced",
+            rationale: "Saved code workspace was regenerated from the latest scene-derived scaffold.",
+            filesTouched: ["/App.tsx"]
           },
           commentResolution: {
             mode: "none",

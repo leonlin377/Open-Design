@@ -97,6 +97,9 @@ importers:
       '@opendesign/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@opendesign/exporters':
+        specifier: workspace:*
+        version: link:../exporters
       '@opendesign/scene-engine':
         specifier: workspace:*
         version: link:../scene-engine

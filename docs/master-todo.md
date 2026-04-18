@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `68%`
+Current estimated product completion for a serious V1: `70%`
 
 ```
-[##############------] 68%
+[##############------] 70%
 ```
 
 ## Current Reality
@@ -36,7 +36,7 @@ What is already working:
 What is still missing from a true Claude Design benchmark:
 
 - [ ] Real AI generation pipeline
-- [ ] Real scene/code synchronization
+- [~] Real scene/code synchronization
 - [ ] Design system ingestion and grounding
 - [ ] Prototype mode
 - [ ] Slides mode
@@ -80,7 +80,7 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 
 Goal: Make scene editing and code editing feel like one system instead of parallel hacks.
 
-- [ ] Implement real `scene -> code` sync in `packages/code-sync`
+- [x] Implement real `scene -> code` sync in `packages/code-sync`
   Done when:
   Scene edits regenerate a stable scaffold without losing supported code edits.
 - [ ] Implement supported `code -> scene` back-sync for the safe subset
@@ -214,4 +214,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Add streaming status/events for generation progress
 - [x] Add provider-specific generation failure states in Chat Rail
 - [x] Add apply-stage generation failure handling for invalid scene/code patches
-- [ ] Implement real scene -> code synchronization for generated website artifacts
+- [x] Implement real scene -> code synchronization for generated website artifacts
+- [ ] Start supported `code -> scene` back-sync for the safe website subset

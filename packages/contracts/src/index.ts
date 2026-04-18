@@ -139,7 +139,7 @@ export const ArtifactScenePatchSchema = z.object({
 });
 
 export const ArtifactCodePatchSchema = z.object({
-  mode: z.enum(["unchanged", "pending-sync"]),
+  mode: z.enum(["unchanged", "pending-sync", "synced"]),
   rationale: z.string().min(1),
   filesTouched: z.array(z.string().min(1))
 });
