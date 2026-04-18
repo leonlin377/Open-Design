@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `85%`
+Current estimated product completion for a serious V1: `87%`
 
 ```text
-[#################---] 85%
+[##################--] 87%
 ```
 
 ## Phase Scoreboard
@@ -46,7 +46,7 @@ Current estimated product completion for a serious V1: `85%`
 | 1 | AI generation pipeline | 90% | `[>]` |
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
-| 4 | Prototype and slides | 0% | `[ ]` |
+| 4 | Prototype and slides | 35% | `[>]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
 | 6 | Assets, reliability, ops | 35% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
@@ -67,10 +67,10 @@ What is already working:
 - [x] HTML export and runnable ZIP source export
 - [x] GitHub, local-directory, and Playwright-first site-capture design-system import
 - [x] Design-system selection and generation grounding for artifacts
+- [x] Prototype screen flows with navigable preview and coherent scene-based exports
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Prototype artifact type
 - [ ] Slides artifact type
 - [ ] Sharing, roles, and collaboration flows
 - [ ] Asset pipeline backed by MinIO/S3
@@ -141,7 +141,7 @@ These are the tasks that should be worked continuously next.
 
 ### TYPE-001 Implement Prototype-Specific Scene Nodes And Preview Behavior
 
-- Status: `[ ]`
+- Status: `[x]`
 - Priority: `P1`
 - Owner Lane: `shared`, `web`, `api`
 - Depends On: `DS-005`, `SYNC-003`
@@ -149,14 +149,15 @@ These are the tasks that should be worked continuously next.
 - Why Now:
   Website-only is the biggest remaining product-surface gap.
 - Definition Of Done:
-  - Prototype artifacts support multiple states or transitions.
-  - Preview can navigate or represent flows, not just static sections.
-  - Persistence, versions, and exports remain coherent.
+  - [x] Prototype artifacts support multiple states or transitions.
+  - [x] Preview can navigate or represent flows, not just static sections.
+  - [x] Persistence, versions, and exports remain coherent.
 - Validation Commands:
   - `pnpm test`
   - `pnpm build`
 - Expected Artifacts:
   - `packages/scene-engine/*`
+  - `packages/exporters/*`
   - `apps/api/src/routes/artifacts.ts`
   - `apps/web/components/*`
 - Next Slice:

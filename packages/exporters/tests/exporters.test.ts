@@ -128,6 +128,52 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Seed Artifact is ready for the first scene section.");
     expect(bundle.html).toContain("Shape the first review-ready section.");
   });
+
+  test("renders a prototype flow storyboard from prototype screens", () => {
+    const bundle = buildArtifactHtmlExport({
+      artifactName: "Atlas Prototype",
+      prompt: "Map a mobile checkout flow.",
+      sceneDocument: {
+        id: "scene_proto",
+        artifactId: "artifact_proto",
+        kind: "prototype",
+        version: 3,
+        nodes: [
+          {
+            id: "screen_1",
+            type: "screen",
+            name: "Welcome Screen",
+            props: {
+              template: "hero",
+              eyebrow: "Flow Surface",
+              headline: "Start the checkout flow.",
+              body: "Lead users into a focused mobile handoff."
+            },
+            children: []
+          },
+          {
+            id: "screen_2",
+            type: "screen",
+            name: "Offer Screen",
+            props: {
+              template: "cta",
+              headline: "Confirm the selected plan.",
+              body: "Guide the user into the final confirmation step.",
+              primaryAction: "Continue",
+              secondaryAction: "Back"
+            },
+            children: []
+          }
+        ],
+        metadata: {}
+      }
+    });
+
+    expect(bundle.html).toContain("Prototype Flow");
+    expect(bundle.html).toContain("Welcome Screen");
+    expect(bundle.html).toContain("Offer Screen");
+    expect(bundle.html).toContain("Screen 1");
+  });
 });
 
 describe("buildArtifactSourceBundle", () => {
@@ -161,6 +207,44 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/README.md"]).toContain("npm run dev");
     expect(bundle.files["/opendesign.sync.json"]).toContain('"version": 1');
     expect(bundle.files["/opendesign.sync.json"]).toContain('"template": "hero"');
+  });
+
+  test("renders a navigable prototype source bundle from prototype screens", () => {
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "prototype",
+      artifactName: "Atlas Prototype",
+      prompt: "Map a mobile checkout flow.",
+      sceneNodes: [
+        {
+          id: "screen_1",
+          type: "screen",
+          name: "Welcome Screen",
+          props: {
+            template: "hero",
+            eyebrow: "Flow Surface",
+            headline: "Start the checkout flow.",
+            body: "Lead users into a focused mobile handoff."
+          },
+          children: []
+        },
+        {
+          id: "screen_2",
+          type: "screen",
+          name: "Offer Screen",
+          props: {
+            template: "cta",
+            headline: "Confirm the selected plan.",
+            body: "Guide the user into the final confirmation step."
+          },
+          children: []
+        }
+      ]
+    });
+
+    expect(bundle.files["/App.tsx"]).toContain("useState");
+    expect(bundle.files["/App.tsx"]).toContain("Prototype Flow");
+    expect(bundle.files["/App.tsx"]).toContain("Next Screen");
+    expect(bundle.files["/App.tsx"]).toContain("Welcome Screen");
   });
 });
 

@@ -549,6 +549,147 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("treats prototype root nodes as screens and keeps version flows coherent without website code sync", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Prototype Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Prototype Artifact", kind: "prototype" }
+      });
+      const artifact = artifactResponse.json();
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace).toMatchObject({
+        sceneDocument: {
+          kind: "prototype",
+          version: 1
+        },
+        codeWorkspace: null,
+        syncPlan: {
+          mode: "constrained",
+          targetMode: "code-advanced"
+        }
+      });
+
+      const appendHeroResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendHeroResponse.statusCode).toBe(201);
+      expect(appendHeroResponse.json().appendedNode).toMatchObject({
+        type: "screen",
+        name: "Hero Screen"
+      });
+      expect(appendHeroResponse.json().workspace.codeWorkspace).toBeNull();
+
+      const appendCtaResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "cta"
+        }
+      });
+
+      expect(appendCtaResponse.statusCode).toBe(201);
+      expect(appendCtaResponse.json().appendedNode).toMatchObject({
+        type: "screen",
+        name: "Action Screen"
+      });
+      const ctaNodeId = appendCtaResponse.json().appendedNode.id as string;
+
+      const updateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${ctaNodeId}`,
+        payload: {
+          headline: "Confirm the selected plan.",
+          body: "Guide the user into the final confirmation step."
+        }
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+      expect(updateResponse.json().workspace.codeWorkspace).toBeNull();
+      expect(updateResponse.json().workspace.sceneDocument).toMatchObject({
+        version: 4,
+        nodes: [
+          {
+            type: "screen"
+          },
+          {
+            type: "screen",
+            props: {
+              headline: "Confirm the selected plan.",
+              body: "Guide the user into the final confirmation step."
+            }
+          }
+        ]
+      });
+
+      const versionResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions`,
+        payload: {
+          label: "Prototype Review",
+          summary: "Prototype checkpoint"
+        }
+      });
+
+      expect(versionResponse.statusCode).toBe(201);
+      const version = versionResponse.json();
+
+      const htmlExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/html`
+      });
+
+      expect(htmlExportResponse.statusCode).toBe(200);
+      expect(htmlExportResponse.body).toContain("Prototype Flow");
+      expect(htmlExportResponse.body).toContain("Confirm the selected plan.");
+
+      const sourceExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/source-bundle`
+      });
+
+      expect(sourceExportResponse.statusCode).toBe(200);
+      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Next Screen");
+      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("useState");
+
+      const driftResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/diff`
+      });
+
+      expect(driftResponse.statusCode).toBe(200);
+      expect(driftResponse.json().diff).toMatchObject({
+        scene: {
+          changedNodeCount: 0
+        },
+        code: {
+          currentHasCodeWorkspace: false
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("generates an artifact pass from a prompt and persists the resulting workspace", async () => {
     const app = await buildApp();
     try {

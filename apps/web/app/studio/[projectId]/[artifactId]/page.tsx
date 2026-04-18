@@ -102,7 +102,9 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const latestVersion = versions[0] ?? null;
   const activeCommentCount = comments.filter((comment) => comment.status === "open").length;
   const rootNode = workspace.sceneDocument.nodes[0];
-  const frameLabel = rootNode?.name ?? "Empty canvas";
+  const frameLabel =
+    rootNode?.name ??
+    (artifactKind === "prototype" ? "Start screen" : "Empty canvas");
   const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
   const generatedSourceBundle = buildArtifactSourceBundle({
@@ -215,7 +217,8 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               <h3>Artifact Canvas</h3>
               <p>
                 {frameLabel} · Scene v{workspace.sceneDocument.version} ·{" "}
-                {workspace.sceneDocument.nodes.length} root node
+                {workspace.sceneDocument.nodes.length} root{" "}
+                {artifactKind === "prototype" ? "screen" : "node"}
                 {workspace.sceneDocument.nodes.length === 1 ? "" : "s"}
               </p>
             </div>
@@ -223,6 +226,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <StudioSceneSectionsPanel
             projectId={project.id}
             artifactId={artifact.id}
+            artifactKind={artifactKind}
             sceneNodes={sceneNodes}
             appendSceneTemplateAction={appendSceneTemplateAction}
             updateSceneNodeAction={updateSceneNodeAction}

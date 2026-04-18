@@ -232,6 +232,72 @@ button.ghost {
 .generic p {
   margin-top: 6px;
 }
+.prototype-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.prototype-rail {
+  display: grid;
+  gap: 12px;
+}
+.prototype-rail button {
+  width: 100%;
+  text-align: left;
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+.prototype-rail button.active {
+  background: #111827;
+  color: #f8fafc;
+}
+.prototype-stage {
+  display: grid;
+  gap: 16px;
+}
+.prototype-device {
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: 32px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(248, 243, 234, 0.92));
+  box-shadow: 0 28px 80px rgba(17, 24, 39, 0.16);
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+.prototype-screen-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.prototype-screen-meta {
+  display: grid;
+  gap: 6px;
+}
+.prototype-flow-note {
+  font-size: 0.9rem;
+  color: rgba(17, 24, 39, 0.6);
+}
+.prototype-html-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+.prototype-html-screen {
+  border-radius: 28px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(255, 251, 245, 0.96);
+  box-shadow: 0 22px 60px rgba(17, 24, 39, 0.12);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.prototype-nav {
+  justify-content: space-between;
+}
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
@@ -239,6 +305,9 @@ button.ghost {
   .masthead {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .prototype-layout {
+    grid-template-columns: 1fr;
   }
 }`;
 
@@ -376,24 +445,14 @@ export const buildArtifactSyncPayload = (input: {
   sections: buildRenderableSections(input)
 });
 
-export const buildArtifactSourceBundle = (input: {
-  artifactKind: ArtifactKind;
+function buildWebsiteLikeAppCode(input: {
   artifactName: string;
-  prompt: string;
-  sceneNodes: SceneNode[];
-}): SourceExportBundle => {
-  const safeName = input.artifactName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const filenameBase = safeName || "artifact";
-  const syncPayload = buildArtifactSyncPayload(input);
-  const sections = JSON.stringify(syncPayload.sections);
-
-  const appCode = `import "./styles.css";
+  sectionsLiteral: string;
+}) {
+  return `import "./styles.css";
 
 export default function App() {
-  const sections = ${sections};
+  const sections = ${input.sectionsLiteral};
 
   return (
     <main className="shell">
@@ -466,6 +525,167 @@ export default function App() {
     </main>
   );
 }`;
+}
+
+function buildPrototypeAppCode(input: {
+  artifactName: string;
+  sectionsLiteral: string;
+}) {
+  return `import { useState } from "react";
+import "./styles.css";
+
+function renderPrototypeScreen(screen) {
+  if (screen.template === "hero") {
+    return (
+      <section className="hero">
+        <span className="eyebrow">{screen.eyebrow}</span>
+        <h1>{screen.headline}</h1>
+        <p>{screen.body}</p>
+      </section>
+    );
+  }
+
+  if (screen.template === "feature-grid") {
+    return (
+      <section className="feature-grid-shell">
+        <div className="feature-grid-copy">
+          <span className="eyebrow">Flow System</span>
+          <h2>{screen.title}</h2>
+        </div>
+        <div className="grid">
+          {(screen.items ?? []).map((item, index) => (
+            <article
+              key={\`\${screen.id}-\${index}\`}
+              className={index === 0 ? "panel featured" : "panel"}
+            >
+              <span className="label">{item.label}</span>
+              <strong>{item.body}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (screen.template === "cta") {
+    return (
+      <section className="cta">
+        <div className="cta-copy">
+          <span className="eyebrow">Decision Point</span>
+          <h2>{screen.headline}</h2>
+          <p>{screen.body}</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel generic">
+      <span className="label">{screen.name}</span>
+      <strong>{screen.headline}</strong>
+      <p>{screen.body}</p>
+    </section>
+  );
+}
+
+export default function App() {
+  const screens = ${input.sectionsLiteral};
+  const [activeScreenIndex, setActiveScreenIndex] = useState(0);
+  const activeScreen = screens[activeScreenIndex] ?? screens[0];
+  const canGoBack = activeScreenIndex > 0;
+  const canGoNext = activeScreenIndex < screens.length - 1;
+
+  return (
+    <main className="shell prototype-shell">
+      <header className="masthead">
+        <span className="label">${input.artifactName}</span>
+        <strong>Prototype Flow · {screens.length} screen{screens.length === 1 ? "" : "s"}</strong>
+      </header>
+
+      <div className="prototype-layout">
+        <nav className="prototype-rail">
+          {screens.map((screen, index) => (
+            <button
+              key={screen.id}
+              type="button"
+              className={index === activeScreenIndex ? "active" : undefined}
+              onClick={() => setActiveScreenIndex(index)}
+            >
+              Screen {index + 1} · {screen.name}
+            </button>
+          ))}
+        </nav>
+
+        <section className="prototype-stage">
+          <div className="prototype-device">
+            <div className="prototype-screen-header">
+              <div className="prototype-screen-meta">
+                <span className="eyebrow">Prototype Flow</span>
+                <strong>{activeScreen?.name ?? "No screen"}</strong>
+              </div>
+              <span className="prototype-flow-note">
+                Screen {Math.min(activeScreenIndex + 1, screens.length)} of {screens.length}
+              </span>
+            </div>
+
+            {activeScreen ? (
+              renderPrototypeScreen(activeScreen)
+            ) : (
+              <section className="panel generic">
+                <strong>No screens yet.</strong>
+              </section>
+            )}
+
+            <div className="actions prototype-nav">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setActiveScreenIndex((current) => Math.max(current - 1, 0))}
+                disabled={!canGoBack}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveScreenIndex((current) => Math.min(current + 1, screens.length - 1))
+                }
+                disabled={!canGoNext}
+              >
+                Next Screen
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}`;
+}
+
+export const buildArtifactSourceBundle = (input: {
+  artifactKind: ArtifactKind;
+  artifactName: string;
+  prompt: string;
+  sceneNodes: SceneNode[];
+}): SourceExportBundle => {
+  const safeName = input.artifactName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const filenameBase = safeName || "artifact";
+  const syncPayload = buildArtifactSyncPayload(input);
+  const sections = JSON.stringify(syncPayload.sections);
+  const appCode =
+    input.artifactKind === "prototype"
+      ? buildPrototypeAppCode({
+          artifactName: input.artifactName,
+          sectionsLiteral: sections
+        })
+      : buildWebsiteLikeAppCode({
+          artifactName: input.artifactName,
+          sectionsLiteral: sections
+        });
 
   return {
     filenameBase,
@@ -647,6 +867,23 @@ function renderHtmlSection(section: RenderableSection) {
 </section>`;
 }
 
+function renderPrototypeHtmlScreen(input: {
+  section: RenderableSection;
+  index: number;
+  total: number;
+}) {
+  return `<article class="prototype-html-screen">
+  <div class="prototype-screen-header">
+    <div class="prototype-screen-meta">
+      <span class="eyebrow">Prototype Flow</span>
+      <strong>${escapeHtml(input.section.name)}</strong>
+    </div>
+    <span class="prototype-flow-note">Screen ${input.index + 1} of ${input.total}</span>
+  </div>
+  ${renderHtmlSection(input.section)}
+</article>`;
+}
+
 export const buildArtifactHtmlExport = (input: {
   artifactName: string;
   sceneDocument: SceneDocument;
@@ -658,7 +895,20 @@ export const buildArtifactHtmlExport = (input: {
     prompt: input.prompt ?? "OpenDesign artifact workspace",
     sceneNodes: input.sceneDocument.nodes
   });
-  const nodes = sections.map(renderHtmlSection).join("\n");
+  const isPrototype = input.sceneDocument.kind === "prototype";
+  const nodes = isPrototype
+    ? `<section class="prototype-html-grid">
+${sections
+  .map((section, index) =>
+    renderPrototypeHtmlScreen({
+      section,
+      index,
+      total: sections.length
+    })
+  )
+  .join("\n")}
+</section>`
+    : sections.map(renderHtmlSection).join("\n");
   const safeName = input.artifactName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -680,7 +930,7 @@ export const buildArtifactHtmlExport = (input: {
     <main>
       <header class="masthead">
         <span class="label">${escapeHtml(input.artifactName)}</span>
-        <strong>${sections.length} live section${sections.length === 1 ? "" : "s"}</strong>
+        <strong>${sections.length} live ${isPrototype ? "screen" : "section"}${sections.length === 1 ? "" : "s"}${isPrototype ? " · Prototype Flow" : ""}</strong>
       </header>
       ${nodes}
     </main>

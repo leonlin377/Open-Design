@@ -165,12 +165,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       designSystemName?: string | null;
     }): SceneNode {
       const nodeId = `${input.template}_${crypto.randomUUID()}`;
+      const nodeType = input.artifact.kind === "prototype" ? "screen" : "section";
 
       if (input.template === "hero") {
         return {
           id: nodeId,
-          type: "section",
-          name: "Hero Section",
+          type: nodeType,
+          name: input.artifact.kind === "prototype" ? "Hero Screen" : "Hero Section",
           props: {
             template: "hero",
             eyebrow:
@@ -193,8 +194,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       if (input.template === "feature-grid") {
         return {
           id: nodeId,
-          type: "section",
-          name: "Feature Grid",
+          type: nodeType,
+          name: input.artifact.kind === "prototype" ? "Feature Screen" : "Feature Grid",
           props: {
             template: "feature-grid",
             title: input.designSystemName
@@ -221,8 +222,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
       return {
         id: nodeId,
-        type: "section",
-        name: "Call To Action",
+        type: nodeType,
+        name: input.artifact.kind === "prototype" ? "Action Screen" : "Call To Action",
         props: {
           template: "cta",
           headline: input.designSystemName
@@ -599,6 +600,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         generation: generationRun,
         version,
         workspace: buildWorkspacePayload({
+          artifactKind: input.artifact.kind,
           workspace: activeWorkspace,
           versions: [version, ...versions],
           comments
@@ -607,13 +609,15 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
     }
 
     function buildWorkspacePayload(input: {
+      artifactKind: z.infer<typeof ArtifactKindSchema>;
       workspace: EnsuredWorkspace;
       versions: ArtifactVersionSnapshot[];
       comments: ArtifactComment[];
     }) {
       const syncPlan = planSyncPatch({
         sourceMode: "scene",
-        targetMode: "code-supported",
+        targetMode:
+          input.artifactKind === "website" ? "code-supported" : "code-advanced",
         changeScope: "document"
       });
 
@@ -844,6 +848,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       return {
         artifact,
         workspace: buildWorkspacePayload({
+          artifactKind: artifact.kind,
           workspace,
           versions,
           comments
@@ -917,6 +922,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
         return reply.send({
           workspace: buildWorkspacePayload({
+            artifactKind: artifact.kind,
             workspace: updatedWorkspace,
             versions,
             comments
@@ -1214,6 +1220,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
         return {
           workspace: buildWorkspacePayload({
+            artifactKind: artifact.kind,
             workspace: activeWorkspace,
             versions,
             comments
@@ -1329,6 +1336,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
       return reply.code(201).send({
         workspace: buildWorkspacePayload({
+          artifactKind: artifact.kind,
           workspace: persistedWorkspace,
           versions,
           comments
@@ -1436,6 +1444,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
         return {
           workspace: buildWorkspacePayload({
+            artifactKind: artifact.kind,
             workspace: updatedWorkspace,
             versions,
             comments
@@ -1523,6 +1532,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
           return {
             workspace: buildWorkspacePayload({
+              artifactKind: artifact.kind,
               workspace: persistedWorkspace,
               versions,
               comments

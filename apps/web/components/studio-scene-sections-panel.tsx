@@ -1,5 +1,6 @@
 import { Button, Surface } from "@opendesign/ui";
 import type { SceneNode } from "@opendesign/contracts";
+import type { ApiArtifact } from "../lib/opendesign-api";
 
 const sceneTemplates = [
   { template: "hero" as const, label: "Add Hero" },
@@ -44,6 +45,7 @@ function readFeatureGridItems(value: unknown) {
 type StudioSceneSectionsPanelProps = {
   projectId: string;
   artifactId: string;
+  artifactKind: ApiArtifact["kind"];
   sceneNodes: SceneNode[];
   appendSceneTemplateAction: (formData: FormData) => Promise<void>;
   updateSceneNodeAction: (formData: FormData) => Promise<void>;
@@ -52,16 +54,22 @@ type StudioSceneSectionsPanelProps = {
 export function StudioSceneSectionsPanel({
   projectId,
   artifactId,
+  artifactKind,
   sceneNodes,
   appendSceneTemplateAction,
   updateSceneNodeAction
 }: StudioSceneSectionsPanelProps) {
+  const sceneUnitLabel = artifactKind === "prototype" ? "screen" : "section";
+  const panelTitle = artifactKind === "prototype" ? "Prototype Screens" : "Scene Sections";
+  const emptyStateLabel =
+    artifactKind === "prototype" ? "No prototype screens yet." : "No scene sections yet.";
+
   return (
     <Surface className="project-card" as="section">
       <div>
-        <h3>Scene Sections</h3>
+        <h3>{panelTitle}</h3>
         <p className="footer-note">
-          Append a root section template to the current scene document.
+          Append a root {sceneUnitLabel} template to the current scene document.
         </p>
       </div>
       <div className="artifact-action-grid">
@@ -71,13 +79,19 @@ export function StudioSceneSectionsPanel({
             <input type="hidden" name="artifactId" value={artifactId} />
             <input type="hidden" name="template" value={entry.template} />
             <Button variant="outline" size="sm" type="submit">
-              {entry.label}
+              {artifactKind === "prototype"
+                ? entry.template === "hero"
+                  ? "Add Hero Screen"
+                  : entry.template === "feature-grid"
+                    ? "Add Feature Screen"
+                    : "Add Action Screen"
+                : entry.label}
             </Button>
           </form>
         ))}
       </div>
       <div className="scene-node-list">
-        {sceneNodes.length === 0 ? <div className="footer-note">No scene sections yet.</div> : null}
+        {sceneNodes.length === 0 ? <div className="footer-note">{emptyStateLabel}</div> : null}
         {sceneNodes.map((node) => {
           const featureItems = readFeatureGridItems(node.props.items);
           const template = String(node.props.template ?? node.type);
@@ -179,7 +193,7 @@ export function StudioSceneSectionsPanel({
                   </label>
                 ) : null}
                 <Button variant="ghost" size="sm" type="submit">
-                  Update Section
+                  Update {sceneUnitLabel === "screen" ? "Screen" : "Section"}
                 </Button>
               </form>
             </Surface>
