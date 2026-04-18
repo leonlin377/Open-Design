@@ -103,6 +103,10 @@ export function readApiErrorMessage(payload: unknown, fallback: string) {
       return `${apiError.error}. Retry with a different prompt or model configuration.`;
     }
 
+    if (apiError.code === "INVALID_SCENE_PATCH") {
+      return `${apiError.error}. Retry the pass or adjust the model configuration before generating again.`;
+    }
+
     return apiError.error;
   }
 

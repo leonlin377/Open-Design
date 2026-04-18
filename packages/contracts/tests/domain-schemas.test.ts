@@ -448,6 +448,21 @@ describe("ApiErrorSchema", () => {
     expect(error.code).toBe("GENERATION_PROVIDER_FAILURE");
     expect(error.details?.provider).toBe("litellm");
   });
+
+  test("accepts invalid scene patch failures", () => {
+    const error = ApiErrorSchema.parse({
+      error: "Generation produced an invalid scene patch.",
+      code: "INVALID_SCENE_PATCH",
+      recoverable: true,
+      details: {
+        stage: "apply-scene",
+        reason: "Duplicate scene node id: hero_duplicate-node"
+      }
+    });
+
+    expect(error.code).toBe("INVALID_SCENE_PATCH");
+    expect(error.details?.stage).toBe("apply-scene");
+  });
 });
 
 describe("ArtifactVersionDiffSummarySchema", () => {

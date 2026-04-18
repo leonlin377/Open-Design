@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `66%`
+Current estimated product completion for a serious V1: `68%`
 
 ```
-[#############-------] 66%
+[##############------] 68%
 ```
 
 ## Current Reality
@@ -72,11 +72,9 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 - [x] Add streaming status/events for generation progress
   Done when:
   Web UI can show generation states without refresh.
-- [ ] Add failure handling for invalid patches, timeout, and provider errors
+- [x] Add failure handling for invalid patches, timeout, and provider errors
   Done when:
   The UI surfaces explicit error states and the workspace remains recoverable.
-  Current:
-  Provider timeout, upstream failure, and invalid generation plan now surface as structured API errors and Chat Rail failure states. Invalid patch/apply-stage failures still need explicit handling.
 
 ## Phase 2: Scene/Code Synchronization
 
@@ -215,4 +213,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Add structured API error model and recovery paths
 - [x] Add streaming status/events for generation progress
 - [x] Add provider-specific generation failure states in Chat Rail
-- [ ] Add apply-stage generation failure handling for invalid scene/code patches
+- [x] Add apply-stage generation failure handling for invalid scene/code patches
+- [ ] Implement real scene -> code synchronization for generated website artifacts

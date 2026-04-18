@@ -293,7 +293,28 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             ? 504
             : error.code === "GENERATION_PROVIDER_FAILURE"
               ? 502
+              : error.code === "INVALID_GENERATION_PLAN" ||
+                  error.code === "INVALID_SCENE_PATCH"
+                ? 422
               : 422;
+
+        return {
+          statusCode,
+          apiError
+        };
+      }
+
+      if (error && typeof error === "object" && "code" in error && "error" in error) {
+        const apiError = buildApiError(error as Parameters<typeof buildApiError>[0]);
+        const statusCode =
+          apiError.code === "GENERATION_TIMEOUT"
+            ? 504
+            : apiError.code === "GENERATION_PROVIDER_FAILURE"
+              ? 502
+              : apiError.code === "INVALID_GENERATION_PLAN" ||
+                  apiError.code === "INVALID_SCENE_PATCH"
+                ? 422
+                : 500;
 
         return {
           statusCode,
@@ -400,14 +421,32 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       let sceneDocument = workspace.sceneDocument;
       const appendedNodes: SceneNode[] = [];
 
-      for (const template of plan.sections) {
-        const node = buildTemplateNode({
-          artifact: input.artifact,
-          intent: plan.intent,
-          template
+      try {
+        for (const template of plan.sections) {
+          const node = buildTemplateNode({
+            artifact: input.artifact,
+            intent: plan.intent,
+            template
+          });
+          sceneDocument = appendRootSceneNode(sceneDocument, node);
+          appendedNodes.push(node);
+        }
+
+        indexSceneNodesById(sceneDocument.nodes);
+      } catch (error) {
+        throw buildApiError({
+          error: "Generation produced an invalid scene patch.",
+          code: "INVALID_SCENE_PATCH",
+          recoverable: true,
+          details: {
+            stage: "apply-scene",
+            ...(error instanceof Error
+              ? {
+                  reason: error.message
+                }
+              : {})
+          }
         });
-        sceneDocument = appendRootSceneNode(sceneDocument, node);
-        appendedNodes.push(node);
       }
 
       await input.onProgress?.({

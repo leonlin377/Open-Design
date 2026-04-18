@@ -558,6 +558,160 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("returns an invalid scene patch error when generation applies duplicate scene node ids", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  intent: "Build a cinematic launch surface for Atlas.",
+                  rationale: "Use repeated hero sections to trigger a duplicate scene patch.",
+                  sections: ["hero", "hero"],
+                  provider: "heuristic"
+                })
+              }
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json"
+          }
+        }
+      )
+    ) as typeof globalThis.fetch;
+
+    const randomUuidSpy = vi
+      .spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValue("11111111-1111-1111-1111-111111111111");
+
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Invalid Patch Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Invalid Patch Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: {
+          prompt: "Create a launch page with repeated hero sections."
+        }
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({
+        code: "INVALID_SCENE_PATCH",
+        recoverable: true,
+        details: {
+          stage: "apply-scene"
+        }
+      });
+    } finally {
+      randomUuidSpy.mockRestore();
+      await app.close();
+    }
+  });
+
+  it("streams invalid scene patch failures when apply-stage validation rejects generated nodes", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  intent: "Build a cinematic launch surface for Atlas.",
+                  rationale: "Use repeated hero sections to trigger a duplicate scene patch.",
+                  sections: ["hero", "hero"],
+                  provider: "heuristic"
+                })
+              }
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json"
+          }
+        }
+      )
+    ) as typeof globalThis.fetch;
+
+    const randomUuidSpy = vi
+      .spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValue("11111111-1111-1111-1111-111111111111");
+
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Invalid Patch Stream Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Invalid Patch Stream Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: {
+          accept: "text/event-stream"
+        },
+        payload: {
+          prompt: "Create a launch page with repeated hero sections."
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      const events = parseSseEvents(response.body);
+      expect(events.map((event) => event.type)).toEqual([
+        "started",
+        "planning",
+        "failed"
+      ]);
+      expect(events[2]).toMatchObject({
+        type: "failed",
+        error: {
+          code: "INVALID_SCENE_PATCH",
+          recoverable: true,
+          details: {
+            stage: "apply-scene"
+          }
+        }
+      });
+    } finally {
+      randomUuidSpy.mockRestore();
+      await app.close();
+    }
+  });
+
   it("updates feature-grid title and items", async () => {
     const app = await buildApp();
     try {
