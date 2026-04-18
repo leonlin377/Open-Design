@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `64%`
+Current estimated product completion for a serious V1: `66%`
 
 ```
-[#############-------] 64%
+[#############-------] 66%
 ```
 
 ## Current Reality
@@ -75,6 +75,8 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 - [ ] Add failure handling for invalid patches, timeout, and provider errors
   Done when:
   The UI surfaces explicit error states and the workspace remains recoverable.
+  Current:
+  Provider timeout, upstream failure, and invalid generation plan now surface as structured API errors and Chat Rail failure states. Invalid patch/apply-stage failures still need explicit handling.
 
 ## Phase 2: Scene/Code Synchronization
 
@@ -172,11 +174,9 @@ Goal: Make the product stable enough for serious usage.
 - [x] Add stale-write/conflict protection for code workspace saves and restores
   Done when:
   Users do not silently overwrite newer saved state.
-- [~] Add structured API error model and recovery paths
+- [x] Add structured API error model and recovery paths
   Done when:
   The UI can distinguish auth, validation, conflict, and provider failures.
-  Current:
-  Explicit route errors, auth bridge failures, validation errors, and code-workspace conflicts now use shared `ApiError` helpers end-to-end. Provider-specific generation failures still need their own structured path.
 - [ ] Add Playwright E2E coverage for core Studio flows
   Done when:
   Login, create project, edit scene, save code, snapshot, restore, and export are covered.
@@ -212,6 +212,7 @@ This is the immediate build sequence I should continue with next:
 - [x] Harden generation route from fallback-only into streamed LiteLLM execution
 - [x] Add generation status and failure UI in Chat Rail
 - [x] Move section editing out of the Studio page into reusable editor components
-- [~] Add structured API error model and recovery paths
+- [x] Add structured API error model and recovery paths
 - [x] Add streaming status/events for generation progress
-- [ ] Add provider-specific generation failure states in Chat Rail
+- [x] Add provider-specific generation failure states in Chat Rail
+- [ ] Add apply-stage generation failure handling for invalid scene/code patches

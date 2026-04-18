@@ -433,6 +433,21 @@ describe("ApiErrorSchema", () => {
     expect(error.code).toBe("VALIDATION_ERROR");
     expect(error.details?.issues).toHaveLength(1);
   });
+
+  test("accepts provider-specific generation failures", () => {
+    const error = ApiErrorSchema.parse({
+      error: "Generation provider returned an unsuccessful response.",
+      code: "GENERATION_PROVIDER_FAILURE",
+      recoverable: true,
+      details: {
+        provider: "litellm",
+        status: 502
+      }
+    });
+
+    expect(error.code).toBe("GENERATION_PROVIDER_FAILURE");
+    expect(error.details?.provider).toBe("litellm");
+  });
 });
 
 describe("ArtifactVersionDiffSummarySchema", () => {

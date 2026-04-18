@@ -91,6 +91,18 @@ export function readApiErrorMessage(payload: unknown, fallback: string) {
       return `${apiError.error}. Retry in a moment.`;
     }
 
+    if (apiError.code === "GENERATION_TIMEOUT") {
+      return `${apiError.error}. Retry the generation pass or increase the generation timeout.`;
+    }
+
+    if (apiError.code === "GENERATION_PROVIDER_FAILURE") {
+      return `${apiError.error}. Check the LiteLLM gateway and provider credentials, then retry.`;
+    }
+
+    if (apiError.code === "INVALID_GENERATION_PLAN") {
+      return `${apiError.error}. Retry with a different prompt or model configuration.`;
+    }
+
     return apiError.error;
   }
 

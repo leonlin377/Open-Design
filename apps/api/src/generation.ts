@@ -1,6 +1,7 @@
 import {
   ArtifactGenerationDiagnosticsSchema,
   ArtifactGenerationPlanSchema,
+  type ApiError,
   type ArtifactGenerationPlan,
   type ArtifactGenerationDiagnostics,
   type ArtifactKind,
@@ -11,6 +12,25 @@ export type ArtifactPlanGenerationResult = {
   plan: ArtifactGenerationPlan;
   diagnostics: ArtifactGenerationDiagnostics;
 };
+
+export class ArtifactGenerationError extends Error {
+  code: ApiError["code"];
+  recoverable: boolean;
+  details?: Record<string, unknown>;
+
+  constructor(input: {
+    message: string;
+    code: ApiError["code"];
+    recoverable?: boolean;
+    details?: Record<string, unknown>;
+  }) {
+    super(input.message);
+    this.name = "ArtifactGenerationError";
+    this.code = input.code;
+    this.recoverable = input.recoverable ?? true;
+    this.details = input.details;
+  }
+}
 
 type GenerateArtifactPlanInput = {
   artifactKind: ArtifactKind;
@@ -189,12 +209,19 @@ async function readChatCompletionJson(response: Response) {
 async function generatePlanViaLiteLLM(
   input: GenerateArtifactPlanInput,
   env: NodeJS.ProcessEnv
-): Promise<ArtifactPlanGenerationResult | null> {
+): Promise<ArtifactPlanGenerationResult> {
   const baseUrl = env.LITELLM_API_BASE_URL ?? env.OPENAI_API_BASE_URL;
   const model = env.OPENDESIGN_GENERATION_MODEL;
 
   if (!baseUrl || !model) {
-    return null;
+    throw new ArtifactGenerationError({
+      message: "Generation provider is not configured.",
+      code: "GENERATION_PROVIDER_FAILURE",
+      details: {
+        provider: "litellm",
+        configured: false
+      }
+    });
   }
 
   const apiKey =
@@ -236,12 +263,37 @@ async function generatePlanViaLiteLLM(
         ]
       })
     });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ArtifactGenerationError({
+        message: "Generation timed out while waiting for the model gateway.",
+        code: "GENERATION_TIMEOUT",
+        details: {
+          provider: "litellm"
+        }
+      });
+    }
+
+    throw new ArtifactGenerationError({
+      message: "Generation provider request failed before a response was received.",
+      code: "GENERATION_PROVIDER_FAILURE",
+      details: {
+        provider: "litellm"
+      }
+    });
   } finally {
     clearTimeout(timeout);
   }
 
   if (!response.ok) {
-    return null;
+    throw new ArtifactGenerationError({
+      message: "Generation provider returned an unsuccessful response.",
+      code: "GENERATION_PROVIDER_FAILURE",
+      details: {
+        provider: "litellm",
+        status: response.status
+      }
+    });
   }
   const contentType = response.headers.get("content-type") ?? "";
   const content = contentType.includes("text/event-stream")
@@ -249,7 +301,14 @@ async function generatePlanViaLiteLLM(
     : await readChatCompletionJson(response);
 
   if (!content) {
-    return null;
+    throw new ArtifactGenerationError({
+      message: "Generation provider returned an empty response.",
+      code: "INVALID_GENERATION_PLAN",
+      details: {
+        provider: "litellm",
+        transport: contentType.includes("text/event-stream") ? "stream" : "json"
+      }
+    });
   }
 
   try {
@@ -267,7 +326,14 @@ async function generatePlanViaLiteLLM(
       })
     };
   } catch {
-    return null;
+    throw new ArtifactGenerationError({
+      message: "Generation provider returned an invalid artifact plan.",
+      code: "INVALID_GENERATION_PLAN",
+      details: {
+        provider: "litellm",
+        transport: contentType.includes("text/event-stream") ? "stream" : "json"
+      }
+    });
   }
 }
 
@@ -286,21 +352,5 @@ export async function generateArtifactPlan(
     return buildHeuristicResult(input, fallbackReason);
   }
 
-  try {
-    const remotePlan = await generatePlanViaLiteLLM(input, env);
-
-    if (remotePlan) {
-      return remotePlan;
-    }
-  } catch {
-    return buildHeuristicResult(
-      input,
-      "LiteLLM generation failed, so generation fell back to the local heuristic planner."
-    );
-  }
-
-  return buildHeuristicResult(
-    input,
-    "LiteLLM returned an invalid streamed plan, so generation fell back to the local heuristic planner."
-  );
+  return generatePlanViaLiteLLM(input, env);
 }

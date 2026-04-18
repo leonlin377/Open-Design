@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app";
+
+const originalFetch = globalThis.fetch;
+const originalLiteLLMApiBaseUrl = process.env.LITELLM_API_BASE_URL;
+const originalGenerationModel = process.env.OPENDESIGN_GENERATION_MODEL;
+const originalGenerationTimeoutMs = process.env.OPENDESIGN_GENERATION_TIMEOUT_MS;
 
 function parseSseEvents(body: string) {
   return body
@@ -16,6 +21,29 @@ function parseSseEvents(body: string) {
     .filter((value) => value.length > 0)
     .map((value) => JSON.parse(value) as Record<string, unknown>);
 }
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  vi.restoreAllMocks();
+
+  if (originalLiteLLMApiBaseUrl === undefined) {
+    delete process.env.LITELLM_API_BASE_URL;
+  } else {
+    process.env.LITELLM_API_BASE_URL = originalLiteLLMApiBaseUrl;
+  }
+
+  if (originalGenerationModel === undefined) {
+    delete process.env.OPENDESIGN_GENERATION_MODEL;
+  } else {
+    process.env.OPENDESIGN_GENERATION_MODEL = originalGenerationModel;
+  }
+
+  if (originalGenerationTimeoutMs === undefined) {
+    delete process.env.OPENDESIGN_GENERATION_TIMEOUT_MS;
+  } else {
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = originalGenerationTimeoutMs;
+  }
+});
 
 describe("Projects and artifacts", () => {
   it("creates a project and artifact and lists artifacts", async () => {
@@ -413,6 +441,116 @@ describe("Projects and artifacts", () => {
               prompt: "Create a cinematic launch page with feature proof and a CTA."
             }
           }
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns a provider-specific timeout error for JSON generation requests", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = "5";
+
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Timeout Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Timeout Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: {
+          prompt: "Create a launch page with a hero and CTA."
+        }
+      });
+
+      expect(response.statusCode).toBe(504);
+      expect(response.json()).toMatchObject({
+        code: "GENERATION_TIMEOUT",
+        recoverable: true
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("streams provider-specific failure events when generation cannot reach LiteLLM", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+
+    globalThis.fetch = vi.fn(async () =>
+      new Response("gateway failed", {
+        status: 502,
+        headers: {
+          "content-type": "text/plain"
+        }
+      })
+    ) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Failure Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Failure Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: {
+          accept: "text/event-stream"
+        },
+        payload: {
+          prompt: "Create a launch page with a hero and CTA."
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      const events = parseSseEvents(response.body);
+      expect(events.map((event) => event.type)).toEqual([
+        "started",
+        "planning",
+        "failed"
+      ]);
+      expect(events[2]).toMatchObject({
+        type: "failed",
+        error: {
+          code: "GENERATION_PROVIDER_FAILURE",
+          recoverable: true
         }
       });
     } finally {

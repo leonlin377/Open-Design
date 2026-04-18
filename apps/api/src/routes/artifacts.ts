@@ -30,7 +30,7 @@ import {
 } from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { generateArtifactPlan } from "../generation";
+import { ArtifactGenerationError, generateArtifactPlan } from "../generation";
 import { buildApiError, sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
@@ -273,6 +273,45 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       reply.raw.write(
         `data: ${JSON.stringify(ArtifactGenerateStreamEventSchema.parse(event))}\n\n`
       );
+    }
+
+    function mapGenerationFailure(error: unknown) {
+      if (error instanceof ArtifactGenerationError) {
+        const apiError = buildApiError({
+          error: error.message,
+          code: error.code,
+          recoverable: error.recoverable,
+          ...(error.details
+            ? {
+                details: error.details
+              }
+            : {})
+        });
+
+        const statusCode =
+          error.code === "GENERATION_TIMEOUT"
+            ? 504
+            : error.code === "GENERATION_PROVIDER_FAILURE"
+              ? 502
+              : 422;
+
+        return {
+          statusCode,
+          apiError
+        };
+      }
+
+      return {
+        statusCode: 500,
+        apiError: buildApiError({
+          error: "Artifact generation failed",
+          code: "WORKSPACE_UPDATE_FAILED",
+          recoverable: true,
+          details: {
+            stage: "generate"
+          }
+        })
+      };
     }
 
     async function ensureWorkspaceState(artifact: {
@@ -826,21 +865,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             result
           });
         } catch (error) {
-          const apiError = buildApiError(
-            error &&
-              typeof error === "object" &&
-              "code" in error &&
-              "error" in error
-              ? (error as Parameters<typeof buildApiError>[0])
-              : {
-                  error: "Artifact generation failed",
-                  code: "WORKSPACE_UPDATE_FAILED",
-                  recoverable: true,
-                  details: {
-                    stage: "generate-stream"
-                  }
-                }
-          );
+          const { apiError } = mapGenerationFailure(error);
 
           writeGenerationEvent(reply, {
             type: "failed",
@@ -862,23 +887,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
         return reply.code(201).send(result);
       } catch (error) {
-        const apiError = buildApiError(
-          error &&
-            typeof error === "object" &&
-            "code" in error &&
-            "error" in error
-            ? (error as Parameters<typeof buildApiError>[0])
-            : {
-                error: "Artifact generation failed",
-                code: "WORKSPACE_UPDATE_FAILED",
-                recoverable: true,
-                details: {
-                  stage: "generate"
-                }
-              }
-        );
-
-        return sendApiError(reply, 500, apiError);
+        const { statusCode, apiError } = mapGenerationFailure(error);
+        return sendApiError(reply, statusCode, apiError);
       }
     });
 
