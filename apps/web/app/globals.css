@@ -308,6 +308,9 @@ main {
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid var(--stroke);
@@ -327,6 +330,8 @@ main {
 .inspector-section {
   display: grid;
   gap: 12px;
+  align-content: start;
+  overflow: auto;
 }
 
 .kv {
@@ -388,6 +393,43 @@ main {
 .scene-node-list {
   display: grid;
   gap: 10px;
+}
+
+.source-bundle-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.code-surface {
+  gap: 12px;
+}
+
+.code-file-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.code-file-head strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.code-pane {
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke);
+  background: rgba(7, 9, 13, 0.92);
+  color: #d9f4ff;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  overflow: auto;
+  white-space: pre;
 }
 
 .scene-item-grid {

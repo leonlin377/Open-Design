@@ -402,7 +402,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { workspace } = await ensureWorkspaceState(artifact);
         const bundle = buildArtifactHtmlExport({
           artifactName: artifact.name,
-          sceneDocument: workspace.sceneDocument
+          sceneDocument: workspace.sceneDocument,
+          prompt: workspace.intent
         });
 
         reply.header("content-type", "text/html; charset=utf-8");

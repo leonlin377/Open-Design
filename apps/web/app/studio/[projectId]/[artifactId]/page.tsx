@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Badge, Button, Surface } from "@opendesign/ui";
+import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { ArtifactPreview } from "../../../../components/artifact-preview";
+import { SourceBundleView } from "../../../../components/source-bundle-view";
 import {
   getArtifactWorkspace,
   getProject,
@@ -26,7 +28,28 @@ type StudioPageProps = {
     projectId: string;
     artifactId: string;
   };
+  searchParams: Promise<{
+    tab?: string | string[];
+  }>;
 };
+
+const inspectorTabs = [
+  { id: "preview", label: "Preview" },
+  { id: "code", label: "Code" },
+  { id: "inspector", label: "Inspector" },
+  { id: "versions", label: "Versions" },
+  { id: "export", label: "Export" }
+] as const;
+
+type InspectorTab = (typeof inspectorTabs)[number]["id"];
+
+function readInspectorTab(value: string | string[] | undefined): InspectorTab {
+  const candidate = Array.isArray(value) ? value[0] : value;
+
+  return inspectorTabs.some((entry) => entry.id === candidate)
+    ? (candidate as InspectorTab)
+    : "preview";
+}
 
 function readFeatureGridItems(value: unknown) {
   if (!Array.isArray(value)) {
@@ -62,7 +85,8 @@ const defaultFeatureGridItems = [
   }
 ];
 
-export default async function StudioPage({ params }: StudioPageProps) {
+export default async function StudioPage({ params, searchParams }: StudioPageProps) {
+  const resolvedSearchParams = await searchParams;
   const [session, project, workspacePayload] = await Promise.all([
     getSession(),
     getProject(params.projectId),
@@ -102,6 +126,13 @@ export default async function StudioPage({ params }: StudioPageProps) {
   const rootNode = workspace.sceneDocument.nodes[0];
   const frameLabel = rootNode?.name ?? "Empty canvas";
   const sceneNodes = workspace.sceneDocument.nodes;
+  const activeTab = readInspectorTab(resolvedSearchParams.tab);
+  const sourceBundle = buildArtifactSourceBundle({
+    artifactKind,
+    artifactName: artifact.name,
+    prompt: workspace.intent,
+    sceneNodes
+  });
   const sceneTemplates = [
     { template: "hero" as const, label: "Add Hero" },
     { template: "feature-grid" as const, label: "Add Feature Grid" },
@@ -334,141 +365,223 @@ export default async function StudioPage({ params }: StudioPageProps) {
 
         <aside className="inspector">
           <div className="tab-row">
-            <button className="tab active" type="button">
-              Preview
-            </button>
-            <button className="tab" type="button">
-              Code
-            </button>
-            <button className="tab" type="button">
-              Inspector
-            </button>
-            <button className="tab" type="button">
-              Versions
-            </button>
-            <button className="tab" type="button">
-              Export
-            </button>
+            {inspectorTabs.map((tab) => (
+              <Link
+                key={tab.id}
+                href={`/studio/${project.id}/${artifact.id}?tab=${tab.id}`}
+                className={tab.id === activeTab ? "tab active" : "tab"}
+              >
+                {tab.label}
+              </Link>
+            ))}
           </div>
 
           <div className="inspector-section">
-            <div className="footer-note">Preview powered by Sandpack</div>
-            <ArtifactPreview
-              artifactKind={artifactKind}
-              artifactName={`${projectLabel} ${artifactLabel}`}
-              prompt={workspace.intent}
-              sceneNodes={sceneNodes}
-            />
-            <Surface className="kv">
-              <span>Active Frame</span>
-              {frameLabel}
-            </Surface>
-            <Surface className="kv">
-              <span>Sync Strategy</span>
-              {workspace.syncPlan.mode} · {workspace.syncPlan.targetMode}
-            </Surface>
-            <Surface className="kv">
-              <span>Version Lane</span>
-              {latestVersion
-                ? `${latestVersion.label} · ${latestVersion.source} · ${versions.length} snapshots`
-                : "No snapshots yet"}
-            </Surface>
-            <Surface className="project-card" as="section">
-              <div>
-                <h3>Create Snapshot</h3>
-                <p className="footer-note">
-                  Capture the current workspace as a named version.
-                </p>
-              </div>
-              <form action={createArtifactVersionAction} className="stack-form">
-                <input type="hidden" name="projectId" value={project.id} />
-                <input type="hidden" name="artifactId" value={artifact.id} />
-                <label className="field">
-                  <span>Label</span>
-                  <input name="label" placeholder="V2 Review" required />
-                </label>
-                <label className="field">
-                  <span>Summary</span>
-                  <input name="summary" placeholder="Review-ready snapshot for export." />
-                </label>
-                <Button variant="primary" type="submit">
-                  Save Snapshot
-                </Button>
-              </form>
-            </Surface>
-            <Surface className="project-card" as="section">
-              <div>
-                <h3>Add Comment</h3>
-                <p className="footer-note">
-                  Comments are anchored to the current canvas until direct element
-                  selection lands.
-                </p>
-              </div>
-              <form action={createArtifactCommentAction} className="stack-form">
-                <input type="hidden" name="projectId" value={project.id} />
-                <input type="hidden" name="artifactId" value={artifact.id} />
-                <label className="field">
-                  <span>Comment</span>
-                  <textarea
-                    name="body"
-                    placeholder="Tighten the left rail spacing and raise the eyebrow."
-                    rows={3}
-                    required
-                  />
-                </label>
-                <Button variant="outline" type="submit">
-                  Add Comment
-                </Button>
-              </form>
-            </Surface>
-            <Surface className="project-card" as="section">
-              <div>
-                <h3>Version History</h3>
-                <p className="footer-note">Newest snapshots stay at the top.</p>
-              </div>
-              <div className="stack-form">
-                {versions.map((version) => (
-                  <Surface key={version.id} className="kv">
-                    <span>{version.label}</span>
-                    {version.summary}
-                  </Surface>
-                ))}
-              </div>
-            </Surface>
-            <Surface className="project-card" as="section">
-              <div>
-                <h3>Comment Threads</h3>
-                <p className="footer-note">
-                  Resolve feedback as the artifact converges.
-                </p>
-              </div>
-              <div className="stack-form">
-                {comments.length === 0 ? (
-                  <div className="footer-note">No comments yet.</div>
-                ) : null}
-                {comments.map((comment) => (
-                  <Surface key={comment.id} className="kv">
-                    <span>
-                      {comment.status} · {comment.anchor.elementId ?? "artifact-canvas"}
-                    </span>
-                    {comment.body}
-                    {comment.status === "open" ? (
-                      <form action={resolveArtifactCommentAction}>
-                        <input type="hidden" name="projectId" value={project.id} />
-                        <input type="hidden" name="artifactId" value={artifact.id} />
-                        <input type="hidden" name="commentId" value={comment.id} />
-                        <Button variant="ghost" size="sm" type="submit">
-                          Resolve
-                        </Button>
-                      </form>
+            {activeTab === "preview" ? (
+              <>
+                <div className="footer-note">Preview powered by Sandpack</div>
+                <ArtifactPreview
+                  artifactKind={artifactKind}
+                  artifactName={artifact.name}
+                  prompt={workspace.intent}
+                  sceneNodes={sceneNodes}
+                />
+                <Surface className="kv">
+                  <span>Active Frame</span>
+                  {frameLabel}
+                </Surface>
+                <Surface className="kv">
+                  <span>Sync Strategy</span>
+                  {workspace.syncPlan.mode} · {workspace.syncPlan.targetMode}
+                </Surface>
+                <Surface className="kv">
+                  <span>Version Lane</span>
+                  {latestVersion
+                    ? `${latestVersion.label} · ${latestVersion.source} · ${versions.length} snapshots`
+                    : "No snapshots yet"}
+                </Surface>
+              </>
+            ) : null}
+
+            {activeTab === "code" ? (
+              <>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Source Bundle</h3>
+                    <p className="footer-note">
+                      Preview and export now derive from the same generated files.
+                    </p>
+                  </div>
+                  <div className="project-meta">
+                    <span>{sourceBundle.filenameBase}</span>
+                    <span>{Object.keys(sourceBundle.files).length} files</span>
+                  </div>
+                </Surface>
+                <SourceBundleView files={sourceBundle.files} />
+              </>
+            ) : null}
+
+            {activeTab === "inspector" ? (
+              <>
+                <Surface className="kv">
+                  <span>Artifact Intent</span>
+                  {workspace.intent}
+                </Surface>
+                <Surface className="kv">
+                  <span>Active Frame</span>
+                  {frameLabel}
+                </Surface>
+                <Surface className="kv">
+                  <span>Sync Strategy</span>
+                  {workspace.syncPlan.mode} · {workspace.syncPlan.targetMode}
+                </Surface>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Add Comment</h3>
+                    <p className="footer-note">
+                      Comments are anchored to the current canvas until direct element
+                      selection lands.
+                    </p>
+                  </div>
+                  <form action={createArtifactCommentAction} className="stack-form">
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input type="hidden" name="artifactId" value={artifact.id} />
+                    <label className="field">
+                      <span>Comment</span>
+                      <textarea
+                        name="body"
+                        placeholder="Tighten the left rail spacing and raise the eyebrow."
+                        rows={3}
+                        required
+                      />
+                    </label>
+                    <Button variant="outline" type="submit">
+                      Add Comment
+                    </Button>
+                  </form>
+                </Surface>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Comment Threads</h3>
+                    <p className="footer-note">
+                      Resolve feedback as the artifact converges.
+                    </p>
+                  </div>
+                  <div className="stack-form">
+                    {comments.length === 0 ? (
+                      <div className="footer-note">No comments yet.</div>
                     ) : null}
-                  </Surface>
-                ))}
-              </div>
-            </Surface>
+                    {comments.map((comment) => (
+                      <Surface key={comment.id} className="kv">
+                        <span>
+                          {comment.status} · {comment.anchor.elementId ?? "artifact-canvas"}
+                        </span>
+                        {comment.body}
+                        {comment.status === "open" ? (
+                          <form action={resolveArtifactCommentAction}>
+                            <input type="hidden" name="projectId" value={project.id} />
+                            <input type="hidden" name="artifactId" value={artifact.id} />
+                            <input type="hidden" name="commentId" value={comment.id} />
+                            <Button variant="ghost" size="sm" type="submit">
+                              Resolve
+                            </Button>
+                          </form>
+                        ) : null}
+                      </Surface>
+                    ))}
+                  </div>
+                </Surface>
+              </>
+            ) : null}
+
+            {activeTab === "versions" ? (
+              <>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Create Snapshot</h3>
+                    <p className="footer-note">
+                      Capture the current workspace as a named version.
+                    </p>
+                  </div>
+                  <form action={createArtifactVersionAction} className="stack-form">
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input type="hidden" name="artifactId" value={artifact.id} />
+                    <label className="field">
+                      <span>Label</span>
+                      <input name="label" placeholder="V2 Review" required />
+                    </label>
+                    <label className="field">
+                      <span>Summary</span>
+                      <input name="summary" placeholder="Review-ready snapshot for export." />
+                    </label>
+                    <Button variant="primary" type="submit">
+                      Save Snapshot
+                    </Button>
+                  </form>
+                </Surface>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Version History</h3>
+                    <p className="footer-note">Newest snapshots stay at the top.</p>
+                  </div>
+                  <div className="stack-form">
+                    {versions.map((version) => (
+                      <Surface key={version.id} className="kv">
+                        <span>{version.label}</span>
+                        {version.summary}
+                      </Surface>
+                    ))}
+                  </div>
+                </Surface>
+              </>
+            ) : null}
+
+            {activeTab === "export" ? (
+              <>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Export Surface</h3>
+                    <p className="footer-note">
+                      Download the generated source bundle or a standalone HTML render.
+                    </p>
+                  </div>
+                  <div className="artifact-action-grid">
+                    <Link
+                      href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
+                      className="button-link ghost"
+                    >
+                      Download Source
+                    </Link>
+                    <Link
+                      href={`/studio/${project.id}/${artifact.id}/export/html`}
+                      className="button-link primary"
+                    >
+                      Download HTML
+                    </Link>
+                  </div>
+                </Surface>
+                <Surface className="project-card" as="section">
+                  <div>
+                    <h3>Bundle Manifest</h3>
+                    <p className="footer-note">
+                      Current export is generated from the live scene document.
+                    </p>
+                  </div>
+                  <div className="stack-form">
+                    {Object.entries(sourceBundle.files).map(([filePath, content]) => (
+                      <Surface key={filePath} className="kv">
+                        <span>{filePath}</span>
+                        {content.split("\n").length} lines
+                      </Surface>
+                    ))}
+                  </div>
+                </Surface>
+              </>
+            ) : null}
+
             <div className="project-meta">
               {artifacts.map((entry) => (
-                <Link key={entry.id} href={`/studio/${project.id}/${entry.id}`}>
+                <Link key={entry.id} href={`/studio/${project.id}/${entry.id}?tab=${activeTab}`}>
                   <Badge tone={entry.id === artifact.id ? "accent" : "outline"}>
                     {entry.kind}
                   </Badge>

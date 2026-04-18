@@ -41,6 +41,7 @@ describe("buildArtifactHtmlExport", () => {
   test("renders hero, feature-grid, and cta sections into an html document", () => {
     const bundle = buildArtifactHtmlExport({
       artifactName: "Atlas Website",
+      prompt: "Build a cinematic launch experience.",
       sceneDocument: {
         id: "scene_1",
         artifactId: "artifact_1",
@@ -106,6 +107,24 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Atlas leads with cinematic hierarchy.");
     expect(bundle.html).toContain("System lanes");
     expect(bundle.html).toContain("Ready for export?");
+  });
+
+  test("seeds hero content and feature defaults when the scene is empty", () => {
+    const bundle = buildArtifactHtmlExport({
+      artifactName: "Seed Artifact",
+      prompt: "Shape the first review-ready section.",
+      sceneDocument: {
+        id: "scene_empty",
+        artifactId: "artifact_empty",
+        kind: "website",
+        version: 1,
+        nodes: [],
+        metadata: {}
+      }
+    });
+
+    expect(bundle.html).toContain("Seed Artifact is ready for the first scene section.");
+    expect(bundle.html).toContain("Shape the first review-ready section.");
   });
 });
 

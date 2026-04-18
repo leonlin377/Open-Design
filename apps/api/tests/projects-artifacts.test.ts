@@ -387,6 +387,38 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("exports seeded html documents when the scene is still empty", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Seed Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Seed Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/html`
+      });
+
+      expect(exportResponse.statusCode).toBe(200);
+      expect(exportResponse.body).toContain("Seed Artifact is ready for the first scene section.");
+      expect(exportResponse.body).toContain(
+        "Build a cinematic website surface for Seed Artifact with bold typography, clear hierarchy, and export-ready structure."
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it("exports scene-backed source bundles", async () => {
     const app = await buildApp();
     try {
