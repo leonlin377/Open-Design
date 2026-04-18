@@ -175,4 +175,101 @@ describe("Design systems", () => {
       await app.close();
     }
   });
+
+  it("imports a local directory payload into a persisted design system pack", async () => {
+    const app = await buildApp();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/local",
+        payload: {
+          absolutePath: "/Users/leon/design-systems/atlas-ui",
+          files: [
+            {
+              path: "tokens/theme.json",
+              content: JSON.stringify({
+                colors: {
+                  primary: "#111827"
+                },
+                typography: {
+                  display: {
+                    fontSize: "72px"
+                  }
+                }
+              })
+            },
+            {
+              path: "components/button.tsx",
+              content: "export function Button() { return <button />; }"
+            }
+          ]
+        }
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({
+        pack: {
+          name: "atlas-ui",
+          source: "local-directory",
+          tokens: {
+            colors: {
+              "colors.primary": "#111827"
+            },
+            typography: {
+              "typography.display.fontsize": "72px"
+            }
+          }
+        },
+        summary: {
+          evidenceCount: 2
+        }
+      });
+
+      const listResponse = await app.inject({
+        method: "GET",
+        url: "/api/design-systems"
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "atlas-ui",
+            source: "local-directory"
+          })
+        ])
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects local directory imports that contain no supported files", async () => {
+    const app = await buildApp();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/local",
+        payload: {
+          absolutePath: "/Users/leon/design-systems/notes",
+          files: [
+            {
+              path: "README.md",
+              content: "# Notes"
+            }
+          ]
+        }
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({
+        code: "DESIGN_SYSTEM_IMPORT_FAILED",
+        recoverable: true
+      });
+    } finally {
+      await app.close();
+    }
+  });
 });

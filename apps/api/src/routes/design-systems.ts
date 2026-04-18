@@ -12,6 +12,18 @@ const githubImportBodySchema = z.object({
   path: z.string().min(1).optional()
 });
 
+const localDirectoryImportBodySchema = z.object({
+  absolutePath: z.string().min(1),
+  files: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        content: z.string()
+      })
+    )
+    .min(1)
+});
+
 type GithubRepoResponse = {
   default_branch?: string;
 };
@@ -239,6 +251,38 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
             ? ["GitHub returned a truncated tree; extraction used the highest-priority files only."]
             : [])
         ],
+        summary: summarizePackEvidence(extraction)
+      });
+    });
+
+    app.post("/design-systems/import/local", async (request, reply) => {
+      const body = localDirectoryImportBodySchema.parse(request.body);
+      const session = await getRequestSession(options.auth, request);
+      const supportedFiles = body.files.filter((file) => isSupportedRepositoryFile(file.path));
+
+      if (supportedFiles.length === 0) {
+        return sendApiError(reply, 422, {
+          error: "No supported local directory files were provided for design-system extraction.",
+          code: "DESIGN_SYSTEM_IMPORT_FAILED",
+          recoverable: true
+        });
+      }
+
+      const extraction = extractDesignSystemPackFromRepositoryFiles({
+        source: {
+          type: "local-directory",
+          absolutePath: body.absolutePath
+        },
+        files: supportedFiles.slice(0, 48)
+      });
+      const record = await options.designSystems.create({
+        ownerUserId: session?.user.id ?? null,
+        pack: extraction.pack
+      });
+
+      return reply.code(201).send({
+        pack: record,
+        warnings: extraction.warnings,
         summary: summarizePackEvidence(extraction)
       });
     });

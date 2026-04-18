@@ -163,7 +163,7 @@ function extractComponentsFromPath(path: string) {
 }
 
 export const extractDesignSystemPackFromRepositoryFiles = (input: {
-  source: GithubImportSource;
+  source: GithubImportSource | LocalDirectoryImportSource;
   files: RepositoryTextFile[];
 }): ExtractedPackResult => {
   const colors: Record<string, string> = {};
@@ -172,6 +172,12 @@ export const extractDesignSystemPackFromRepositoryFiles = (input: {
   const provenance: DesignSystemPack["provenance"] = [];
   const evidence: ExtractedEvidence[] = [];
   const warnings: string[] = [];
+
+  const packName =
+    input.source.type === "github"
+      ? `${input.source.owner}/${input.source.repo}`
+      : input.source.absolutePath.split(/[\\/]/).filter(Boolean).at(-1) ||
+        input.source.absolutePath;
 
   for (const file of input.files) {
     const filePath = file.path;
@@ -303,8 +309,8 @@ export const extractDesignSystemPackFromRepositoryFiles = (input: {
     source: input.source,
     pack: {
       id: crypto.randomUUID(),
-      name: `${input.source.owner}/${input.source.repo}`,
-      source: "github",
+      name: packName,
+      source: input.source.type,
       tokens: {
         colors,
         typography

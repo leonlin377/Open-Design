@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `75%`
+Current estimated product completion for a serious V1: `77%`
 
 ```
-[###############-----] 75%
+[################----] 77%
 ```
 
 ## Current Reality
@@ -109,7 +109,7 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 - [x] Implement GitHub repository import
   Done when:
   A repository path can be parsed into tokens, motifs, and evidence records.
-- [ ] Implement local directory import
+- [x] Implement local directory import
   Done when:
   Studio can ingest a local component/token directory and persist a pack.
 - [ ] Implement site capture import with Playwright
@@ -217,4 +217,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Implement real scene -> code synchronization for generated website artifacts
 - [x] Start supported `code -> scene` back-sync for the safe website subset
 - [ ] Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety
-- [ ] Implement local-directory design-system import and persistence flow
+- [x] Implement local-directory design-system import and persistence flow
+- [ ] Implement site-capture design-system import and persistence flow

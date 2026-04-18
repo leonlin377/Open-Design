@@ -145,4 +145,33 @@ describe("extractDesignSystemPackFromRepositoryFiles", () => {
     expect(result.pack.components).toEqual([]);
     expect(result.warnings[0]).toMatch(/no obvious tokens or component entry points/i);
   });
+
+  test("supports local-directory sources and derives a pack name from the directory path", () => {
+    const result = extractDesignSystemPackFromRepositoryFiles({
+      source: {
+        type: "local-directory",
+        absolutePath: "/Users/leon/design-systems/atlas-ui"
+      },
+      files: [
+        {
+          path: "tokens/theme.json",
+          content: JSON.stringify({
+            colors: {
+              primary: "#111827"
+            }
+          })
+        }
+      ]
+    });
+
+    expect(result.pack).toMatchObject({
+      name: "atlas-ui",
+      source: "local-directory",
+      tokens: {
+        colors: {
+          "colors.primary": "#111827"
+        }
+      }
+    });
+  });
 });
