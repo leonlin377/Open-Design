@@ -407,9 +407,9 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               <>
                 <Surface className="project-card" as="section">
                   <div>
-                    <h3>Source Bundle</h3>
+                    <h3>Runnable Source Bundle</h3>
                     <p className="footer-note">
-                      Preview and export now derive from the same generated files.
+                      Preview and export now derive from the same generated scaffold files.
                     </p>
                   </div>
                   <div className="project-meta">
@@ -542,7 +542,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                   <div>
                     <h3>Export Surface</h3>
                     <p className="footer-note">
-                      Download the generated source bundle or a standalone HTML render.
+                      Download a runnable source scaffold or a standalone HTML render.
                     </p>
                   </div>
                   <div className="artifact-action-grid">
@@ -564,7 +564,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                   <div>
                     <h3>Bundle Manifest</h3>
                     <p className="footer-note">
-                      Current export is generated from the live scene document.
+                      Current scaffold is generated directly from the live scene document.
                     </p>
                   </div>
                   <div className="stack-form">

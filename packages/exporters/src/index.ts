@@ -442,6 +442,102 @@ export default function App() {
   return {
     filenameBase,
     files: {
+      "/README.md": `# ${input.artifactName}
+
+This source bundle is generated from OpenDesign's live scene document.
+
+## Run locally
+
+1. npm install
+2. npm run dev
+
+## Files
+
+- \`index.html\` boots the Vite app shell.
+- \`main.tsx\` mounts React into the page.
+- \`App.tsx\` is generated from the current scene structure.
+- \`styles.css\` contains the shared artifact presentation styles.
+`,
+      "/package.json": JSON.stringify(
+        {
+          name: filenameBase,
+          private: true,
+          version: "0.1.0",
+          type: "module",
+          scripts: {
+            dev: "vite",
+            build: "vite build",
+            preview: "vite preview"
+          },
+          dependencies: {
+            react: "^19.1.0",
+            "react-dom": "^19.1.0"
+          },
+          devDependencies: {
+            "@types/react": "^19.1.12",
+            "@types/react-dom": "^19.1.9",
+            "@vitejs/plugin-react": "^5.0.0",
+            typescript: "^5.9.2",
+            vite: "^7.1.3"
+          }
+        },
+        null,
+        2
+      ),
+      "/tsconfig.json": JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2020",
+            useDefineForClassFields: true,
+            lib: ["DOM", "DOM.Iterable", "ES2020"],
+            allowJs: false,
+            skipLibCheck: true,
+            esModuleInterop: true,
+            allowSyntheticDefaultImports: true,
+            strict: true,
+            forceConsistentCasingInFileNames: true,
+            module: "ESNext",
+            moduleResolution: "Node",
+            resolveJsonModule: true,
+            isolatedModules: true,
+            noEmit: true,
+            jsx: "react-jsx"
+          },
+          include: ["./*.ts", "./*.tsx"]
+        },
+        null,
+        2
+      ),
+      "/vite.config.ts": `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()]
+});
+`,
+      "/index.html": `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${input.artifactName}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>
+`,
+      "/main.tsx": `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+`,
       "/App.tsx": appCode,
       "/styles.css": ARTIFACT_SOURCE_STYLES
     }

@@ -129,7 +129,7 @@ describe("buildArtifactHtmlExport", () => {
 });
 
 describe("buildArtifactSourceBundle", () => {
-  test("renders a reusable App.tsx and styles.css bundle from scene nodes", () => {
+  test("renders a reusable runnable source bundle from scene nodes", () => {
     const bundle = buildArtifactSourceBundle({
       artifactKind: "website",
       artifactName: "Atlas Website",
@@ -153,5 +153,9 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.filenameBase).toBe("atlas-website");
     expect(bundle.files["/App.tsx"]).toContain("Atlas leads with cinematic hierarchy.");
     expect(bundle.files["/styles.css"]).toContain(".hero");
+    expect(bundle.files["/package.json"]).toContain('"vite"');
+    expect(bundle.files["/main.tsx"]).toContain('import App from "./App"');
+    expect(bundle.files["/index.html"]).toContain("<div id=\"root\"></div>");
+    expect(bundle.files["/README.md"]).toContain("npm run dev");
   });
 });

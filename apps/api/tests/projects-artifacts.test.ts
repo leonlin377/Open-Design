@@ -454,7 +454,10 @@ describe("Projects and artifacts", () => {
         filenameBase: "bundle-artifact",
         files: {
           "/App.tsx": expect.stringContaining("Action Lane"),
-          "/styles.css": expect.stringContaining(".cta")
+          "/styles.css": expect.stringContaining(".cta"),
+          "/package.json": expect.stringContaining('"vite"'),
+          "/index.html": expect.stringContaining('<div id="root"></div>'),
+          "/main.tsx": expect.stringContaining('import App from "./App"')
         }
       });
     } finally {
