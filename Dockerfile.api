@@ -25,6 +25,9 @@ RUN pnpm --filter @opendesign/api build
 FROM base AS runtime
 
 ENV NODE_ENV=production
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
 
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY --from=deps /workspace/package.json ./package.json

@@ -213,6 +213,12 @@ describe("extractDesignSystemPackFromRepositoryFiles", () => {
           className: "cta-button",
           text: "Launch"
         }
+      ],
+      screenshots: [
+        {
+          label: "Primary viewport capture",
+          sourceRef: "https://atlas.example.com#primary-viewport"
+        }
       ]
     });
 
@@ -246,6 +252,18 @@ describe("extractDesignSystemPackFromRepositoryFiles", () => {
         expect.objectContaining({
           kind: "dom",
           sourceRef: "https://atlas.example.com"
+        }),
+        expect.objectContaining({
+          kind: "screenshot",
+          sourceRef: "https://atlas.example.com#primary-viewport"
+        })
+      ])
+    );
+    expect(result.pack.provenance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "screenshot",
+          sourceRef: "https://atlas.example.com#primary-viewport"
         })
       ])
     );

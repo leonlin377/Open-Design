@@ -2,9 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app";
 
 const originalFetch = globalThis.fetch;
+const originalSiteCaptureDisabled = process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  if (originalSiteCaptureDisabled === undefined) {
+    delete process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED;
+  } else {
+    process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED = originalSiteCaptureDisabled;
+  }
   vi.restoreAllMocks();
 });
 
@@ -274,6 +280,7 @@ describe("Design systems", () => {
   });
 
   it("imports a captured site into a persisted design system pack", async () => {
+    process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED = "1";
     globalThis.fetch = vi.fn(async (input) => {
       const url = String(input);
 
@@ -325,6 +332,7 @@ describe("Design systems", () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.json()).toMatchObject({
+        captureMode: "fetch",
         pack: {
           name: "atlas.example.com",
           source: "site-capture",
@@ -335,7 +343,8 @@ describe("Design systems", () => {
           }
         },
         summary: {
-          evidenceCount: expect.any(Number)
+          evidenceCount: expect.any(Number),
+          sourceKinds: expect.arrayContaining(["dom", "screenshot"])
         }
       });
       expect(response.json().pack.components).toEqual(
@@ -351,6 +360,7 @@ describe("Design systems", () => {
   });
 
   it("returns a structured error when site capture cannot fetch the page", async () => {
+    process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED = "1";
     globalThis.fetch = vi.fn(async () =>
       new Response("blocked", {
         status: 403

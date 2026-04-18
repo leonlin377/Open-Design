@@ -44,6 +44,8 @@ Useful backend command:
 
 Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.env`. `BETTER_AUTH_URL` and `WEB_BASE_URL` should stay browser-reachable values such as `http://127.0.0.1:4000` and `http://127.0.0.1:3000`.
 
+Site-capture imports now prefer a Playwright-driven browser capture path. In containers, `chromium` is installed and `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set automatically. On the host, you can set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` explicitly if your browser binary is not auto-discovered. Set `PLAYWRIGHT_SITE_CAPTURE_DISABLED=1` to force the older fetch-based capture path during debugging or deterministic test runs.
+
 ## Workspace
 
 - `apps/web`: Next.js studio UI

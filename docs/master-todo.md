@@ -1,7 +1,7 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `4f41dac`
+Repo baseline: `0cfd3fb`
 
 ## Why This Exists
 
@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `79%`
+Current estimated product completion for a serious V1: `81%`
 
 ```text
-[################----] 79%
+[################----] 81%
 ```
 
 ## Phase Scoreboard
@@ -45,7 +45,7 @@ Current estimated product completion for a serious V1: `79%`
 | --- | --- | --- | --- |
 | 1 | AI generation pipeline | 86% | `[>]` |
 | 2 | Scene/code synchronization | 82% | `[>]` |
-| 3 | Design system ingest and grounding | 72% | `[>]` |
+| 3 | Design system ingest and grounding | 80% | `[>]` |
 | 4 | Prototype and slides | 0% | `[ ]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
 | 6 | Assets, reliability, ops | 35% | `[>]` |
@@ -65,11 +65,10 @@ What is already working:
 - [x] Saved code workspace persistence
 - [x] Snapshot creation and version restore for scene + saved code workspace
 - [x] HTML export and runnable ZIP source export
-- [x] GitHub, local-directory, and fetch-based site-capture design-system import
+- [x] GitHub, local-directory, and Playwright-first site-capture design-system import
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Browser-grade site capture with screenshots and richer style evidence
 - [ ] Design-system-constrained generation
 - [ ] Broader safe `code -> scene` synchronization
 - [ ] Prototype artifact type
@@ -91,32 +90,6 @@ What still blocks a true Claude Design benchmark:
 ## Current Execution Queue
 
 These are the tasks that should be worked continuously next.
-
-### DS-004 Upgrade Site Capture To Playwright Browser Capture
-
-- Status: `[r]`
-- Priority: `P0`
-- Owner Lane: `api`, `shared`, `infra`
-- Depends On: `DS-001`, `DS-002`, `DS-003`
-- Blocks: `DS-005`
-- Why Now:
-  Current site capture is fetch-based HTML/CSS evidence only. It is the main gap between the current ingest flow and a high-quality grounded design import.
-- Definition Of Done:
-  - A URL is captured through Playwright in a browser context.
-  - Import stores screenshot evidence plus richer DOM/style evidence.
-  - Existing `/api/design-systems/import/site-capture` remains stable for callers.
-  - Failure modes are explicit and recoverable.
-- Validation Commands:
-  - `pnpm --filter @opendesign/api test -- tests/design-systems.test.ts`
-  - `pnpm --dir packages/design-ingest exec vitest run tests/design-ingest.test.ts`
-  - `pnpm typecheck`
-- Expected Artifacts:
-  - `apps/api/src/routes/design-systems.ts`
-  - `packages/design-ingest/src/index.ts`
-  - `apps/api/tests/design-systems.test.ts`
-  - `packages/design-ingest/tests/design-ingest.test.ts`
-- Next Slice:
-  - `DS-005 Use imported packs as generation constraints`
 
 ### DS-005 Use Imported Packs As Generation Constraints
 
@@ -291,8 +264,8 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 - [x] `DS-002` Implement local directory import
 - [>] `DS-003` Implement site-capture import and persistence flow
   Current:
-  Fetch-based HTML/CSS/DOM evidence capture is implemented and tested.
-- [r] `DS-004` Upgrade site capture import from fetch-based evidence to Playwright browser capture
+  Site-capture import is implemented with Playwright-first browser capture, screenshot provenance, and explicit fetch fallback.
+- [x] `DS-004` Upgrade site capture import from fetch-based evidence to Playwright browser capture
   Done when:
   A URL can be crawled through a real browser session and reduced into screenshots, style evidence, and extracted tokens.
 - [r] `DS-005` Use imported packs as generation constraints
@@ -343,7 +316,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 - [x] GitHub design-system import
 - [x] Local-directory design-system import
-- [x] Fetch-based site-capture import
+- [x] Playwright-first site-capture import with screenshot provenance
 - [x] Scene -> code synchronization for generated website artifacts
 - [x] Safe-subset code -> scene synchronization
 - [x] Streaming generation progress and structured generation failures
@@ -352,9 +325,8 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 If no blocker appears, continue in this exact order:
 
-1. `DS-004` Upgrade site capture to Playwright browser capture
-2. `DS-005` Use imported packs as generation constraints
-3. `SYNC-003` Broaden supported code -> scene sync safely
-4. `OPS-001` Add Playwright E2E coverage for core Studio flows
-5. `TYPE-001` Prototype-specific scene and preview
-6. `TYPE-002` Slides-specific scene structure
+1. `DS-005` Use imported packs as generation constraints
+2. `SYNC-003` Broaden supported code -> scene sync safely
+3. `OPS-001` Add Playwright E2E coverage for core Studio flows
+4. `TYPE-001` Prototype-specific scene and preview
+5. `TYPE-002` Slides-specific scene structure

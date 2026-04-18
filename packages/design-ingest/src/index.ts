@@ -54,6 +54,11 @@ export type SiteCaptureDomNode = {
   text?: string | null;
 };
 
+export type SiteCaptureScreenshot = {
+  label: string;
+  sourceRef: string;
+};
+
 export type PackEvidenceSummary = {
   evidenceCount: number;
   provenanceCount: number;
@@ -350,6 +355,7 @@ export const extractDesignSystemPackFromSiteCapture = (input: {
   html: string;
   stylesheets: SiteCaptureStylesheet[];
   domNodes: SiteCaptureDomNode[];
+  screenshots?: SiteCaptureScreenshot[];
 }): ExtractedPackResult => {
   const colors: Record<string, string> = {};
   const typography: Record<string, string> = {};
@@ -364,6 +370,7 @@ export const extractDesignSystemPackFromSiteCapture = (input: {
   ];
   const warnings: string[] = [];
   const baseUrl = new URL(input.source.url);
+  const screenshots = input.screenshots ?? [];
 
   const styleSources: SiteCaptureStylesheet[] = [
     ...input.stylesheets,
@@ -487,10 +494,28 @@ export const extractDesignSystemPackFromSiteCapture = (input: {
     });
   }
 
+  const screenshotTargets =
+    motifs.length > 0 ? motifs.map((motif) => `motifs.${motif.id}`) : ["capture.primary-viewport"];
+
+  for (const screenshot of screenshots) {
+    evidence.push({
+      label: screenshot.label,
+      kind: "screenshot",
+      sourceRef: screenshot.sourceRef
+    });
+    provenance.push({
+      id: buildProvenanceId("screenshot", screenshot.sourceRef, provenance.length),
+      type: "screenshot",
+      sourceRef: screenshot.sourceRef,
+      targets: screenshotTargets
+    });
+  }
+
   if (
     Object.keys(colors).length === 0 &&
     Object.keys(typography).length === 0 &&
-    components.size === 0
+    components.size === 0 &&
+    screenshots.length === 0
   ) {
     warnings.push(
       "Site capture did not find obvious reusable tokens or component signatures in the provided page."
