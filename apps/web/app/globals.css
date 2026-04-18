@@ -334,6 +334,15 @@ main {
   overflow: auto;
 }
 
+.studio-tab-panel {
+  display: none;
+  gap: 12px;
+}
+
+.studio-tab-panel.active {
+  display: grid;
+}
+
 .kv {
   display: grid;
   gap: 6px;
@@ -398,6 +407,32 @@ main {
 .source-bundle-stack {
   display: grid;
   gap: 12px;
+}
+
+.studio-sandpack-shell {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(42, 49, 66, 0.8);
+  overflow: hidden;
+  min-height: 520px;
+  background: rgba(7, 9, 13, 0.88);
+}
+
+.studio-preview-shell {
+  min-height: 520px;
+}
+
+.studio-code-layout {
+  min-height: 560px;
+}
+
+.studio-code-column {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+}
+
+.studio-code-column .sp-editor {
+  flex: 1;
 }
 
 .code-surface {
