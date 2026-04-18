@@ -1,6 +1,6 @@
 # OpenDesign Master TODO
 
-Last updated: 2026-04-18
+Last updated: 2026-04-19
 Repo baseline: `5e126dd`
 
 ## Status Legend
@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `54%`
+Current estimated product completion for a serious V1: `57%`
 
 ```
-[###########---------] 54%
+[###########---------] 57%
 ```
 
 ## Current Reality
@@ -60,7 +60,7 @@ The order below is the build order I will keep following unless a lower-level bl
 
 Goal: Move from manual scene editing to a real artifact-generation system.
 
-- [~] Wire LiteLLM into the actual artifact generation flow
+- [x] Wire LiteLLM into the actual artifact generation flow
   Done when:
   API routes can call a configured gateway and receive streamed responses.
 - [ ] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
@@ -207,6 +207,6 @@ Goal: Close the gap between a functional system and a high-quality product.
 This is the immediate build sequence I should continue with next:
 
 - [x] Add scene/code diff preview in Versions lane
-- [ ] Harden generation route from fallback-only into streamed LiteLLM execution
-- [ ] Add generation status and failure UI in Chat Rail
+- [x] Harden generation route from fallback-only into streamed LiteLLM execution
+- [x] Add generation status and failure UI in Chat Rail
 - [ ] Move section editing out of the Studio page into reusable editor components

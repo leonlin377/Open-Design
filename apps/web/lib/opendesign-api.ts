@@ -250,6 +250,11 @@ export async function generateArtifact(input: {
 
   return (await response.json()) as {
     plan: ArtifactGenerationPlan;
+    generation: {
+      provider: "litellm" | "heuristic";
+      transport: "stream" | "fallback";
+      warning: string | null;
+    };
     appendedNodes: Array<{
       id: string;
       type: string;

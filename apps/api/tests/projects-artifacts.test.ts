@@ -289,6 +289,11 @@ describe("Projects and artifacts", () => {
           provider: "heuristic",
           sections: ["hero", "feature-grid", "cta"]
         },
+        generation: {
+          provider: "heuristic",
+          transport: "fallback",
+          warning: expect.any(String)
+        },
         version: {
           artifactId: artifact.id,
           source: "prompt"

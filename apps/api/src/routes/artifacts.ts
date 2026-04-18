@@ -639,13 +639,12 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       }
 
       const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
-      const plan = ArtifactGenerationPlanSchema.parse(
-        await generateArtifactPlan({
-          artifactKind: artifact.kind,
-          artifactName: artifact.name,
-          prompt: body.prompt
-        })
-      );
+      const generation = await generateArtifactPlan({
+        artifactKind: artifact.kind,
+        artifactName: artifact.name,
+        prompt: body.prompt
+      });
+      const plan = ArtifactGenerationPlanSchema.parse(generation.plan);
 
       let sceneDocument = workspace.sceneDocument;
       const appendedNodes: SceneNode[] = [];
@@ -688,6 +687,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
       return reply.code(201).send({
         plan,
+        generation: generation.diagnostics,
         appendedNodes,
         version,
         workspace: buildWorkspacePayload({

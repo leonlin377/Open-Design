@@ -5,6 +5,17 @@ import {
   type SceneTemplateKind
 } from "@opendesign/contracts";
 
+type ArtifactGenerationDiagnostics = {
+  provider: ArtifactGenerationPlan["provider"];
+  transport: "stream" | "fallback";
+  warning: string | null;
+};
+
+export type ArtifactPlanGenerationResult = {
+  plan: ArtifactGenerationPlan;
+  diagnostics: ArtifactGenerationDiagnostics;
+};
+
 type GenerateArtifactPlanInput = {
   artifactKind: ArtifactKind;
   artifactName: string;
@@ -64,10 +75,125 @@ function buildHeuristicPlan(input: GenerateArtifactPlanInput): ArtifactGeneratio
   });
 }
 
+function buildHeuristicResult(
+  input: GenerateArtifactPlanInput,
+  warning: string
+): ArtifactPlanGenerationResult {
+  return {
+    plan: buildHeuristicPlan(input),
+    diagnostics: {
+      provider: "heuristic",
+      transport: "fallback",
+      warning
+    }
+  };
+}
+
+function readTimeoutMs(env: NodeJS.ProcessEnv) {
+  const value = Number(env.OPENDESIGN_GENERATION_TIMEOUT_MS ?? "15000");
+  return Number.isFinite(value) && value > 0 ? value : 15000;
+}
+
+function readStreamDeltaContent(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (!Array.isArray(value)) {
+    return "";
+  }
+
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return entry;
+      }
+
+      if (typeof entry !== "object" || entry === null) {
+        return "";
+      }
+
+      if ("text" in entry && typeof entry.text === "string") {
+        return entry.text;
+      }
+
+      return "";
+    })
+    .join("");
+}
+
+async function readChatCompletionStream(response: Response) {
+  if (!response.body) {
+    return null;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (!trimmed.startsWith("data:")) {
+        continue;
+      }
+
+      const payload = trimmed.slice(5).trim();
+
+      if (!payload || payload === "[DONE]") {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(payload) as {
+          choices?: Array<{
+            delta?: {
+              content?: unknown;
+            };
+          }>;
+        };
+        const delta = readStreamDeltaContent(parsed.choices?.[0]?.delta?.content);
+
+        if (delta) {
+          content += delta;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  return content.trim() ? content : null;
+}
+
+async function readChatCompletionJson(response: Response) {
+  const payload = (await response.json()) as {
+    choices?: Array<{
+      message?: {
+        content?: string | null;
+      };
+    }>;
+  };
+
+  return payload.choices?.[0]?.message?.content?.trim() || null;
+}
+
 async function generatePlanViaLiteLLM(
   input: GenerateArtifactPlanInput,
   env: NodeJS.ProcessEnv
-): Promise<ArtifactGenerationPlan | null> {
+): Promise<ArtifactPlanGenerationResult | null> {
   const baseUrl = env.LITELLM_API_BASE_URL ?? env.OPENAI_API_BASE_URL;
   const model = env.OPENDESIGN_GENERATION_MODEL;
 
@@ -77,49 +203,54 @@ async function generatePlanViaLiteLLM(
 
   const apiKey =
     env.LITELLM_MASTER_KEY ?? env.OPENAI_API_KEY ?? env.LITELLM_API_KEY ?? "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), readTimeoutMs(env));
 
-  const response = await fetch(`${normalizeBaseUrl(baseUrl)}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: {
-        type: "json_object"
+  let response: Response;
+
+  try {
+    response = await fetch(`${normalizeBaseUrl(baseUrl)}/chat/completions`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
       },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are generating a compact artifact plan. Return JSON only with keys: prompt, intent, rationale, sections, provider. sections must be an array using only hero, feature-grid, cta."
+      body: JSON.stringify({
+        model,
+        stream: true,
+        temperature: 0.2,
+        response_format: {
+          type: "json_object"
         },
-        {
-          role: "user",
-          content: JSON.stringify({
-            artifactKind: input.artifactKind,
-            artifactName: input.artifactName,
-            prompt: input.prompt
-          })
-        }
-      ]
-    })
-  });
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are generating a compact artifact plan. Return JSON only with keys: prompt, intent, rationale, sections, provider. sections must be an array using only hero, feature-grid, cta."
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              artifactKind: input.artifactKind,
+              artifactName: input.artifactName,
+              prompt: input.prompt
+            })
+          }
+        ]
+      })
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     return null;
   }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string | null;
-      };
-    }>;
-  };
-  const content = payload.choices?.[0]?.message?.content;
+  const contentType = response.headers.get("content-type") ?? "";
+  const content = contentType.includes("text/event-stream")
+    ? await readChatCompletionStream(response)
+    : await readChatCompletionJson(response);
 
   if (!content) {
     return null;
@@ -127,11 +258,18 @@ async function generatePlanViaLiteLLM(
 
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
-    return ArtifactGenerationPlanSchema.parse({
-      ...parsed,
-      prompt: input.prompt,
-      provider: "litellm"
-    });
+    return {
+      plan: ArtifactGenerationPlanSchema.parse({
+        ...parsed,
+        prompt: input.prompt,
+        provider: "litellm"
+      }),
+      diagnostics: {
+        provider: "litellm",
+        transport: "stream",
+        warning: null
+      }
+    };
   } catch {
     return null;
   }
@@ -139,8 +277,18 @@ async function generatePlanViaLiteLLM(
 
 export async function generateArtifactPlan(
   input: GenerateArtifactPlanInput
-): Promise<ArtifactGenerationPlan> {
+): Promise<ArtifactPlanGenerationResult> {
   const env = input.env ?? process.env;
+  const fallbackReason =
+    !env.LITELLM_API_BASE_URL && !env.OPENAI_API_BASE_URL
+      ? "LiteLLM gateway is not configured, so generation fell back to the local heuristic planner."
+      : !env.OPENDESIGN_GENERATION_MODEL
+        ? "No generation model is configured, so generation fell back to the local heuristic planner."
+        : null;
+
+  if (fallbackReason) {
+    return buildHeuristicResult(input, fallbackReason);
+  }
 
   try {
     const remotePlan = await generatePlanViaLiteLLM(input, env);
@@ -149,8 +297,14 @@ export async function generateArtifactPlan(
       return remotePlan;
     }
   } catch {
-    // Fall through to heuristic generation when the gateway is unavailable.
+    return buildHeuristicResult(
+      input,
+      "LiteLLM generation failed, so generation fell back to the local heuristic planner."
+    );
   }
 
-  return buildHeuristicPlan(input);
+  return buildHeuristicResult(
+    input,
+    "LiteLLM returned an invalid streamed plan, so generation fell back to the local heuristic planner."
+  );
 }
