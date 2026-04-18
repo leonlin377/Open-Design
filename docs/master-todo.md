@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `83%`
+Current estimated product completion for a serious V1: `85%`
 
 ```text
-[#################---] 83%
+[#################---] 85%
 ```
 
 ## Phase Scoreboard
@@ -44,7 +44,7 @@ Current estimated product completion for a serious V1: `83%`
 | Phase | Area | Estimated Completion | Status |
 | --- | --- | --- | --- |
 | 1 | AI generation pipeline | 90% | `[>]` |
-| 2 | Scene/code synchronization | 82% | `[>]` |
+| 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 0% | `[ ]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
@@ -70,7 +70,6 @@ What is already working:
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Broader safe `code -> scene` synchronization
 - [ ] Prototype artifact type
 - [ ] Slides artifact type
 - [ ] Sharing, roles, and collaboration flows
@@ -93,7 +92,7 @@ These are the tasks that should be worked continuously next.
 
 ### SYNC-003 Broaden Supported Code -> Scene Sync Beyond App.tsx Sections Data
 
-- Status: `[r]`
+- Status: `[x]`
 - Priority: `P0`
 - Owner Lane: `shared`, `api`, `web`
 - Depends On: `SYNC-001`, `SYNC-002`
@@ -101,9 +100,9 @@ These are the tasks that should be worked continuously next.
 - Why Now:
   Current back-sync only supports the conservative `App.tsx` sections data format. That is enough for safety, but not enough for a high-quality editor workflow.
 - Definition Of Done:
-  - Safe supported scaffold surface expands beyond the current `const sections = [...]` path.
-  - Unsupported edits still fail closed and do not corrupt scene state.
-  - Studio clearly indicates whether a save also synced scene state.
+  - [x] Safe supported scaffold surface expands beyond the current `const sections = [...]` path.
+  - [x] Unsupported edits still fail closed and do not corrupt scene state.
+  - [x] Studio clearly indicates whether a save also synced scene state.
 - Validation Commands:
   - `pnpm --dir packages/code-sync exec vitest run tests/code-sync.test.ts`
   - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
@@ -111,6 +110,7 @@ These are the tasks that should be worked continuously next.
 - Expected Artifacts:
   - `packages/code-sync/src/index.ts`
   - `packages/code-sync/tests/code-sync.test.ts`
+  - `packages/exporters/src/index.ts`
   - `apps/api/src/routes/artifacts.ts`
   - `apps/web/components/studio-inspector.tsx`
 - Next Slice:
@@ -197,8 +197,6 @@ These tasks are known to depend on unfinished upstream work.
   Blocked by: `OPS-001`
 - `[!] COLLAB-002 Add roles: viewer/commenter/editor`
   Blocked by: `COLLAB-001`
-- `[!] COLLAB-003 Upgrade comment anchors to element-aware anchors`
-  Blocked by: `SYNC-003`
 - `[!] COLLAB-004 Build handoff export bundle`
   Blocked by: `TYPE-001`, `TYPE-002`, `ASSET-001`
 - `[!] OPS-003 Validate full Docker studio stack in real build/run mode`

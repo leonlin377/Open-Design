@@ -89,6 +89,12 @@ function normalizeFiles(files: Record<string, string>) {
   );
 }
 
+function omitSyncPayloadFile(files: Record<string, string>) {
+  const nextFiles = { ...files };
+  delete nextFiles["/opendesign.sync.json"];
+  return nextFiles;
+}
+
 function diffFilePaths(input: {
   previousFiles: Record<string, string>;
   nextFiles: Record<string, string>;
@@ -104,6 +110,22 @@ function diffFilePaths(input: {
         (input.previousFiles[filePath] ?? null) !== (input.nextFiles[filePath] ?? null)
     )
     .sort((leftPath, rightPath) => leftPath.localeCompare(rightPath));
+}
+
+function matchesGeneratedScaffold(input: {
+  currentFiles: Record<string, string>;
+  previousBundleFiles: Record<string, string>;
+}) {
+  const normalizedCurrentFiles = normalizeFiles(input.currentFiles);
+  const normalizedPreviousBundle = normalizeFiles(input.previousBundleFiles);
+
+  if (normalizedCurrentFiles === normalizedPreviousBundle) {
+    return true;
+  }
+
+  return (
+    normalizedCurrentFiles === normalizeFiles(omitSyncPayloadFile(input.previousBundleFiles))
+  );
 }
 
 function extractSectionsLiteral(appCode: string) {
@@ -123,6 +145,45 @@ function extractSectionsLiteral(appCode: string) {
   }
 
   return appCode.slice(valueStart, endIndex).trim();
+}
+
+function readSyncPayloadSections(files: Record<string, string>) {
+  const syncPayloadRaw = files["/opendesign.sync.json"];
+
+  if (typeof syncPayloadRaw !== "string" || syncPayloadRaw.trim().length === 0) {
+    return {
+      status: "missing" as const,
+      sections: null
+    };
+  }
+
+  let parsedPayload: unknown;
+
+  try {
+    parsedPayload = JSON.parse(syncPayloadRaw);
+  } catch {
+    return {
+      status: "invalid-json" as const,
+      sections: null
+    };
+  }
+
+  if (
+    typeof parsedPayload !== "object" ||
+    parsedPayload === null ||
+    (parsedPayload as { version?: unknown }).version !== 1 ||
+    !Array.isArray((parsedPayload as { sections?: unknown }).sections)
+  ) {
+    return {
+      status: "invalid-shape" as const,
+      sections: null
+    };
+  }
+
+  return {
+    status: "valid" as const,
+    sections: (parsedPayload as { sections: unknown[] }).sections
+  };
 }
 
 function readStringRecord(
@@ -322,7 +383,10 @@ export const syncSceneToCodeWorkspace = (input: {
   }
 
   if (
-    normalizeFiles(input.currentCodeWorkspace.files) !== normalizeFiles(previousBundle.files)
+    !matchesGeneratedScaffold({
+      currentFiles: input.currentCodeWorkspace.files,
+      previousBundleFiles: previousBundle.files
+    })
   ) {
     return {
       applied: false,
@@ -362,35 +426,53 @@ export const syncCodeToSceneDocument = (input: {
   }
 
   const appCode = input.files["/App.tsx"];
+  const syncPayloadDecision = readSyncPayloadSections(input.files);
+  let parsedSections: unknown = null;
+  let syncReasonPrefix = "";
 
-  if (typeof appCode !== "string" || appCode.trim().length === 0) {
-    return {
-      applied: false,
-      reason: "Code workspace is missing /App.tsx, so scene sync is unsupported.",
-      sceneDocument: null
-    };
-  }
+  if (syncPayloadDecision.status === "valid") {
+    parsedSections = syncPayloadDecision.sections;
+    syncReasonPrefix =
+      "Saved code workspace still matches the supported stable sync payload, so section data synced back into the scene document.";
+  } else if (syncPayloadDecision.status === "missing") {
+    if (typeof appCode !== "string" || appCode.trim().length === 0) {
+      return {
+        applied: false,
+        reason:
+          "Code workspace is missing both /opendesign.sync.json and /App.tsx, so scene sync is unsupported.",
+        sceneDocument: null
+      };
+    }
 
-  const sectionsLiteral = extractSectionsLiteral(appCode);
+    const sectionsLiteral = extractSectionsLiteral(appCode);
 
-  if (!sectionsLiteral) {
+    if (!sectionsLiteral) {
+      return {
+        applied: false,
+        reason:
+          "App.tsx no longer matches the supported legacy scaffold pattern, so scene sync is unsupported.",
+        sceneDocument: null
+      };
+    }
+
+    try {
+      parsedSections = JSON.parse(sectionsLiteral);
+    } catch {
+      return {
+        applied: false,
+        reason:
+          "App.tsx sections data is no longer valid JSON, so scene sync is unsupported.",
+        sceneDocument: null
+      };
+    }
+
+    syncReasonPrefix =
+      "Saved App.tsx still matches the supported legacy scaffold pattern, so section data synced back into the scene document.";
+  } else {
     return {
       applied: false,
       reason:
-        "App.tsx no longer matches the supported scaffold pattern, so scene sync is unsupported.",
-      sceneDocument: null
-    };
-  }
-
-  let parsedSections: unknown;
-
-  try {
-    parsedSections = JSON.parse(sectionsLiteral);
-  } catch {
-    return {
-      applied: false,
-      reason:
-        "App.tsx sections data is no longer valid JSON, so scene sync is unsupported.",
+        "opendesign.sync.json is present but invalid, so scene sync is limited to the saved code workspace only.",
       sceneDocument: null
     };
   }
@@ -401,7 +483,9 @@ export const syncCodeToSceneDocument = (input: {
     return {
       applied: false,
       reason:
-        "App.tsx contains unsupported section data, so scene sync is limited to the saved code workspace only.",
+        syncPayloadDecision.status === "valid"
+          ? "opendesign.sync.json contains unsupported section data, so scene sync is limited to the saved code workspace only."
+          : "App.tsx contains unsupported section data, so scene sync is limited to the saved code workspace only.",
       sceneDocument: null
     };
   }
@@ -411,7 +495,10 @@ export const syncCodeToSceneDocument = (input: {
   } catch {
     return {
       applied: false,
-      reason: "App.tsx produced duplicate section ids, so scene sync is unsupported.",
+      reason:
+        syncPayloadDecision.status === "valid"
+          ? "opendesign.sync.json produced duplicate section ids, so scene sync is unsupported."
+          : "App.tsx produced duplicate section ids, so scene sync is unsupported.",
       sceneDocument: null
     };
   }
@@ -419,15 +506,17 @@ export const syncCodeToSceneDocument = (input: {
   if (JSON.stringify(nodes) === JSON.stringify(input.currentSceneDocument.nodes)) {
     return {
       applied: false,
-      reason: "Supported App.tsx section data already matches the current scene.",
+      reason:
+        syncPayloadDecision.status === "valid"
+          ? "Supported opendesign.sync.json section data already matches the current scene."
+          : "Supported legacy App.tsx section data already matches the current scene.",
       sceneDocument: null
     };
   }
 
   return {
     applied: true,
-    reason:
-      "Saved App.tsx still matches the supported scaffold pattern, so section data synced back into the scene document.",
+    reason: syncReasonPrefix,
     sceneDocument: {
       ...input.currentSceneDocument,
       version: input.currentSceneDocument.version + 1,

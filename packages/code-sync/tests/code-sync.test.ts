@@ -156,6 +156,80 @@ describe("syncSceneToCodeWorkspace", () => {
     expect(decision.filesTouched).toContain("/App.tsx");
   });
 
+  test("regenerates a legacy saved scaffold that only lacks the sync payload file", () => {
+    const previousSceneDocument = createEmptySceneDocument({
+      artifactId: "artifact_1",
+      kind: "website"
+    });
+    const sceneVersionTwo = {
+      artifactId: "artifact_1",
+      id: "scene_artifact_1",
+      kind: "website" as const,
+      metadata: {},
+      version: 2,
+      nodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            headline: "Initial headline",
+            body: "Initial body"
+          },
+          children: []
+        }
+      ]
+    };
+    const derivedDecision = syncSceneToCodeWorkspace({
+      artifactKind: "website",
+      artifactName: "Atlas",
+      previousIntent: "Seed prompt",
+      nextIntent: "Seed prompt",
+      previousSceneDocument,
+      nextSceneDocument: sceneVersionTwo,
+      currentCodeWorkspace: null
+    });
+    const legacyFiles = { ...derivedDecision.codeWorkspace!.files };
+    delete legacyFiles["/opendesign.sync.json"];
+    const updatedSceneDocument = {
+      ...sceneVersionTwo,
+      version: 3,
+      nodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            headline: "Updated headline",
+            body: "Initial body"
+          },
+          children: []
+        }
+      ]
+    };
+
+    const decision = syncSceneToCodeWorkspace({
+      artifactKind: "website",
+      artifactName: "Atlas",
+      previousIntent: "Seed prompt",
+      nextIntent: "Seed prompt",
+      previousSceneDocument: sceneVersionTwo,
+      nextSceneDocument: updatedSceneDocument,
+      currentCodeWorkspace: {
+        files: legacyFiles,
+        baseSceneVersion: 2,
+        updatedAt: "2026-04-19T00:00:00.000Z"
+      }
+    });
+
+    expect(decision.applied).toBe(true);
+    expect(decision.codeWorkspace?.files["/opendesign.sync.json"]).toContain(
+      '"headline": "Updated headline"'
+    );
+  });
+
   test("preserves a diverged saved scaffold", () => {
     const previousSceneDocument = createEmptySceneDocument({
       artifactId: "artifact_1",
@@ -203,6 +277,57 @@ describe("syncSceneToCodeWorkspace", () => {
 });
 
 describe("syncCodeToSceneDocument", () => {
+  test("updates a website scene from the stable sync payload", () => {
+    const currentSceneDocument = {
+      ...createEmptySceneDocument({
+        artifactId: "artifact_1",
+        kind: "website"
+      }),
+      version: 2,
+      nodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            eyebrow: "Launch Surface",
+            headline: "Initial headline",
+            body: "Initial body"
+          },
+          children: []
+        }
+      ]
+    };
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: "Atlas",
+      prompt: "Seed prompt",
+      sceneNodes: currentSceneDocument.nodes
+    });
+    const syncPayload = JSON.parse(bundle.files["/opendesign.sync.json"]!);
+    syncPayload.sections[0].headline = "Updated from sync payload";
+    syncPayload.sections[0].body = "Updated body from sync payload";
+
+    const decision = syncCodeToSceneDocument({
+      artifactKind: "website",
+      currentSceneDocument,
+      files: {
+        ...bundle.files,
+        "/opendesign.sync.json": JSON.stringify(syncPayload, null, 2)
+      }
+    });
+
+    expect(decision.applied).toBe(true);
+    expect(decision.sceneDocument?.version).toBe(3);
+    expect(decision.sceneDocument?.nodes[0]).toMatchObject({
+      props: {
+        headline: "Updated from sync payload",
+        body: "Updated body from sync payload"
+      }
+    });
+  });
+
   test("updates a website scene from supported App.tsx sections data", () => {
     const currentSceneDocument = {
       ...createEmptySceneDocument({
@@ -237,6 +362,7 @@ describe("syncCodeToSceneDocument", () => {
       currentSceneDocument,
       files: {
         ...bundle.files,
+        "/opendesign.sync.json": "",
         "/App.tsx": bundle.files["/App.tsx"]!
           .replace("Initial headline", "Updated from code")
           .replace("Initial body", "Updated body from code")
@@ -251,6 +377,36 @@ describe("syncCodeToSceneDocument", () => {
         body: "Updated body from code"
       }
     });
+    expect(decision.reason).toContain("legacy");
+  });
+
+  test("fails closed when the stable sync payload is invalid", () => {
+    const currentSceneDocument = createEmptySceneDocument({
+      artifactId: "artifact_1",
+      kind: "website"
+    });
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: "Atlas",
+      prompt: "Seed prompt",
+      sceneNodes: currentSceneDocument.nodes
+    });
+
+    const decision = syncCodeToSceneDocument({
+      artifactKind: "website",
+      currentSceneDocument,
+      files: {
+        ...bundle.files,
+        "/opendesign.sync.json": JSON.stringify({
+          version: 1,
+          sections: [{ id: "hero_1", template: "hero" }, { id: "hero_1", template: "cta" }]
+        })
+      }
+    });
+
+    expect(decision.applied).toBe(false);
+    expect(decision.sceneDocument).toBeNull();
+    expect(decision.reason).toContain("unsupported");
   });
 
   test("preserves scene when App.tsx is no longer a supported scaffold", () => {

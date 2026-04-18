@@ -159,6 +159,8 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/main.tsx"]).toContain('import App from "./App"');
     expect(bundle.files["/index.html"]).toContain("<div id=\"root\"></div>");
     expect(bundle.files["/README.md"]).toContain("npm run dev");
+    expect(bundle.files["/opendesign.sync.json"]).toContain('"version": 1');
+    expect(bundle.files["/opendesign.sync.json"]).toContain('"template": "hero"');
   });
 });
 

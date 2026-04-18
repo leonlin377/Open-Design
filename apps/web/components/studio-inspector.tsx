@@ -130,8 +130,8 @@ function SaveCodeWorkspaceForm(props: {
         tone: result?.sceneSync.status === "unchanged" ? "warning" : "success",
         message:
           result?.sceneSync.status === "synced"
-            ? "Saved code workspace and synced supported section data back into the scene."
-            : `Saved code workspace. ${result?.sceneSync.reason ?? "Scene stayed unchanged."}`
+            ? "Saved code workspace and synced supported section fields back into the scene."
+            : `Saved code workspace. Preview and ZIP export now use this scaffold. ${result?.sceneSync.reason ?? "Scene stayed unchanged."}`
       });
     });
   }
@@ -154,18 +154,24 @@ function SaveCodeWorkspaceForm(props: {
         </span>
         <span>
           {hasSceneDrift
-            ? `Scene is now v${props.sceneVersion}; save again to refresh ZIP and preview from the latest scene baseline`
+            ? `Scene is now v${props.sceneVersion}; save again to rebase the saved code workspace on the latest scene baseline`
             : "ZIP export follows the saved code workspace when present"}
         </span>
       </div>
+      <div className="footer-note">
+        Save Code Workspace persists the current scaffold for preview and ZIP export. It
+        only syncs supported section fields back into the scene; unsupported code edits
+        stay code-only.
+      </div>
       <div className="studio-status-row">
         <span className={hasUnsavedDraft ? "status-pill warning" : "status-pill success"}>
-          {hasUnsavedDraft ? "Unsaved Draft" : "Draft Matches Saved"}
+          {hasUnsavedDraft ? "Code Draft Unsaved" : "Code Draft Saved"}
         </span>
         <span className="footer-note">
           {hasUnsavedDraft
             ? "The current Sandpack session differs from the saved code workspace."
-            : "The current Sandpack session matches the saved code workspace."}
+            : "The current Sandpack session matches the saved code workspace."}{" "}
+          This compares code only, not the scene document.
         </span>
       </div>
       {feedback ? (
@@ -245,7 +251,8 @@ export function StudioInspector({
           <div className={activeTab === "preview" ? "studio-tab-panel active" : "studio-tab-panel"}>
             <div className="footer-note">
               Preview runs from the live session bundle. Saved code workspaces seed this
-              bundle when present, while snapshots and HTML export stay scene-based.
+              bundle when present, while snapshots and HTML export stay scene-based unless
+              supported section fields sync back.
             </div>
             <div className="studio-sandpack-shell">
               <SandpackPreview
@@ -275,7 +282,8 @@ export function StudioInspector({
                 <h3>Session Code Workspace</h3>
                 <p className="footer-note">
                   Edit the scaffold locally, then save it as a persisted code workspace.
-                  Scene snapshots and HTML export still follow the scene document.
+                  Scene snapshots and HTML export still follow the scene document unless
+                  supported section fields sync back.
                 </p>
               </div>
               <div className="project-meta">

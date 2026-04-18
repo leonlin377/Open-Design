@@ -89,6 +89,14 @@ type RenderableSection = {
   secondaryAction?: string;
 };
 
+type ArtifactSyncPayload = {
+  version: 1;
+  artifactKind: ArtifactKind;
+  artifactName: string;
+  prompt: string;
+  sections: RenderableSection[];
+};
+
 const DEFAULT_FEATURE_GRID_ITEMS = [
   {
     label: "Scene",
@@ -355,6 +363,19 @@ export const buildRenderableSections = (input: {
   });
 };
 
+export const buildArtifactSyncPayload = (input: {
+  artifactKind: ArtifactKind;
+  artifactName: string;
+  prompt: string;
+  sceneNodes: SceneNode[];
+}): ArtifactSyncPayload => ({
+  version: 1,
+  artifactKind: input.artifactKind,
+  artifactName: input.artifactName,
+  prompt: input.prompt,
+  sections: buildRenderableSections(input)
+});
+
 export const buildArtifactSourceBundle = (input: {
   artifactKind: ArtifactKind;
   artifactName: string;
@@ -366,7 +387,8 @@ export const buildArtifactSourceBundle = (input: {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   const filenameBase = safeName || "artifact";
-  const sections = JSON.stringify(buildRenderableSections(input));
+  const syncPayload = buildArtifactSyncPayload(input);
+  const sections = JSON.stringify(syncPayload.sections);
 
   const appCode = `import "./styles.css";
 
@@ -462,6 +484,7 @@ This source bundle is generated from OpenDesign's live scene document.
 - \`index.html\` boots the Vite app shell.
 - \`main.tsx\` mounts React into the page.
 - \`App.tsx\` is generated from the current scene structure.
+- \`opendesign.sync.json\` stores the supported machine-readable scene sync payload.
 - \`styles.css\` contains the shared artifact presentation styles.
 `,
       "/package.json": JSON.stringify(
@@ -544,6 +567,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   </React.StrictMode>
 );
 `,
+      "/opendesign.sync.json": JSON.stringify(syncPayload, null, 2),
       "/App.tsx": appCode,
       "/styles.css": ARTIFACT_SOURCE_STYLES
     }

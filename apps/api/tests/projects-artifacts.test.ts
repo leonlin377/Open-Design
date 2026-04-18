@@ -437,6 +437,10 @@ describe("Projects and artifacts", () => {
         prompt: appendResponse.json().workspace.intent,
         sceneNodes: appendResponse.json().workspace.sceneDocument.nodes
       });
+      const currentHeroProps = appendResponse.json().workspace.sceneDocument.nodes[0].props as {
+        headline: string;
+        body: string;
+      };
 
       const saveResponse = await app.inject({
         method: "POST",
@@ -444,16 +448,10 @@ describe("Projects and artifacts", () => {
         payload: {
           files: {
             ...generatedBundle.files,
+            "/opendesign.sync.json": "",
             "/App.tsx": generatedBundle.files["/App.tsx"]
-              .replace("Hero Section", "Hero Section")
-              .replace(
-                "Code To Scene Artifact leads with cinematic hierarchy.",
-                "Code-driven headline"
-              )
-              .replace(
-                appendResponse.json().workspace.intent,
-                "Body copy updated from supported code sync."
-              )
+              .replace(currentHeroProps.headline, "Code-driven headline")
+              .replace(currentHeroProps.body, "Body copy updated from supported code sync.")
           },
           expectedUpdatedAt: appendResponse.json().workspace.codeWorkspace.updatedAt
         }
@@ -473,6 +471,75 @@ describe("Projects and artifacts", () => {
       });
       expect(saveResponse.json().workspace.codeWorkspace).toMatchObject({
         baseSceneVersion: 3
+      });
+      expect(saveResponse.json().sceneSync).toMatchObject({
+        status: "synced"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("syncs supported stable payload edits back into the scene on code save", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Sync Payload Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Sync Payload Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendResponse.statusCode).toBe(201);
+
+      const generatedBundle = buildArtifactSourceBundle({
+        artifactKind: "website",
+        artifactName: artifact.name,
+        prompt: appendResponse.json().workspace.intent,
+        sceneNodes: appendResponse.json().workspace.sceneDocument.nodes
+      });
+      const syncPayload = JSON.parse(generatedBundle.files["/opendesign.sync.json"]!);
+      syncPayload.sections[0].headline = "Payload-driven headline";
+      syncPayload.sections[0].body = "Body copy updated from stable sync payload.";
+
+      const saveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            ...generatedBundle.files,
+            "/opendesign.sync.json": JSON.stringify(syncPayload, null, 2)
+          },
+          expectedUpdatedAt: appendResponse.json().workspace.codeWorkspace.updatedAt
+        }
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().workspace.sceneDocument).toMatchObject({
+        version: 3,
+        nodes: [
+          {
+            props: {
+              headline: "Payload-driven headline",
+              body: "Body copy updated from stable sync payload."
+            }
+          }
+        ]
       });
       expect(saveResponse.json().sceneSync).toMatchObject({
         status: "synced"
