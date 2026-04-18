@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   ArtifactCommentSchema,
   ArtifactGenerateResponseSchema,
+  ArtifactGenerateStreamEventSchema,
   ApiErrorSchema,
   ArtifactGenerationRunSchema,
   ArtifactGenerationPlanSchema,
@@ -314,6 +315,88 @@ describe("ArtifactGenerateResponseSchema", () => {
 
     expect(response.generation.diagnostics.transport).toBe("fallback");
     expect(response.version.source).toBe("prompt");
+  });
+});
+
+describe("ArtifactGenerateStreamEventSchema", () => {
+  test("accepts generation progress and completion events", () => {
+    const event = ArtifactGenerateStreamEventSchema.parse({
+      type: "completed",
+      message: "Generation pass completed.",
+      result: {
+        generation: {
+          plan: {
+            prompt: "Create a cinematic landing page for Atlas Commerce.",
+            intent: "Build a cinematic launch surface for Atlas Commerce.",
+            rationale:
+              "The page needs a hero, supporting features, and a CTA to close the story.",
+            sections: ["hero", "feature-grid", "cta"],
+            provider: "heuristic"
+          },
+          diagnostics: {
+            provider: "heuristic",
+            transport: "fallback",
+            warning: null
+          },
+          scenePatch: {
+            mode: "append-root-sections",
+            rationale: "Append the generated section stack to the root scene.",
+            appendedNodes: []
+          },
+          codePatch: {
+            mode: "unchanged",
+            rationale: "Saved code workspaces remain unchanged until sync is implemented.",
+            filesTouched: []
+          },
+          commentResolution: {
+            mode: "none",
+            rationale: "Prompt generation does not resolve comments yet.",
+            resolvedCommentIds: []
+          }
+        },
+        version: {
+          id: "version_1",
+          artifactId: "artifact_1",
+          label: "Prompt 1",
+          summary: "Generated from prompt",
+          source: "prompt",
+          sceneVersion: 2,
+          hasCodeWorkspaceSnapshot: false,
+          createdAt: "2026-04-19T12:00:00.000Z"
+        },
+        workspace: {
+          artifactId: "artifact_1",
+          intent: "Build a cinematic launch surface for Atlas Commerce.",
+          activeVersionId: "version_1",
+          sceneDocument: {
+            id: "scene_1",
+            artifactId: "artifact_1",
+            kind: "website",
+            version: 2,
+            nodes: [],
+            metadata: {}
+          },
+          codeWorkspace: null,
+          syncPlan: {
+            mode: "full",
+            reason: "Scene remains the source of truth.",
+            sourceMode: "scene",
+            targetMode: "code-supported",
+            changeScope: "document"
+          },
+          versionCount: 2,
+          openCommentCount: 0,
+          updatedAt: "2026-04-19T12:00:00.000Z"
+        }
+      }
+    });
+
+    expect(event.type).toBe("completed");
+    if (event.type !== "completed") {
+      throw new Error("expected a completed event");
+    }
+
+    expect(event.result.generation.plan.sections).toHaveLength(3);
   });
 });
 

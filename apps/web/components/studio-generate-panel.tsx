@@ -2,15 +2,93 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { ArtifactGenerateStreamEvent } from "@opendesign/contracts";
 import { Button, Surface } from "@opendesign/ui";
 import type { ApiArtifactGenerateResponse } from "../lib/opendesign-api";
-import { buildApiRequestError } from "../lib/api-errors";
+import { buildApiRequestError, readApiErrorMessage } from "../lib/api-errors";
 
 type StudioGeneratePanelProps = {
   projectId: string;
   artifactId: string;
   initialPrompt: string;
 };
+
+async function readGenerationEventStream(
+  response: Response,
+  onEvent: (event: ArtifactGenerateStreamEvent) => void
+) {
+  if (!response.body) {
+    throw new Error("Generation stream ended before any events were received.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  function flushFrames(input: string) {
+    const frames = input.split(/\r?\n\r?\n/);
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      const dataLines = frame
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
+
+      if (dataLines.length === 0) {
+        continue;
+      }
+
+      onEvent(JSON.parse(dataLines.join("\n")) as ArtifactGenerateStreamEvent);
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    flushFrames(buffer);
+
+    if (done) {
+      break;
+    }
+  }
+
+  if (buffer.trim().length > 0) {
+    flushFrames(`${buffer}\n\n`);
+  }
+}
+
+async function consumeGenerationStream(
+  response: Response,
+  onProgress: (message: string) => void
+): Promise<ApiArtifactGenerateResponse> {
+  let completedPayload: ApiArtifactGenerateResponse | null = null;
+  let failureMessage: string | null = null;
+
+  await readGenerationEventStream(response, (event) => {
+    onProgress(event.message);
+
+    if (event.type === "failed") {
+      failureMessage = readApiErrorMessage(event.error, "Artifact generation failed.");
+      return;
+    }
+
+    if (event.type === "completed") {
+      completedPayload = event.result;
+    }
+  });
+
+  if (failureMessage) {
+    throw new Error(failureMessage);
+  }
+
+  if (!completedPayload) {
+    throw new Error("Generation stream ended before a completion event was received.");
+  }
+
+  return completedPayload;
+}
 
 export function StudioGeneratePanel({
   projectId,
@@ -20,6 +98,7 @@ export function StudioGeneratePanel({
   const router = useRouter();
   const [prompt, setPrompt] = useState(initialPrompt);
   const [pending, startTransition] = useTransition();
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     tone: "success" | "warning" | "error";
     message: string;
@@ -37,6 +116,7 @@ export function StudioGeneratePanel({
     startTransition(async () => {
       try {
         setFeedback(null);
+        setProgressMessage("Connecting to the generation pipeline.");
 
         const response = await fetch(
           `${apiOrigin}/api/projects/${projectId}/artifacts/${artifactId}/generate`,
@@ -44,6 +124,7 @@ export function StudioGeneratePanel({
             method: "POST",
             credentials: "include",
             headers: {
+              accept: "text/event-stream",
               "content-type": "application/json"
             },
             body: JSON.stringify({
@@ -56,23 +137,29 @@ export function StudioGeneratePanel({
           throw await buildApiRequestError(response, "Artifact generation failed.");
         }
 
-        const payload = (await response.json()) as ApiArtifactGenerateResponse;
-        const appendedNodeCount = payload.generation.scenePatch.appendedNodes.length;
+        const completedPayload = await consumeGenerationStream(response, (message) => {
+          setProgressMessage(message);
+        });
+
+        const appendedNodeCount =
+          completedPayload.generation.scenePatch.appendedNodes.length;
         const sectionLabel = appendedNodeCount === 1 ? "section" : "sections";
 
         setFeedback(
-          payload.generation.diagnostics.warning
+          completedPayload.generation.diagnostics.warning
             ? {
                 tone: "warning",
-                message: `${payload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${sectionLabel} for this pass.`
+                message: `${completedPayload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${sectionLabel} for this pass.`
               }
             : {
                 tone: "success",
-                message: `Generated ${appendedNodeCount} ${sectionLabel} via ${payload.generation.plan.provider} and refreshed the Studio workspace.`
+                message: `Generated ${appendedNodeCount} ${sectionLabel} via ${completedPayload.generation.plan.provider} and refreshed the Studio workspace.`
               }
         );
+        setProgressMessage(null);
         router.refresh();
       } catch (error) {
+        setProgressMessage(null);
         setFeedback({
           tone: "error",
           message:
@@ -97,7 +184,7 @@ export function StudioGeneratePanel({
         </span>
         <span className="footer-note">
           {pending
-            ? "Waiting for the generation pass to finish and refresh the workspace."
+            ? progressMessage ?? "Waiting for the generation pass to finish and refresh the workspace."
             : "A completed pass appends new scene sections and creates a prompt snapshot."}
         </span>
       </div>

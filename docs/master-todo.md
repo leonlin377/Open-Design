@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `62%`
+Current estimated product completion for a serious V1: `64%`
 
 ```
-[############--------] 62%
+[#############-------] 64%
 ```
 
 ## Current Reality
@@ -69,7 +69,7 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 - [~] Add generation route for prompt-driven artifact creation
   Done when:
   Studio can submit a prompt and receive scene/code updates from the backend.
-- [ ] Add streaming status/events for generation progress
+- [x] Add streaming status/events for generation progress
   Done when:
   Web UI can show generation states without refresh.
 - [ ] Add failure handling for invalid patches, timeout, and provider errors
@@ -213,5 +213,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Add generation status and failure UI in Chat Rail
 - [x] Move section editing out of the Studio page into reusable editor components
 - [~] Add structured API error model and recovery paths
-- [ ] Add streaming status/events for generation progress
+- [x] Add streaming status/events for generation progress
 - [ ] Add provider-specific generation failure states in Chat Rail

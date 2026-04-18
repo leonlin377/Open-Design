@@ -2,6 +2,7 @@ import {
   ArtifactCommentResolutionSchema,
   ArtifactCodePatchSchema,
   ArtifactGenerateResponseSchema,
+  ArtifactGenerateStreamEventSchema,
   ArtifactGenerationRunSchema,
   ArtifactVersionDiffSummarySchema,
   ArtifactKindSchema,
@@ -11,6 +12,8 @@ import {
   CommentAnchorSchema,
   SceneTemplateKindSchema,
   type ArtifactComment,
+  type ArtifactGenerateResponse,
+  type ArtifactGenerateStreamEvent,
   type SceneNode,
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
@@ -25,10 +28,10 @@ import {
   indexSceneNodesById,
   updateRootSceneNode
 } from "@opendesign/scene-engine";
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { generateArtifactPlan } from "../generation";
-import { sendApiError } from "../lib/api-errors";
+import { buildApiError, sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
 import type { ArtifactVersionRepository } from "../repositories/artifact-versions";
@@ -245,6 +248,33 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       };
     }
 
+    function wantsGenerationEventStream(request: FastifyRequest) {
+      const accept = request.headers.accept ?? "";
+      return accept.includes("text/event-stream");
+    }
+
+    function beginGenerationEventStream(reply: FastifyReply) {
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive"
+      });
+
+      if (typeof reply.raw.flushHeaders === "function") {
+        reply.raw.flushHeaders();
+      }
+    }
+
+    function writeGenerationEvent(
+      reply: FastifyReply,
+      event: ArtifactGenerateStreamEvent
+    ) {
+      reply.raw.write(
+        `data: ${JSON.stringify(ArtifactGenerateStreamEventSchema.parse(event))}\n\n`
+      );
+    }
+
     async function ensureWorkspaceState(artifact: {
       id: string;
       kind: z.infer<typeof ArtifactKindSchema>;
@@ -301,6 +331,122 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         versions,
         comments
       };
+    }
+
+    async function performArtifactGeneration(input: {
+      artifact: {
+        id: string;
+        kind: z.infer<typeof ArtifactKindSchema>;
+        name: string;
+      };
+      prompt: string;
+      onProgress?: (
+        event: Extract<ArtifactGenerateStreamEvent, { type: "planning" | "applying" }>
+      ) => Promise<void> | void;
+    }): Promise<ArtifactGenerateResponse> {
+      const { workspace, versions, comments } = await ensureWorkspaceState(input.artifact);
+
+      await input.onProgress?.({
+        type: "planning",
+        message: "Generating an artifact plan from the current prompt."
+      });
+
+      const generation = await generateArtifactPlan({
+        artifactKind: input.artifact.kind,
+        artifactName: input.artifact.name,
+        prompt: input.prompt
+      });
+      const plan = ArtifactGenerationPlanSchema.parse(generation.plan);
+
+      let sceneDocument = workspace.sceneDocument;
+      const appendedNodes: SceneNode[] = [];
+
+      for (const template of plan.sections) {
+        const node = buildTemplateNode({
+          artifact: input.artifact,
+          intent: plan.intent,
+          template
+        });
+        sceneDocument = appendRootSceneNode(sceneDocument, node);
+        appendedNodes.push(node);
+      }
+
+      await input.onProgress?.({
+        type: "applying",
+        message: `Applying ${appendedNodes.length} generated sections and persisting a prompt snapshot.`
+      });
+
+      const intentWorkspace = await options.workspaces.updateIntent(input.artifact.id, plan.intent);
+      const sceneWorkspace = await options.workspaces.updateSceneDocument(
+        input.artifact.id,
+        sceneDocument
+      );
+
+      if (!intentWorkspace || !sceneWorkspace) {
+        throw buildApiError({
+          error: "Workspace update failed",
+          code: "WORKSPACE_UPDATE_FAILED",
+          recoverable: true,
+          details: {
+            stage: "generate"
+          }
+        });
+      }
+
+      const version = await options.versions.create({
+        artifactId: input.artifact.id,
+        label: `Prompt ${versions.length + 1}`,
+        summary: `Generated from prompt: ${input.prompt.slice(0, 120)}`,
+        source: "prompt",
+        sceneVersion: sceneWorkspace.sceneDocument.version,
+        sceneDocument: sceneWorkspace.sceneDocument,
+        codeWorkspace: sceneWorkspace.codeWorkspace
+      });
+
+      const activeWorkspace =
+        (await options.workspaces.updateActiveVersion(input.artifact.id, version.id)) ??
+        sceneWorkspace;
+
+      const generationRun = ArtifactGenerationRunSchema.parse({
+        plan,
+        diagnostics: generation.diagnostics,
+        scenePatch: ArtifactScenePatchSchema.parse({
+          mode: appendedNodes.length > 0 ? "append-root-sections" : "no-op",
+          rationale: "Append the generated section stack to the root scene document.",
+          appendedNodes: appendedNodes.map((node) => ({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            template:
+              node.props.template === "feature-grid" ||
+              node.props.template === "cta" ||
+              node.props.template === "hero"
+                ? node.props.template
+                : "hero"
+          }))
+        }),
+        codePatch: ArtifactCodePatchSchema.parse({
+          mode: "unchanged",
+          rationale:
+            "Saved code workspaces remain unchanged until scene/code synchronization is implemented.",
+          filesTouched: []
+        }),
+        commentResolution: ArtifactCommentResolutionSchema.parse({
+          mode: "none",
+          rationale: "Prompt generation does not resolve open review comments yet.",
+          resolvedCommentIds: []
+        })
+      });
+
+      return ArtifactGenerateResponseSchema.parse({
+        generation: generationRun,
+        version,
+        workspace: buildWorkspacePayload({
+          workspace: activeWorkspace,
+          versions: [version, ...versions],
+          comments
+        })
+      });
     }
 
     function buildWorkspacePayload(input: {
@@ -657,97 +803,83 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
       }
 
-      const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
-      const generation = await generateArtifactPlan({
-        artifactKind: artifact.kind,
-        artifactName: artifact.name,
-        prompt: body.prompt
-      });
-      const plan = ArtifactGenerationPlanSchema.parse(generation.plan);
+      if (wantsGenerationEventStream(request)) {
+        beginGenerationEventStream(reply);
 
-      let sceneDocument = workspace.sceneDocument;
-      const appendedNodes: SceneNode[] = [];
+        try {
+          writeGenerationEvent(reply, {
+            type: "started",
+            message: "Generation pass started."
+          });
 
-      for (const template of plan.sections) {
-        const node = buildTemplateNode({
+          const result = await performArtifactGeneration({
+            artifact,
+            prompt: body.prompt,
+            onProgress: async (event) => {
+              writeGenerationEvent(reply, event);
+            }
+          });
+
+          writeGenerationEvent(reply, {
+            type: "completed",
+            message: `Generated ${result.generation.scenePatch.appendedNodes.length} sections and refreshed the workspace.`,
+            result
+          });
+        } catch (error) {
+          const apiError = buildApiError(
+            error &&
+              typeof error === "object" &&
+              "code" in error &&
+              "error" in error
+              ? (error as Parameters<typeof buildApiError>[0])
+              : {
+                  error: "Artifact generation failed",
+                  code: "WORKSPACE_UPDATE_FAILED",
+                  recoverable: true,
+                  details: {
+                    stage: "generate-stream"
+                  }
+                }
+          );
+
+          writeGenerationEvent(reply, {
+            type: "failed",
+            message: apiError.error,
+            error: apiError
+          });
+        } finally {
+          reply.raw.end();
+        }
+
+        return;
+      }
+
+      try {
+        const result = await performArtifactGeneration({
           artifact,
-          intent: plan.intent,
-          template
+          prompt: body.prompt
         });
-        sceneDocument = appendRootSceneNode(sceneDocument, node);
-        appendedNodes.push(node);
+
+        return reply.code(201).send(result);
+      } catch (error) {
+        const apiError = buildApiError(
+          error &&
+            typeof error === "object" &&
+            "code" in error &&
+            "error" in error
+            ? (error as Parameters<typeof buildApiError>[0])
+            : {
+                error: "Artifact generation failed",
+                code: "WORKSPACE_UPDATE_FAILED",
+                recoverable: true,
+                details: {
+                  stage: "generate"
+                }
+              }
+        );
+
+        return sendApiError(reply, 500, apiError);
       }
-
-      const intentWorkspace = await options.workspaces.updateIntent(artifact.id, plan.intent);
-      const sceneWorkspace = await options.workspaces.updateSceneDocument(
-        artifact.id,
-        sceneDocument
-      );
-
-      if (!intentWorkspace || !sceneWorkspace) {
-        return sendApiError(reply, 500, {
-          error: "Workspace update failed",
-          code: "WORKSPACE_UPDATE_FAILED",
-          recoverable: true,
-          details: {
-            stage: "generate"
-          }
-        });
-      }
-
-      const version = await options.versions.create({
-        artifactId: artifact.id,
-        label: `Prompt ${versions.length + 1}`,
-        summary: `Generated from prompt: ${body.prompt.slice(0, 120)}`,
-        source: "prompt",
-        sceneVersion: sceneWorkspace.sceneDocument.version,
-        sceneDocument: sceneWorkspace.sceneDocument,
-        codeWorkspace: sceneWorkspace.codeWorkspace
-      });
-
-      const activeWorkspace =
-        (await options.workspaces.updateActiveVersion(artifact.id, version.id)) ?? sceneWorkspace;
-
-      const generationRun = ArtifactGenerationRunSchema.parse({
-        plan,
-        diagnostics: generation.diagnostics,
-        scenePatch: ArtifactScenePatchSchema.parse({
-          mode: appendedNodes.length > 0 ? "append-root-sections" : "no-op",
-          rationale: "Append the generated section stack to the root scene document.",
-          appendedNodes: appendedNodes.map((node) => ({
-            id: node.id,
-            type: node.type,
-            name: node.name,
-            template:
-              node.props.template === "feature-grid" ||
-              node.props.template === "cta" ||
-              node.props.template === "hero"
-                ? node.props.template
-                : "hero"
-          }))
-        }),
-        codePatch: ArtifactCodePatchSchema.parse({
-          mode: "unchanged",
-          rationale:
-            "Saved code workspaces remain unchanged until scene/code synchronization is implemented.",
-          filesTouched: []
-        }),
-        commentResolution: ArtifactCommentResolutionSchema.parse({
-          mode: "none",
-          rationale: "Prompt generation does not resolve open review comments yet.",
-          resolvedCommentIds: []
-        })
-      });
-
-      return reply.code(201).send(ArtifactGenerateResponseSchema.parse({
-        generation: generationRun,
-        version,
-        workspace: buildWorkspacePayload({
-          workspace: activeWorkspace,
-          versions: [version, ...versions],
-          comments
-        })
-      }));
     });
 
     app.post(

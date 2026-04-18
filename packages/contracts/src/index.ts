@@ -213,6 +213,31 @@ export const ArtifactGenerateResponseSchema = z.object({
   workspace: ArtifactWorkspaceSchema
 });
 
+export const ArtifactGenerateStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("started"),
+    message: z.string().min(1)
+  }),
+  z.object({
+    type: z.literal("planning"),
+    message: z.string().min(1)
+  }),
+  z.object({
+    type: z.literal("applying"),
+    message: z.string().min(1)
+  }),
+  z.object({
+    type: z.literal("completed"),
+    message: z.string().min(1),
+    result: ArtifactGenerateResponseSchema
+  }),
+  z.object({
+    type: z.literal("failed"),
+    message: z.string().min(1),
+    error: ApiErrorSchema
+  })
+]);
+
 export const DesignSystemComponentSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -267,6 +292,9 @@ export type ArtifactCommentResolution = z.infer<
 >;
 export type ArtifactGenerationRun = z.infer<typeof ArtifactGenerationRunSchema>;
 export type ArtifactGenerateResponse = z.infer<typeof ArtifactGenerateResponseSchema>;
+export type ArtifactGenerateStreamEvent = z.infer<
+  typeof ArtifactGenerateStreamEventSchema
+>;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type ApiError = z.infer<typeof ApiErrorSchema>;

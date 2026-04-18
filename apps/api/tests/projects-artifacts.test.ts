@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app";
 
+function parseSseEvents(body: string) {
+  return body
+    .trim()
+    .split(/\r?\n\r?\n/)
+    .map((frame) =>
+      frame
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("\n")
+    )
+    .filter((value) => value.length > 0)
+    .map((value) => JSON.parse(value) as Record<string, unknown>);
+}
+
 describe("Projects and artifacts", () => {
   it("creates a project and artifact and lists artifacts", async () => {
     const app = await buildApp();
@@ -345,6 +361,59 @@ describe("Projects and artifacts", () => {
       expect(workspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(3);
       expect(workspaceResponse.json().versions[0]).toMatchObject({
         source: "prompt"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("streams generation progress events when the client requests text/event-stream", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Stream Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Stream Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: {
+          accept: "text/event-stream"
+        },
+        payload: {
+          prompt: "Create a cinematic launch page with feature proof and a CTA."
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["content-type"]).toContain("text/event-stream");
+
+      const events = parseSseEvents(response.body);
+      expect(events.map((event) => event.type)).toEqual([
+        "started",
+        "planning",
+        "applying",
+        "completed"
+      ]);
+      expect(events[3]).toMatchObject({
+        type: "completed",
+        result: {
+          generation: {
+            plan: {
+              prompt: "Create a cinematic launch page with feature proof and a CTA."
+            }
+          }
+        }
       });
     } finally {
       await app.close();
