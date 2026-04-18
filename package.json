@@ -1,0 +1,24 @@
+{
+  "name": "opendesign",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "docker:infra": "docker compose up -d postgres redis minio",
+    "docker:gateway": "docker compose --profile gateway up -d litellm",
+    "docker:studio": "docker compose --profile studio up --build",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down --volumes",
+    "docker:down": "docker compose --profile studio --profile gateway down"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

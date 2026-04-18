@@ -1,0 +1,12 @@
+node_modules
+.turbo
+.next
+dist
+coverage
+.env
+.env.local
+.env.*.local
+pnpm-debug.log*
+*.tsbuildinfo
+storage
+

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@opendesign/contracts": ["packages/contracts/src/index.ts"],
+      "@opendesign/scene-engine": ["packages/scene-engine/src/index.ts"],
+      "@opendesign/code-sync": ["packages/code-sync/src/index.ts"],
+      "@opendesign/design-ingest": ["packages/design-ingest/src/index.ts"],
+      "@opendesign/exporters": ["packages/exporters/src/index.ts"],
+      "@opendesign/ui": ["packages/ui/src/index.ts"]
+    }
+  }
+}
+
