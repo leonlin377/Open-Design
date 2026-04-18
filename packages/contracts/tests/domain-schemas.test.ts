@@ -148,11 +148,13 @@ describe("ArtifactVersionSnapshotSchema", () => {
       summary: "Initial seeded workspace snapshot",
       source: "seed",
       sceneVersion: 1,
+      hasCodeWorkspaceSnapshot: true,
       createdAt: "2026-04-18T09:00:00.000Z"
     });
 
     expect(version.source).toBe("seed");
     expect(version.sceneVersion).toBe(1);
+    expect(version.hasCodeWorkspaceSnapshot).toBe(true);
   });
 });
 

@@ -547,4 +547,162 @@ describe("Projects and artifacts", () => {
       await app.close();
     }
   });
+
+  it("restores a version snapshot back into scene and saved code workspace", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Restore Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Restore Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendHeroResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+      const heroNodeId = appendHeroResponse.json().appendedNode.id as string;
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${heroNodeId}`,
+        payload: {
+          headline: "Snapshot hero",
+          body: "Snapshot body"
+        }
+      });
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Snapshot A</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: teal; }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"snapshot-a","private":true}'
+          }
+        }
+      });
+
+      const versionResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions`,
+        payload: {
+          label: "Review A",
+          summary: "Snapshot with hero and code"
+        }
+      });
+      const version = versionResponse.json();
+      expect(version).toMatchObject({
+        label: "Review A",
+        hasCodeWorkspaceSnapshot: true
+      });
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "cta"
+        }
+      });
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Snapshot B</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: purple; }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"snapshot-b","private":true}'
+          }
+        }
+      });
+
+      const restoreResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/restore`
+      });
+
+      expect(restoreResponse.statusCode).toBe(200);
+      expect(restoreResponse.json()).toMatchObject({
+        restoredVersion: {
+          id: version.id,
+          label: "Review A"
+        },
+        workspace: {
+          activeVersionId: version.id,
+          sceneDocument: {
+            version: 3
+          },
+          codeWorkspace: {
+            baseSceneVersion: 3,
+            files: {
+              "/App.tsx":
+                "export default function App() { return <main>Snapshot A</main>; }"
+            }
+          }
+        }
+      });
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace).toMatchObject({
+        activeVersionId: version.id,
+        sceneDocument: {
+          version: 3
+        },
+        codeWorkspace: {
+          baseSceneVersion: 3
+        }
+      });
+      expect(workspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(1);
+      expect(
+        workspaceResponse.json().workspace.sceneDocument.nodes[0]
+      ).toMatchObject({
+        props: {
+          headline: "Snapshot hero",
+          body: "Snapshot body"
+        }
+      });
+
+      const sourceBundleResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/source-bundle`
+      });
+
+      expect(sourceBundleResponse.statusCode).toBe(200);
+      expect(sourceBundleResponse.json().files["/App.tsx"]).toContain("Snapshot A");
+      expect(sourceBundleResponse.json().files["/App.tsx"]).not.toContain("Snapshot B");
+
+      const htmlExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/html`
+      });
+
+      expect(htmlExportResponse.statusCode).toBe(200);
+      expect(htmlExportResponse.body).toContain("Snapshot hero");
+      expect(htmlExportResponse.body).not.toContain("Ready for the next review pass?");
+    } finally {
+      await app.close();
+    }
+  });
 });

@@ -101,6 +101,12 @@ const artifactCommentParamsSchema = z.object({
   commentId: z.string().min(1)
 });
 
+const artifactVersionParamsSchema = z.object({
+  projectId: z.string().min(1),
+  artifactId: z.string().min(1),
+  versionId: z.string().min(1)
+});
+
 export interface ArtifactRouteOptions {
   artifacts: ArtifactRepository;
   projects: ProjectRepository;
@@ -243,7 +249,9 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           label: "V1 Seed",
           summary: buildSeedVersionSummary(artifact),
           source: "seed",
-          sceneVersion: sceneDocument.version
+          sceneVersion: sceneDocument.version,
+          sceneDocument,
+          codeWorkspace: null
         });
 
         workspace = await options.workspaces.create({
@@ -259,7 +267,9 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           label: "V1 Seed",
           summary: buildSeedVersionSummary(artifact),
           source: "seed",
-          sceneVersion: workspace.sceneDocument.version
+          sceneVersion: workspace.sceneDocument.version,
+          sceneDocument: workspace.sceneDocument,
+          codeWorkspace: workspace.codeWorkspace
         });
 
         workspace =
@@ -512,12 +522,94 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         label: body.label,
         summary: body.summary ?? `Snapshot created from ${artifact.name}.`,
         source: body.source,
-        sceneVersion: workspace.sceneDocument.version
+        sceneVersion: workspace.sceneDocument.version,
+        sceneDocument: workspace.sceneDocument,
+        codeWorkspace: workspace.codeWorkspace
       });
 
       await options.workspaces.updateActiveVersion(artifact.id, version.id);
       return reply.code(201).send(version);
     });
+
+    app.post(
+      "/projects/:projectId/artifacts/:artifactId/versions/:versionId/restore",
+      async (request, reply) => {
+        const params = artifactVersionParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        const versionState = await options.versions.getStateById(
+          artifact.id,
+          params.versionId
+        );
+
+        if (!versionState) {
+          return reply.code(404).send({
+            error: "Version not found",
+            code: "VERSION_NOT_FOUND"
+          });
+        }
+
+        const sceneWorkspace = await options.workspaces.updateSceneDocument(
+          artifact.id,
+          versionState.sceneDocument
+        );
+
+        if (!sceneWorkspace) {
+          return reply.code(500).send({
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED"
+          });
+        }
+
+        const codeWorkspace = await options.workspaces.updateCodeWorkspace(
+          artifact.id,
+          versionState.codeWorkspace
+            ? {
+                files: versionState.codeWorkspace.files,
+                baseSceneVersion: versionState.codeWorkspace.baseSceneVersion
+              }
+            : null
+        );
+
+        if (!codeWorkspace) {
+          return reply.code(500).send({
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED"
+          });
+        }
+
+        const activeWorkspace =
+          (await options.workspaces.updateActiveVersion(
+            artifact.id,
+            versionState.snapshot.id
+          )) ?? codeWorkspace;
+        const versions = await options.versions.listByArtifactId(artifact.id);
+        const comments = await options.comments.listByArtifactId(artifact.id);
+
+        return {
+          workspace: buildWorkspacePayload({
+            workspace: activeWorkspace,
+            versions,
+            comments
+          }),
+          restoredVersion: versionState.snapshot
+        };
+      }
+    );
 
     app.post("/projects/:projectId/artifacts/:artifactId/scene/nodes", async (request, reply) => {
       const params = artifactDetailParamsSchema.parse(request.params);

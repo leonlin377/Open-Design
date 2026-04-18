@@ -270,6 +270,12 @@ describe("PostgresArtifactVersionRepository", () => {
         summary: "Initial seeded snapshot",
         source: "seed",
         scene_version: 1,
+        code_workspace_files: {
+          files: {
+            "/App.tsx": "export default function App() { return null; }"
+          },
+          baseSceneVersion: 1
+        },
         created_at: new Date("2026-04-18T08:40:00.000Z")
       }
     ]);
@@ -285,9 +291,63 @@ describe("PostgresArtifactVersionRepository", () => {
         summary: "Initial seeded snapshot",
         source: "seed",
         sceneVersion: 1,
+        hasCodeWorkspaceSnapshot: true,
         createdAt: "2026-04-18T08:40:00.000Z"
       }
     ]);
+  });
+
+  it("loads a version state for restore flows", async () => {
+    const query = createQueryMock([
+      {
+        id: "version-1",
+        artifact_id: "artifact-1",
+        label: "V1 Seed",
+        summary: "Initial seeded snapshot",
+        source: "seed",
+        scene_version: 1,
+        scene_document: {
+          id: "scene-1",
+          artifactId: "artifact-1",
+          kind: "website",
+          version: 1,
+          nodes: [],
+          metadata: {}
+        },
+        code_workspace_files: {
+          files: {
+            "/App.tsx": "export default function App() { return null; }"
+          },
+          baseSceneVersion: 1
+        },
+        code_workspace_updated_at: new Date("2026-04-18T08:39:00.000Z"),
+        created_at: new Date("2026-04-18T08:40:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactVersionRepository({ query });
+    const versionState = await repository.getStateById("artifact-1", "version-1");
+
+    expect(versionState).toMatchObject({
+      snapshot: {
+        id: "version-1",
+        artifactId: "artifact-1",
+        sceneVersion: 1,
+        hasCodeWorkspaceSnapshot: true
+      },
+      sceneDocument: {
+        id: "scene-1",
+        artifactId: "artifact-1",
+        version: 1
+      },
+      codeWorkspace: {
+        files: {
+          "/App.tsx": "export default function App() { return null; }"
+        },
+        baseSceneVersion: 1,
+        updatedAt: "2026-04-18T08:39:00.000Z"
+      }
+    });
   });
 });
 

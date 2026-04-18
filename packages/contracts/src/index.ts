@@ -88,6 +88,7 @@ export const ArtifactVersionSnapshotSchema = z.object({
   summary: z.string().min(1),
   source: ArtifactVersionSourceSchema,
   sceneVersion: z.number().int().positive(),
+  hasCodeWorkspaceSnapshot: z.boolean().default(false),
   createdAt: z.string().min(1)
 });
 

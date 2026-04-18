@@ -110,8 +110,26 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
       summary text not null,
       source text not null check (source in (${validVersionSources})),
       scene_version integer not null check (scene_version > 0),
+      scene_document jsonb,
+      code_workspace_files jsonb,
+      code_workspace_updated_at timestamptz,
       created_at timestamptz not null default now()
     )`
+  );
+
+  await pool.query(
+    `alter table artifact_versions
+     add column if not exists scene_document jsonb`
+  );
+
+  await pool.query(
+    `alter table artifact_versions
+     add column if not exists code_workspace_files jsonb`
+  );
+
+  await pool.query(
+    `alter table artifact_versions
+     add column if not exists code_workspace_updated_at timestamptz`
   );
 
   await pool.query(

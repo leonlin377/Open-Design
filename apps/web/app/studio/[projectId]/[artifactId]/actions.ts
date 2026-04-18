@@ -6,6 +6,7 @@ import {
   createArtifactComment,
   createArtifactVersion,
   resolveArtifactComment,
+  restoreArtifactVersion,
   saveArtifactCodeWorkspace,
   updateSceneNode
 } from "../../../../lib/opendesign-api";
@@ -182,6 +183,24 @@ export async function saveCodeWorkspaceAction(formData: FormData) {
     projectId,
     artifactId,
     files
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function restoreArtifactVersionAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const versionId = String(formData.get("versionId") ?? "").trim();
+
+  if (!projectId || !artifactId || !versionId) {
+    throw new Error("Project, artifact, and version are required.");
+  }
+
+  await restoreArtifactVersion({
+    projectId,
+    artifactId,
+    versionId
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

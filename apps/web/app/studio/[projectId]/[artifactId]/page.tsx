@@ -16,6 +16,7 @@ import {
   createArtifactCommentAction,
   createArtifactVersionAction,
   resolveArtifactCommentAction,
+  restoreArtifactVersionAction,
   saveCodeWorkspaceAction,
   updateSceneNodeAction
 } from "./actions";
@@ -463,7 +464,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                 <div>
                   <h3>Create Snapshot</h3>
                   <p className="footer-note">
-                    Capture the current workspace as a named version.
+                    Capture the current scene and saved code workspace as a named version.
                   </p>
                 </div>
                 <form action={createArtifactVersionAction} className="stack-form">
@@ -485,13 +486,33 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               <Surface className="project-card" as="section">
                 <div>
                   <h3>Version History</h3>
-                  <p className="footer-note">Newest snapshots stay at the top.</p>
+                  <p className="footer-note">
+                    Newest snapshots stay at the top. Restore rewinds scene and saved
+                    code workspace together.
+                  </p>
                 </div>
                 <div className="stack-form">
                   {versions.map((version) => (
                     <Surface key={version.id} className="kv">
-                      <span>{version.label}</span>
+                      <span>
+                        {version.label}
+                        {version.id === workspace.activeVersionId ? " · active" : ""}
+                      </span>
                       {version.summary}
+                      <span className="footer-note">
+                        Scene v{version.sceneVersion} ·{" "}
+                        {version.hasCodeWorkspaceSnapshot ? "Code Snapshot" : "Scene Only"}
+                      </span>
+                      {version.id !== workspace.activeVersionId ? (
+                        <form action={restoreArtifactVersionAction}>
+                          <input type="hidden" name="projectId" value={project.id} />
+                          <input type="hidden" name="artifactId" value={artifact.id} />
+                          <input type="hidden" name="versionId" value={version.id} />
+                          <Button variant="ghost" size="sm" type="submit">
+                            Restore Version
+                          </Button>
+                        </form>
+                      ) : null}
                     </Surface>
                   ))}
                 </div>

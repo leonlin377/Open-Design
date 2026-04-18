@@ -222,6 +222,28 @@ export async function createArtifactVersion(input: {
   return (await response.json()) as ApiArtifactVersion;
 }
 
+export async function restoreArtifactVersion(input: {
+  projectId: string;
+  artifactId: string;
+  versionId: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/versions/${input.versionId}/restore`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to restore version (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    workspace: ApiArtifactWorkspace;
+    restoredVersion: ApiArtifactVersion;
+  };
+}
+
 export async function createArtifactComment(input: {
   projectId: string;
   artifactId: string;
