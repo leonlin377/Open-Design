@@ -13,6 +13,11 @@ import {
   type ArtifactVersionRepository
 } from "./repositories/artifact-versions";
 import {
+  InMemoryDesignSystemRepository,
+  PostgresDesignSystemRepository,
+  type DesignSystemRepository
+} from "./repositories/design-systems";
+import {
   InMemoryArtifactWorkspaceRepository,
   PostgresArtifactWorkspaceRepository,
   type ArtifactWorkspaceRepository
@@ -41,6 +46,7 @@ export interface AppPersistence {
   workspaces: ArtifactWorkspaceRepository;
   versions: ArtifactVersionRepository;
   comments: ArtifactCommentRepository;
+  designSystems: DesignSystemRepository;
   close(): Promise<void>;
 }
 
@@ -176,6 +182,21 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
     `create index if not exists artifact_comments_artifact_id_idx
      on artifact_comments(artifact_id, created_at desc)`
   );
+
+  await pool.query(
+    `create table if not exists design_system_packs (
+      id text primary key,
+      owner_user_id text references "user"(id) on delete cascade,
+      pack jsonb not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )`
+  );
+
+  await pool.query(
+    `create index if not exists design_system_packs_owner_user_id_idx
+     on design_system_packs(owner_user_id, updated_at desc, created_at desc)`
+  );
 }
 
 async function ensurePostgresPersistence(pool: InstanceType<typeof Pool>, auth: OpenDesignAuth) {
@@ -203,6 +224,7 @@ export async function createAppPersistence(
       workspaces: new InMemoryArtifactWorkspaceRepository(),
       versions: new InMemoryArtifactVersionRepository(),
       comments: new InMemoryArtifactCommentRepository(),
+      designSystems: new InMemoryDesignSystemRepository(),
       close: async () => {}
     };
   }
@@ -227,6 +249,7 @@ export async function createAppPersistence(
     workspaces: new PostgresArtifactWorkspaceRepository(pool),
     versions: new PostgresArtifactVersionRepository(pool),
     comments: new PostgresArtifactCommentRepository(pool),
+    designSystems: new PostgresDesignSystemRepository(pool),
     close: async () => {
       await pool.end();
     }

@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `72%`
+Current estimated product completion for a serious V1: `75%`
 
 ```
-[##############------] 72%
+[###############-----] 75%
 ```
 
 ## Current Reality
@@ -37,7 +37,7 @@ What is still missing from a true Claude Design benchmark:
 
 - [ ] Real AI generation pipeline
 - [~] Real scene/code synchronization
-- [ ] Design system ingestion and grounding
+- [~] Design system ingestion and grounding
 - [ ] Prototype mode
 - [ ] Slides mode
 - [ ] Sharing, roles, and collaboration flows
@@ -106,7 +106,7 @@ Goal: Make scene editing and code editing feel like one system instead of parall
 
 Goal: Ground artifact generation in real tokens, components, and visual evidence.
 
-- [ ] Implement GitHub repository import
+- [x] Implement GitHub repository import
   Done when:
   A repository path can be parsed into tokens, motifs, and evidence records.
 - [ ] Implement local directory import
@@ -115,7 +115,7 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 - [ ] Implement site capture import with Playwright
   Done when:
   A URL can be crawled and reduced into screenshots, style evidence, and extracted tokens.
-- [ ] Persist `DesignSystemPack` records in the backend
+- [x] Persist `DesignSystemPack` records in the backend
   Done when:
   Packs are stored, listed, and attachable to artifacts.
 - [ ] Use imported packs as generation constraints
@@ -217,3 +217,4 @@ This is the immediate build sequence I should continue with next:
 - [x] Implement real scene -> code synchronization for generated website artifacts
 - [x] Start supported `code -> scene` back-sync for the safe website subset
 - [ ] Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety
+- [ ] Implement local-directory design-system import and persistence flow

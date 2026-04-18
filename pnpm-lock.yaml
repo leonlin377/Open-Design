@@ -35,6 +35,9 @@ importers:
       '@opendesign/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@opendesign/design-ingest':
+        specifier: workspace:*
+        version: link:../../packages/design-ingest
       '@opendesign/exporters':
         specifier: workspace:*
         version: link:../../packages/exporters

@@ -15,6 +15,10 @@ import {
   type Artifact
 } from "../src/repositories/artifacts";
 import {
+  PostgresDesignSystemRepository,
+  type DesignSystemPackRecord
+} from "../src/repositories/design-systems";
+import {
   PostgresProjectRepository,
   type Project
 } from "../src/repositories/projects";
@@ -415,5 +419,69 @@ describe("PostgresArtifactCommentRepository", () => {
         updatedAt: "2026-04-18T08:51:00.000Z"
       }
     ]);
+  });
+});
+
+describe("PostgresDesignSystemRepository", () => {
+  it("maps and returns a persisted design system pack", async () => {
+    const query = createQueryMock([
+      {
+        id: "pack-1",
+        owner_user_id: "user-1",
+        pack: {
+          id: "pack-1",
+          name: "acme/design-system",
+          source: "github",
+          tokens: {
+            colors: {
+              primary: "#0f172a"
+            },
+            typography: {}
+          },
+          components: [],
+          motifs: [],
+          provenance: []
+        },
+        created_at: new Date("2026-04-19T09:00:00.000Z"),
+        updated_at: new Date("2026-04-19T09:05:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresDesignSystemRepository({ query });
+    const pack = await repository.create({
+      ownerUserId: "user-1",
+      pack: {
+        id: "pack-1",
+        name: "acme/design-system",
+        source: "github",
+        tokens: {
+          colors: {
+            primary: "#0f172a"
+          },
+          typography: {}
+        },
+        components: [],
+        motifs: [],
+        provenance: []
+      }
+    });
+
+    expect(pack).toEqual<DesignSystemPackRecord>({
+      id: "pack-1",
+      name: "acme/design-system",
+      source: "github",
+      tokens: {
+        colors: {
+          primary: "#0f172a"
+        },
+        typography: {}
+      },
+      components: [],
+      motifs: [],
+      provenance: [],
+      ownerUserId: "user-1",
+      createdAt: "2026-04-19T09:00:00.000Z",
+      updatedAt: "2026-04-19T09:05:00.000Z"
+    });
   });
 });
