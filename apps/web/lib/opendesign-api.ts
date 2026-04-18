@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type {
   ArtifactComment,
   ArtifactGenerationPlan,
+  ArtifactVersionDiffSummary,
   ArtifactWorkspace,
   SceneTemplateKind,
   ArtifactVersionSnapshot
@@ -47,6 +48,8 @@ export type ApiArtifactWorkspacePayload = {
   versions: ApiArtifactVersion[];
   comments: ApiArtifactComment[];
 };
+
+export type ApiArtifactVersionDiff = ArtifactVersionDiffSummary;
 
 export function getBrowserApiOrigin() {
   return process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:4000";
@@ -276,6 +279,28 @@ export async function restoreArtifactVersion(input: {
   return (await response.json()) as {
     workspace: ApiArtifactWorkspace;
     restoredVersion: ApiArtifactVersion;
+  };
+}
+
+export async function getArtifactVersionDiff(input: {
+  projectId: string;
+  artifactId: string;
+  versionId: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/versions/${input.versionId}/diff`
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load version diff (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    diff: ApiArtifactVersionDiff;
   };
 }
 

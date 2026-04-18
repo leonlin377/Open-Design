@@ -7,6 +7,7 @@ import {
 } from "../../../../components/studio-inspector";
 import {
   getArtifactWorkspace,
+  getArtifactVersionDiff,
   getProject,
   getSession,
   listArtifacts
@@ -146,6 +147,21 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
     { template: "feature-grid" as const, label: "Add Feature Grid" },
     { template: "cta" as const, label: "Add CTA" }
   ];
+  const versionDiffEntries = await Promise.all(
+    versions.map(
+      async (
+        version
+      ): Promise<[string, Awaited<ReturnType<typeof getArtifactVersionDiff>>]> => [
+        version.id,
+        await getArtifactVersionDiff({
+          projectId: project.id,
+          artifactId: artifact.id,
+          versionId: version.id
+        })
+      ]
+    )
+  );
+  const versionDiffMap = new Map(versionDiffEntries);
 
   return (
     <main className="studio-shell">
@@ -520,27 +536,52 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                 </div>
                 <div className="stack-form">
                   {versions.map((version) => (
-                    <Surface key={version.id} className="kv">
-                      <span>
-                        {version.label}
-                        {version.id === workspace.activeVersionId ? " · active" : ""}
-                      </span>
-                      {version.summary}
-                      <span className="footer-note">
-                        Scene v{version.sceneVersion} ·{" "}
-                        {version.hasCodeWorkspaceSnapshot ? "Code Snapshot" : "Scene Only"}
-                      </span>
-                      {version.id !== workspace.activeVersionId ? (
-                        <form action={restoreArtifactVersionAction}>
-                          <input type="hidden" name="projectId" value={project.id} />
-                          <input type="hidden" name="artifactId" value={artifact.id} />
-                          <input type="hidden" name="versionId" value={version.id} />
-                          <Button variant="ghost" size="sm" type="submit">
-                            Restore Version
-                          </Button>
-                        </form>
-                      ) : null}
-                    </Surface>
+                    (() => {
+                      const diffSummary = versionDiffMap.get(version.id)?.diff ?? null;
+
+                      return (
+                        <Surface key={version.id} className="kv">
+                          <span>
+                            {version.label}
+                            {version.id === workspace.activeVersionId ? " · active" : ""}
+                          </span>
+                          {version.summary}
+                          <span className="footer-note">
+                            Scene v{version.sceneVersion} ·{" "}
+                            {version.hasCodeWorkspaceSnapshot ? "Code Snapshot" : "Scene Only"}
+                          </span>
+                          {diffSummary ? (
+                            <div className="version-diff-grid">
+                              <div className="version-diff-card">
+                                <strong>Scene Diff</strong>
+                                <span>
+                                  +{diffSummary.scene.addedNodeCount} / -
+                                  {diffSummary.scene.removedNodeCount} / ~
+                                  {diffSummary.scene.changedNodeCount}
+                                </span>
+                              </div>
+                              <div className="version-diff-card">
+                                <strong>Code Diff</strong>
+                                <span>
+                                  {diffSummary.code.changedFileCount} file
+                                  {diffSummary.code.changedFileCount === 1 ? "" : "s"} changed
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+                          {version.id !== workspace.activeVersionId ? (
+                            <form action={restoreArtifactVersionAction}>
+                              <input type="hidden" name="projectId" value={project.id} />
+                              <input type="hidden" name="artifactId" value={artifact.id} />
+                              <input type="hidden" name="versionId" value={version.id} />
+                              <Button variant="ghost" size="sm" type="submit">
+                                Restore Version
+                              </Button>
+                            </form>
+                          ) : null}
+                        </Surface>
+                      );
+                    })()
                   ))}
                 </div>
               </Surface>

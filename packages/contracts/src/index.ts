@@ -116,6 +116,23 @@ export const ArtifactGenerationPlanSchema = z.object({
   provider: z.enum(["litellm", "heuristic"])
 });
 
+export const ArtifactVersionDiffSummarySchema = z.object({
+  versionId: z.string().min(1),
+  againstVersionId: z.string().min(1).nullable(),
+  scene: z.object({
+    addedNodeCount: z.number().int().nonnegative(),
+    removedNodeCount: z.number().int().nonnegative(),
+    changedNodeCount: z.number().int().nonnegative(),
+    currentVersion: z.number().int().positive(),
+    comparedVersion: z.number().int().positive()
+  }),
+  code: z.object({
+    changedFileCount: z.number().int().nonnegative(),
+    comparedHasCodeWorkspace: z.boolean(),
+    currentHasCodeWorkspace: z.boolean()
+  })
+});
+
 export const ArtifactWorkspaceSchema = z.object({
   artifactId: z.string().min(1),
   intent: z.string().min(1),
@@ -170,6 +187,7 @@ export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSche
 export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
 export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
 export type ArtifactGenerationPlan = z.infer<typeof ArtifactGenerationPlanSchema>;
+export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;

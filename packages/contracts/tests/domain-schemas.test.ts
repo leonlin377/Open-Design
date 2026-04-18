@@ -4,6 +4,7 @@ import {
   ArtifactCommentSchema,
   ArtifactGenerationPlanSchema,
   ArtifactKindSchema,
+  ArtifactVersionDiffSummarySchema,
   ArtifactVersionSnapshotSchema,
   ArtifactWorkspaceSchema,
   CommentAnchorSchema,
@@ -191,6 +192,30 @@ describe("ArtifactGenerationPlanSchema", () => {
 
     expect(plan.sections).toHaveLength(3);
     expect(plan.provider).toBe("heuristic");
+  });
+});
+
+describe("ArtifactVersionDiffSummarySchema", () => {
+  test("accepts summarized scene and code diff payloads", () => {
+    const diff = ArtifactVersionDiffSummarySchema.parse({
+      versionId: "version_1",
+      againstVersionId: "version_2",
+      scene: {
+        addedNodeCount: 1,
+        removedNodeCount: 0,
+        changedNodeCount: 2,
+        currentVersion: 5,
+        comparedVersion: 3
+      },
+      code: {
+        changedFileCount: 2,
+        comparedHasCodeWorkspace: true,
+        currentHasCodeWorkspace: false
+      }
+    });
+
+    expect(diff.scene.changedNodeCount).toBe(2);
+    expect(diff.code.changedFileCount).toBe(2);
   });
 });
 

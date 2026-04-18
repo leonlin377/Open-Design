@@ -683,6 +683,112 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("summarizes scene and code drift against a saved version snapshot", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Diff Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Diff Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendHeroResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+      expect(appendHeroResponse.statusCode).toBe(201);
+
+      const initialFiles = {
+        "/App.tsx": 'export default function App() { return <main>Version A</main>; }',
+        "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+        "/styles.css": "main { color: teal; }",
+        "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+        "/package.json": '{"name":"version-a","private":true}'
+      };
+
+      const firstSaveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: initialFiles
+        }
+      });
+      expect(firstSaveResponse.statusCode).toBe(200);
+      const savedUpdatedAt = firstSaveResponse.json().workspace.codeWorkspace.updatedAt as string;
+
+      const versionResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions`,
+        payload: {
+          label: "Review A",
+          summary: "Hero baseline"
+        }
+      });
+      expect(versionResponse.statusCode).toBe(201);
+      const version = versionResponse.json();
+
+      const appendCtaResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "cta"
+        }
+      });
+      expect(appendCtaResponse.statusCode).toBe(201);
+
+      const secondSaveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            ...initialFiles,
+            "/App.tsx": 'export default function App() { return <main>Version B</main>; }'
+          },
+          expectedUpdatedAt: savedUpdatedAt
+        }
+      });
+      expect(secondSaveResponse.statusCode).toBe(200);
+
+      const diffResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/diff`
+      });
+
+      expect(diffResponse.statusCode).toBe(200);
+      expect(diffResponse.json()).toMatchObject({
+        diff: {
+          versionId: version.id,
+          againstVersionId: version.id,
+          scene: {
+            addedNodeCount: 1,
+            removedNodeCount: 0,
+            changedNodeCount: 0,
+            currentVersion: 3,
+            comparedVersion: 2
+          },
+          code: {
+            changedFileCount: 1,
+            comparedHasCodeWorkspace: true,
+            currentHasCodeWorkspace: true
+          }
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("restores a version snapshot back into scene and saved code workspace", async () => {
     const app = await buildApp();
     try {

@@ -1,4 +1,5 @@
 import {
+  ArtifactVersionDiffSummarySchema,
   ArtifactKindSchema,
   ArtifactGenerationPlanSchema,
   ArtifactVersionSourceSchema,
@@ -16,6 +17,7 @@ import {
 import {
   appendRootSceneNode,
   createEmptySceneDocument,
+  indexSceneNodesById,
   updateRootSceneNode
 } from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
@@ -317,6 +319,85 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         openCommentCount: input.comments.filter((comment) => comment.status === "open").length,
         updatedAt: input.workspace.updatedAt
       };
+    }
+
+    function buildVersionDiffSummary(input: {
+      versionId: string;
+      comparedSceneDocument: {
+        version: number;
+        nodes: SceneNode[];
+      };
+      currentSceneDocument: {
+        version: number;
+        nodes: SceneNode[];
+      };
+      comparedCodeWorkspace: {
+        files: Record<string, string>;
+      } | null;
+      currentCodeWorkspace: {
+        files: Record<string, string>;
+      } | null;
+      againstVersionId: string | null;
+    }) {
+      const comparedNodes = indexSceneNodesById(input.comparedSceneDocument.nodes);
+      const currentNodes = indexSceneNodesById(input.currentSceneDocument.nodes);
+
+      let addedNodeCount = 0;
+      let removedNodeCount = 0;
+      let changedNodeCount = 0;
+
+      for (const [nodeId, currentNode] of currentNodes) {
+        const comparedNode = comparedNodes.get(nodeId);
+
+        if (!comparedNode) {
+          addedNodeCount += 1;
+          continue;
+        }
+
+        if (
+          currentNode.name !== comparedNode.name ||
+          JSON.stringify(currentNode.props) !== JSON.stringify(comparedNode.props)
+        ) {
+          changedNodeCount += 1;
+        }
+      }
+
+      for (const nodeId of comparedNodes.keys()) {
+        if (!currentNodes.has(nodeId)) {
+          removedNodeCount += 1;
+        }
+      }
+
+      const comparedFiles = input.comparedCodeWorkspace?.files ?? {};
+      const currentFiles = input.currentCodeWorkspace?.files ?? {};
+      const allFilePaths = new Set([
+        ...Object.keys(comparedFiles),
+        ...Object.keys(currentFiles)
+      ]);
+      let changedFileCount = 0;
+
+      for (const filePath of allFilePaths) {
+        if ((comparedFiles[filePath] ?? null) !== (currentFiles[filePath] ?? null)) {
+          changedFileCount += 1;
+        }
+      }
+
+      return ArtifactVersionDiffSummarySchema.parse({
+        versionId: input.versionId,
+        againstVersionId: input.againstVersionId,
+        scene: {
+          addedNodeCount,
+          removedNodeCount,
+          changedNodeCount,
+          currentVersion: input.currentSceneDocument.version,
+          comparedVersion: input.comparedSceneDocument.version
+        },
+        code: {
+          changedFileCount,
+          comparedHasCodeWorkspace: Boolean(input.comparedCodeWorkspace),
+          currentHasCodeWorkspace: Boolean(input.currentCodeWorkspace)
+        }
+      });
     }
 
     async function resolveAuthorizedProject(request: FastifyRequest, projectId: string) {
@@ -693,6 +774,53 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             comments
           }),
           restoredVersion: versionState.snapshot
+        };
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/versions/:versionId/diff",
+      async (request, reply) => {
+        const params = artifactVersionParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        const versionState = await options.versions.getStateById(
+          artifact.id,
+          params.versionId
+        );
+
+        if (!versionState) {
+          return reply.code(404).send({
+            error: "Version not found",
+            code: "VERSION_NOT_FOUND"
+          });
+        }
+
+        const { workspace } = await ensureWorkspaceState(artifact);
+
+        return {
+          diff: buildVersionDiffSummary({
+            versionId: versionState.snapshot.id,
+            comparedSceneDocument: versionState.sceneDocument,
+            currentSceneDocument: workspace.sceneDocument,
+            comparedCodeWorkspace: versionState.codeWorkspace,
+            currentCodeWorkspace: workspace.codeWorkspace,
+            againstVersionId: workspace.activeVersionId
+          })
         };
       }
     );

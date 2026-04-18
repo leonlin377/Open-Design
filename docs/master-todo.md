@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `52%`
+Current estimated product completion for a serious V1: `54%`
 
 ```
-[##########----------] 52%
+[###########---------] 54%
 ```
 
 ## Current Reality
@@ -98,7 +98,7 @@ Goal: Make scene editing and code editing feel like one system instead of parall
 - [x] Add explicit generation, save, restore, and export feedback states in UI
   Done when:
   Users always know what changed and what the current source of truth is.
-- [ ] Add scene/code diff support in the Versions lane
+- [x] Add scene/code diff support in the Versions lane
   Done when:
   Restores are previewable and users can inspect what changed before switching.
 
@@ -206,7 +206,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 This is the immediate build sequence I should continue with next:
 
-- [ ] Add scene/code diff preview in Versions lane
+- [x] Add scene/code diff preview in Versions lane
 - [ ] Harden generation route from fallback-only into streamed LiteLLM execution
 - [ ] Add generation status and failure UI in Chat Rail
 - [ ] Move section editing out of the Studio page into reusable editor components
