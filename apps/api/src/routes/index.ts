@@ -38,6 +38,7 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
     workspaces: options.workspaces,
     versions: options.versions,
     comments: options.comments,
+    designSystems: options.designSystems,
     auth: options.auth
   });
   await app.register(registerDesignSystemRoutes, {

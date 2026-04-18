@@ -15,6 +15,7 @@ interface Queryable {
 
 export interface DesignSystemRepository {
   list(input?: { ownerUserId?: string | null }): Promise<DesignSystemPackRecord[]>;
+  getById(id: string, input?: { ownerUserId?: string | null }): Promise<DesignSystemPackRecord | null>;
   create(input: {
     ownerUserId?: string | null;
     pack: DesignSystemPack;
@@ -51,6 +52,23 @@ export class InMemoryDesignSystemRepository implements DesignSystemRepository {
     }
 
     return packs;
+  }
+
+  async getById(
+    id: string,
+    input?: { ownerUserId?: string | null }
+  ): Promise<DesignSystemPackRecord | null> {
+    const record = this.packs.get(id) ?? null;
+
+    if (!record) {
+      return null;
+    }
+
+    if (input?.ownerUserId && record.ownerUserId !== input.ownerUserId) {
+      return null;
+    }
+
+    return record;
   }
 
   async create(input: {
@@ -93,6 +111,33 @@ export class PostgresDesignSystemRepository implements DesignSystemRepository {
     );
 
     return result.rows.map(mapDesignSystemRecord);
+  }
+
+  async getById(
+    id: string,
+    input?: { ownerUserId?: string | null }
+  ): Promise<DesignSystemPackRecord | null> {
+    const result = await this.database.query<{
+      id: string;
+      owner_user_id: string | null;
+      pack: unknown;
+      created_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      input?.ownerUserId
+        ? `select id, owner_user_id, pack, created_at, updated_at
+           from design_system_packs
+           where id = $1 and owner_user_id = $2
+           limit 1`
+        : `select id, owner_user_id, pack, created_at, updated_at
+           from design_system_packs
+           where id = $1
+           limit 1`,
+      input?.ownerUserId ? [id, input.ownerUserId] : [id]
+    );
+
+    const record = result.rows[0];
+    return record ? mapDesignSystemRecord(record) : null;
   }
 
   async create(input: {

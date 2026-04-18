@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { generateArtifactPlan } from "../src/generation";
+import {
+  generateArtifactPlan,
+  summarizeDesignSystemForGeneration
+} from "../src/generation";
 
 const originalFetch = globalThis.fetch;
 
@@ -36,12 +39,43 @@ describe("generateArtifactPlan", () => {
       artifactKind: "website",
       artifactName: "Atlas",
       prompt: "Create a launch page with a hero and CTA.",
+      designSystem: summarizeDesignSystemForGeneration({
+        id: "dsp_1",
+        name: "Atlas System",
+        source: "github",
+        tokens: {
+          colors: {
+            primary: "#0f172a"
+          },
+          typography: {
+            display: "72px"
+          }
+        },
+        components: [
+          {
+            id: "button_primary",
+            name: "Button Primary",
+            category: "button",
+            signature: "button.primary"
+          }
+        ],
+        motifs: [
+          {
+            id: "motif_1",
+            label: "Cinematic Layers",
+            description: "Dense layered layout"
+          }
+        ],
+        provenance: []
+      }),
       env: {}
     });
 
     expect(result.plan.provider).toBe("heuristic");
     expect(result.diagnostics.transport).toBe("fallback");
     expect(result.diagnostics.warning).toMatch(/not configured/i);
+    expect(result.plan.designSystem?.name).toBe("Atlas System");
+    expect(result.plan.intent).toMatch(/Atlas System/i);
   });
 
   test("consumes LiteLLM chat completion streams into a validated plan", async () => {

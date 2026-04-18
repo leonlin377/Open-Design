@@ -191,11 +191,21 @@ describe("ArtifactGenerationPlanSchema", () => {
       intent: "Build a cinematic launch surface for Atlas Commerce.",
       rationale: "The page needs a hero, supporting features, and a CTA to close the story.",
       sections: ["hero", "feature-grid", "cta"],
-      provider: "heuristic"
+      provider: "heuristic",
+      designSystem: {
+        id: "dsp_1",
+        name: "Atlas System",
+        source: "github",
+        motifLabels: ["Cinematic Layers"],
+        colorTokenCount: 8,
+        typographyTokenCount: 4,
+        componentCount: 12
+      }
     });
 
     expect(plan.sections).toHaveLength(3);
     expect(plan.provider).toBe("heuristic");
+    expect(plan.designSystem?.name).toBe("Atlas System");
   });
 });
 

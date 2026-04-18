@@ -111,12 +111,23 @@ export const ArtifactCodeWorkspaceSchema = z.object({
 export const ArtifactGenerationProviderSchema = z.enum(["litellm", "heuristic"]);
 export const ArtifactGenerationTransportSchema = z.enum(["stream", "json", "fallback"]);
 
+export const ArtifactGenerationDesignSystemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  source: z.enum(["github", "local-directory", "site-capture", "manual"]),
+  motifLabels: z.array(z.string().min(1)).max(6),
+  colorTokenCount: z.number().int().nonnegative(),
+  typographyTokenCount: z.number().int().nonnegative(),
+  componentCount: z.number().int().nonnegative()
+});
+
 export const ArtifactGenerationPlanSchema = z.object({
   prompt: z.string().min(1),
   intent: z.string().min(1),
   rationale: z.string().min(1),
   sections: z.array(SceneTemplateKindSchema).min(1).max(6),
-  provider: ArtifactGenerationProviderSchema
+  provider: ArtifactGenerationProviderSchema,
+  designSystem: ArtifactGenerationDesignSystemSchema.optional()
 });
 
 export const ArtifactGenerationDiagnosticsSchema = z.object({
@@ -286,6 +297,9 @@ export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
 export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
 export type ArtifactGenerationProvider = z.infer<typeof ArtifactGenerationProviderSchema>;
 export type ArtifactGenerationTransport = z.infer<typeof ArtifactGenerationTransportSchema>;
+export type ArtifactGenerationDesignSystem = z.infer<
+  typeof ArtifactGenerationDesignSystemSchema
+>;
 export type ArtifactGenerationPlan = z.infer<typeof ArtifactGenerationPlanSchema>;
 export type ArtifactGenerationDiagnostics = z.infer<
   typeof ArtifactGenerationDiagnosticsSchema

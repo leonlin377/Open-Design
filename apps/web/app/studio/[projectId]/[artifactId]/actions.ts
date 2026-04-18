@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  attachArtifactDesignSystem,
   appendSceneTemplate,
   createArtifactComment,
   generateArtifact,
@@ -49,6 +50,24 @@ export async function generateArtifactAction(formData: FormData) {
     projectId,
     artifactId,
     prompt
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function attachArtifactDesignSystemAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const designSystemPackId = String(formData.get("designSystemPackId") ?? "").trim();
+
+  if (!projectId || !artifactId) {
+    throw new Error("Project and artifact are required.");
+  }
+
+  await attachArtifactDesignSystem({
+    projectId,
+    artifactId,
+    designSystemPackId: designSystemPackId || null
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

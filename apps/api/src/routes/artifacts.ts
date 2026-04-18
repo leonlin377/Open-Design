@@ -34,13 +34,18 @@ import {
 } from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { ArtifactGenerationError, generateArtifactPlan } from "../generation";
+import {
+  ArtifactGenerationError,
+  generateArtifactPlan,
+  summarizeDesignSystemForGeneration
+} from "../generation";
 import { buildApiError, sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
 import type { ArtifactVersionRepository } from "../repositories/artifact-versions";
 import type { ArtifactWorkspaceRepository } from "../repositories/artifact-workspaces";
 import type { ArtifactRepository } from "../repositories/artifacts";
+import type { DesignSystemRepository } from "../repositories/design-systems";
 import type { ProjectRepository } from "../repositories/projects";
 
 const artifactParamsSchema = z.object({
@@ -109,6 +114,10 @@ const saveCodeWorkspaceBodySchema = z.object({
   expectedUpdatedAt: z.string().min(1).nullable().optional()
 });
 
+const attachDesignSystemBodySchema = z.object({
+  designSystemPackId: z.string().min(1).nullable()
+});
+
 const requiredCodeWorkspaceFiles = [
   "/App.tsx",
   "/main.tsx",
@@ -135,6 +144,7 @@ export interface ArtifactRouteOptions {
   workspaces: ArtifactWorkspaceRepository;
   versions: ArtifactVersionRepository;
   comments: ArtifactCommentRepository;
+  designSystems: DesignSystemRepository;
   auth: OpenDesignAuth;
 }
 
@@ -152,6 +162,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       };
       intent: string;
       template: z.infer<typeof SceneTemplateKindSchema>;
+      designSystemName?: string | null;
     }): SceneNode {
       const nodeId = `${input.template}_${crypto.randomUUID()}`;
 
@@ -163,12 +174,16 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           props: {
             template: "hero",
             eyebrow:
-              input.artifact.kind === "slides"
+              input.designSystemName
+                ? `${input.designSystemName} System`
+                : input.artifact.kind === "slides"
                 ? "Deck Surface"
                 : input.artifact.kind === "prototype"
                   ? "Flow Surface"
                   : "Launch Surface",
-            headline: `${input.artifact.name} leads with cinematic hierarchy.`,
+            headline: input.designSystemName
+              ? `${input.artifact.name} adopts ${input.designSystemName} hierarchy.`
+              : `${input.artifact.name} leads with cinematic hierarchy.`,
             body: input.intent
           },
           children: []
@@ -182,7 +197,9 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           name: "Feature Grid",
           props: {
             template: "feature-grid",
-            title: "Artifact system lanes",
+            title: input.designSystemName
+              ? `${input.designSystemName} system lanes`
+              : "Artifact system lanes",
             items: [
               {
                 label: "Scene",
@@ -208,7 +225,9 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         name: "Call To Action",
         props: {
           template: "cta",
-          headline: "Ready for the next review pass?",
+          headline: input.designSystemName
+            ? `Ready to ship ${input.designSystemName} fidelity?`
+            : "Ready for the next review pass?",
           body: "Promote the current artifact into a snapshot, then push it toward export.",
           primaryAction: "Create Snapshot",
           secondaryAction: "Export Handoff"
@@ -232,6 +251,34 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       return `Seeded ${artifact.kind} workspace for ${artifact.name} from artifact metadata.`;
     }
 
+    function attachDesignSystemMetadata(input: {
+      sceneDocument: EnsuredWorkspace["sceneDocument"];
+      designSystemPackId: string | null;
+    }) {
+      return {
+        ...input.sceneDocument,
+        metadata: {
+          ...input.sceneDocument.metadata,
+          ...(input.designSystemPackId
+            ? {
+                designSystemPackId: input.designSystemPackId
+              }
+            : {})
+        }
+      };
+    }
+
+    function clearDesignSystemMetadata(input: {
+      sceneDocument: EnsuredWorkspace["sceneDocument"];
+    }) {
+      const { designSystemPackId: _ignored, ...metadata } = input.sceneDocument.metadata;
+
+      return {
+        ...input.sceneDocument,
+        metadata
+      };
+    }
+
     async function resolveAuthorizedArtifact(
       request: FastifyRequest,
       input: {
@@ -239,10 +286,11 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         artifactId: string;
       }
     ) {
-      const { project } = await resolveAuthorizedProject(request, input.projectId);
+      const { project, session } = await resolveAuthorizedProject(request, input.projectId);
 
       if (!project) {
         return {
+          session,
           project: null,
           artifact: null
         };
@@ -251,6 +299,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const artifact = await options.artifacts.getById(input.projectId, input.artifactId);
 
       return {
+        session,
         project,
         artifact
       };
@@ -413,16 +462,27 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       ) => Promise<void> | void;
     }): Promise<ArtifactGenerateResponse> {
       const { workspace, versions, comments } = await ensureWorkspaceState(input.artifact);
+      const selectedDesignSystemPackId =
+        workspace.sceneDocument.metadata.designSystemPackId ?? null;
+      const selectedDesignSystem = selectedDesignSystemPackId
+        ? await options.designSystems.getById(selectedDesignSystemPackId)
+        : null;
+      const generationDesignSystem = selectedDesignSystem
+        ? summarizeDesignSystemForGeneration(selectedDesignSystem)
+        : undefined;
 
       await input.onProgress?.({
         type: "planning",
-        message: "Generating an artifact plan from the current prompt."
+        message: generationDesignSystem
+          ? `Generating an artifact plan from the current prompt with ${generationDesignSystem.name} grounding.`
+          : "Generating an artifact plan from the current prompt."
       });
 
       const generation = await generateArtifactPlan({
         artifactKind: input.artifact.kind,
         artifactName: input.artifact.name,
-        prompt: input.prompt
+        prompt: input.prompt,
+        designSystem: generationDesignSystem
       });
       const plan = ArtifactGenerationPlanSchema.parse(generation.plan);
 
@@ -434,7 +494,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           const node = buildTemplateNode({
             artifact: input.artifact,
             intent: plan.intent,
-            template
+            template,
+            designSystemName: plan.designSystem?.name ?? null
           });
           sceneDocument = appendRootSceneNode(sceneDocument, node);
           appendedNodes.push(node);
@@ -791,6 +852,78 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         comments
       };
     });
+
+    app.post(
+      "/projects/:projectId/artifacts/:artifactId/design-system",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const body = attachDesignSystemBodySchema.parse(request.body);
+        const { artifact, project, session } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (body.designSystemPackId) {
+          const pack = await options.designSystems.getById(body.designSystemPackId, {
+            ownerUserId: session?.user.id ?? undefined
+          });
+
+          if (!pack) {
+            return sendApiError(reply, 404, {
+              error: "Design system pack not found",
+              code: "DESIGN_SYSTEM_IMPORT_FAILED",
+              recoverable: true
+            });
+          }
+        }
+
+        const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+        const nextSceneDocument = body.designSystemPackId
+          ? attachDesignSystemMetadata({
+              sceneDocument: workspace.sceneDocument,
+              designSystemPackId: body.designSystemPackId
+            })
+          : clearDesignSystemMetadata({
+              sceneDocument: workspace.sceneDocument
+            });
+        const updatedWorkspace = await options.workspaces.updateSceneDocument(
+          artifact.id,
+          nextSceneDocument
+        );
+
+        if (!updatedWorkspace) {
+          return sendApiError(reply, 422, {
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: {
+              stage: "attach-design-system"
+            }
+          });
+        }
+
+        return reply.send({
+          workspace: buildWorkspacePayload({
+            workspace: updatedWorkspace,
+            versions,
+            comments
+          })
+        });
+      }
+    );
 
     app.get(
       "/projects/:projectId/artifacts/:artifactId/exports/html",

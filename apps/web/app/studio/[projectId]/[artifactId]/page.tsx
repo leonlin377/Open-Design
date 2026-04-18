@@ -7,6 +7,7 @@ import {
   StudioInspector,
   type StudioInspectorTab
 } from "../../../../components/studio-inspector";
+import { StudioDesignSystemPanel } from "../../../../components/studio-design-system-panel";
 import { StudioGeneratePanel } from "../../../../components/studio-generate-panel";
 import { StudioSceneSectionsPanel } from "../../../../components/studio-scene-sections-panel";
 import { StudioVersionsPanel } from "../../../../components/studio-versions-panel";
@@ -16,9 +17,11 @@ import {
   getArtifactVersionDiff,
   getProject,
   getSession,
-  listArtifacts
+  listArtifacts,
+  listDesignSystems
 } from "../../../../lib/opendesign-api";
 import {
+  attachArtifactDesignSystemAction,
   appendSceneTemplateAction,
   createArtifactCommentAction,
   createArtifactVersionAction,
@@ -61,10 +64,11 @@ function readInspectorTab(value: string | string[] | undefined): StudioInspector
 
 export default async function StudioPage({ params, searchParams }: StudioPageProps) {
   const resolvedSearchParams = await searchParams;
-  const [session, project, workspacePayload] = await Promise.all([
+  const [session, project, workspacePayload, designSystems] = await Promise.all([
     getSession(),
     getProject(params.projectId),
-    getArtifactWorkspace(params.projectId, params.artifactId)
+    getArtifactWorkspace(params.projectId, params.artifactId),
+    listDesignSystems()
   ]);
   const artifacts = project ? await listArtifacts(project.id) : [];
 
@@ -185,6 +189,15 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             <span>Comment Queue</span>
             {activeCommentCount} open comment{activeCommentCount === 1 ? "" : "s"}
           </Surface>
+          <StudioDesignSystemPanel
+            projectId={project.id}
+            artifactId={artifact.id}
+            designSystems={designSystems}
+            selectedDesignSystemPackId={
+              workspace.sceneDocument.metadata.designSystemPackId ?? null
+            }
+            attachArtifactDesignSystemAction={attachArtifactDesignSystemAction}
+          />
           <StudioGeneratePanel
             projectId={project.id}
             artifactId={artifact.id}

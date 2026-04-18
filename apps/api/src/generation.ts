@@ -1,10 +1,13 @@
 import {
   ArtifactGenerationDiagnosticsSchema,
+  ArtifactGenerationDesignSystemSchema,
   ArtifactGenerationPlanSchema,
   type ApiError,
+  type ArtifactGenerationDesignSystem,
   type ArtifactGenerationPlan,
   type ArtifactGenerationDiagnostics,
   type ArtifactKind,
+  type DesignSystemPack,
   type SceneTemplateKind
 } from "@opendesign/contracts";
 
@@ -36,6 +39,7 @@ type GenerateArtifactPlanInput = {
   artifactKind: ArtifactKind;
   artifactName: string;
   prompt: string;
+  designSystem?: ArtifactGenerationDesignSystem;
   env?: NodeJS.ProcessEnv;
 };
 
@@ -80,14 +84,26 @@ function buildHeuristicSections(prompt: string): SceneTemplateKind[] {
 
 function buildHeuristicPlan(input: GenerateArtifactPlanInput): ArtifactGenerationPlan {
   const sections = buildHeuristicSections(input.prompt);
+  const baseIntent = `Generate a ${input.artifactKind} artifact for ${input.artifactName}: ${input.prompt}`;
+  const designSystemSuffix = input.designSystem
+    ? ` Ground the artifact in the ${input.designSystem.name} design system using motifs ${input.designSystem.motifLabels.join(", ") || "none"}.`
+    : "";
 
   return ArtifactGenerationPlanSchema.parse({
     prompt: input.prompt,
-    intent: `Generate a ${input.artifactKind} artifact for ${input.artifactName}: ${input.prompt}`,
-    rationale:
-      "Fallback heuristic plan selected a narrative opener, supporting structure, and closing action lane.",
+    intent: `${baseIntent}${designSystemSuffix}`,
+    rationale: `${
+      input.designSystem
+        ? `Use the ${input.designSystem.name} pack as a grounding constraint. `
+        : ""
+    }Fallback heuristic plan selected a narrative opener, supporting structure, and closing action lane.`,
     sections,
-    provider: "heuristic"
+    provider: "heuristic",
+    ...(input.designSystem
+      ? {
+          designSystem: input.designSystem
+        }
+      : {})
   });
 }
 
@@ -250,14 +266,15 @@ async function generatePlanViaLiteLLM(
           {
             role: "system",
             content:
-              "You are generating a compact artifact plan. Return JSON only with keys: prompt, intent, rationale, sections, provider. sections must be an array using only hero, feature-grid, cta."
+              "You are generating a compact artifact plan. Return JSON only with keys: prompt, intent, rationale, sections, provider. designSystem is optional. sections must be an array using only hero, feature-grid, cta."
           },
           {
             role: "user",
             content: JSON.stringify({
               artifactKind: input.artifactKind,
               artifactName: input.artifactName,
-              prompt: input.prompt
+              prompt: input.prompt,
+              designSystem: input.designSystem ?? null
             })
           }
         ]
@@ -317,7 +334,12 @@ async function generatePlanViaLiteLLM(
       plan: ArtifactGenerationPlanSchema.parse({
         ...parsed,
         prompt: input.prompt,
-        provider: "litellm"
+        provider: "litellm",
+        ...(input.designSystem
+          ? {
+              designSystem: input.designSystem
+            }
+          : {})
       }),
       diagnostics: ArtifactGenerationDiagnosticsSchema.parse({
         provider: "litellm",
@@ -353,4 +375,18 @@ export async function generateArtifactPlan(
   }
 
   return generatePlanViaLiteLLM(input, env);
+}
+
+export function summarizeDesignSystemForGeneration(
+  pack: DesignSystemPack
+): ArtifactGenerationDesignSystem {
+  return ArtifactGenerationDesignSystemSchema.parse({
+    id: pack.id,
+    name: pack.name,
+    source: pack.source,
+    motifLabels: pack.motifs.map((motif) => motif.label).slice(0, 6),
+    colorTokenCount: Object.keys(pack.tokens.colors).length,
+    typographyTokenCount: Object.keys(pack.tokens.typography).length,
+    componentCount: pack.components.length
+  });
 }

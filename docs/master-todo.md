@@ -33,19 +33,19 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `81%`
+Current estimated product completion for a serious V1: `83%`
 
 ```text
-[################----] 81%
+[#################---] 83%
 ```
 
 ## Phase Scoreboard
 
 | Phase | Area | Estimated Completion | Status |
 | --- | --- | --- | --- |
-| 1 | AI generation pipeline | 86% | `[>]` |
+| 1 | AI generation pipeline | 90% | `[>]` |
 | 2 | Scene/code synchronization | 82% | `[>]` |
-| 3 | Design system ingest and grounding | 80% | `[>]` |
+| 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 0% | `[ ]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
 | 6 | Assets, reliability, ops | 35% | `[>]` |
@@ -66,10 +66,10 @@ What is already working:
 - [x] Snapshot creation and version restore for scene + saved code workspace
 - [x] HTML export and runnable ZIP source export
 - [x] GitHub, local-directory, and Playwright-first site-capture design-system import
+- [x] Design-system selection and generation grounding for artifacts
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Design-system-constrained generation
 - [ ] Broader safe `code -> scene` synchronization
 - [ ] Prototype artifact type
 - [ ] Slides artifact type
@@ -90,32 +90,6 @@ What still blocks a true Claude Design benchmark:
 ## Current Execution Queue
 
 These are the tasks that should be worked continuously next.
-
-### DS-005 Use Imported Packs As Generation Constraints
-
-- Status: `[r]`
-- Priority: `P0`
-- Owner Lane: `api`, `shared`, `web`
-- Depends On: `DS-004`, `GEN-001`
-- Blocks: `TYPE-001`, `TYPE-002`
-- Why Now:
-  Imported packs exist, but they do not yet materially change output. Without grounding, the design-system phase is not actually complete.
-- Definition Of Done:
-  - Artifact generation accepts an attached pack or pack reference.
-  - Generation plan/prompt/context includes tokens, motifs, and component signatures.
-  - Generated scene/code visibly changes based on selected packs.
-  - Tests cover at least one grounded generation path.
-- Validation Commands:
-  - `pnpm --filter @opendesign/api test`
-  - `pnpm --filter @opendesign/contracts test`
-  - `pnpm typecheck`
-- Expected Artifacts:
-  - `apps/api/src/generation.ts`
-  - `apps/api/src/routes/artifacts.ts`
-  - `packages/contracts/src/index.ts`
-  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
-- Next Slice:
-  - `SYNC-003 Broaden supported code -> scene sync`
 
 ### SYNC-003 Broaden Supported Code -> Scene Sync Beyond App.tsx Sections Data
 
@@ -241,7 +215,7 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 - [>] `GEN-001` Add generation route for prompt-driven artifact creation
   Done when:
   Studio can submit a prompt and receive scene/code updates from the backend.
-- [r] `GEN-002` Attach imported packs to generation context and plan building
+- [x] `GEN-002` Attach imported packs to generation context and plan building
   Depends On: `DS-005`
   Done when:
   Prompt execution uses selected design-system evidence as grounding input.
@@ -268,7 +242,7 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 - [x] `DS-004` Upgrade site capture import from fetch-based evidence to Playwright browser capture
   Done when:
   A URL can be crawled through a real browser session and reduced into screenshots, style evidence, and extracted tokens.
-- [r] `DS-005` Use imported packs as generation constraints
+- [x] `DS-005` Use imported packs as generation constraints
   Done when:
   Prompt output changes based on selected pack tokens, motifs, and component signatures.
 
@@ -317,6 +291,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] GitHub design-system import
 - [x] Local-directory design-system import
 - [x] Playwright-first site-capture import with screenshot provenance
+- [x] Design-system grounded generation
 - [x] Scene -> code synchronization for generated website artifacts
 - [x] Safe-subset code -> scene synchronization
 - [x] Streaming generation progress and structured generation failures
@@ -325,8 +300,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 If no blocker appears, continue in this exact order:
 
-1. `DS-005` Use imported packs as generation constraints
-2. `SYNC-003` Broaden supported code -> scene sync safely
-3. `OPS-001` Add Playwright E2E coverage for core Studio flows
-4. `TYPE-001` Prototype-specific scene and preview
-5. `TYPE-002` Slides-specific scene structure
+1. `SYNC-003` Broaden supported code -> scene sync safely
+2. `OPS-001` Add Playwright E2E coverage for core Studio flows
+3. `TYPE-001` Prototype-specific scene and preview
+4. `TYPE-002` Slides-specific scene structure

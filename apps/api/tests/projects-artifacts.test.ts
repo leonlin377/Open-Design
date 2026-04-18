@@ -577,6 +577,96 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("attaches a design system pack to the workspace and grounds the next generation pass", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Grounded Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Grounded Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const importResponse = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/local",
+        payload: {
+          absolutePath: "/Users/leon/design-systems/atlas-ui",
+          files: [
+            {
+              path: "tokens/theme.json",
+              content: JSON.stringify({
+                colors: {
+                  primary: "#111827"
+                },
+                typography: {
+                  display: {
+                    fontSize: "72px"
+                  }
+                }
+              })
+            },
+            {
+              path: "components/button.tsx",
+              content: "export function Button() { return <button />; }"
+            }
+          ]
+        }
+      });
+
+      expect(importResponse.statusCode).toBe(201);
+      const pack = importResponse.json().pack;
+
+      const attachResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/design-system`,
+        payload: {
+          designSystemPackId: pack.id
+        }
+      });
+
+      expect(attachResponse.statusCode).toBe(200);
+      expect(attachResponse.json().workspace.sceneDocument.metadata).toMatchObject({
+        designSystemPackId: pack.id
+      });
+
+      const generateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: {
+          prompt: "Create a launch page with a feature grid and a conversion CTA."
+        }
+      });
+
+      expect(generateResponse.statusCode).toBe(201);
+      expect(generateResponse.json().generation.plan).toMatchObject({
+        provider: "heuristic",
+        designSystem: {
+          id: pack.id,
+          name: "atlas-ui"
+        }
+      });
+      expect(generateResponse.json().workspace.sceneDocument.metadata).toMatchObject({
+        designSystemPackId: pack.id
+      });
+      expect(generateResponse.json().workspace.sceneDocument.nodes[0]).toMatchObject({
+        props: {
+          eyebrow: "atlas-ui System",
+          headline: "Grounded Artifact adopts atlas-ui hierarchy."
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("streams generation progress events when the client requests text/event-stream", async () => {
     const app = await buildApp();
     try {

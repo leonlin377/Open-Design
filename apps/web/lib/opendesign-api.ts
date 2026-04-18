@@ -8,7 +8,8 @@ import type {
   ArtifactVersionDiffSummary,
   ArtifactWorkspace,
   SceneTemplateKind,
-  ArtifactVersionSnapshot
+  ArtifactVersionSnapshot,
+  DesignSystemPack
 } from "@opendesign/contracts";
 import {
   buildApiRequestError,
@@ -49,6 +50,11 @@ export type ApiArtifactVersion = ArtifactVersionSnapshot;
 export type ApiArtifactComment = ArtifactComment;
 export type ApiArtifactGenerateResponse = ArtifactGenerateResponse;
 export type ApiErrorPayload = ApiError;
+export type ApiDesignSystemPack = DesignSystemPack & {
+  ownerUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type ApiArtifactWorkspacePayload = {
   artifact: ApiArtifact;
@@ -112,6 +118,19 @@ export async function listProjects(): Promise<ApiProject[]> {
   }
 
   return (await response.json()) as ApiProject[];
+}
+
+export async function listDesignSystems(): Promise<ApiDesignSystemPack[]> {
+  const response = await apiFetch("/api/design-systems");
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to load design systems (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiDesignSystemPack[];
 }
 
 export async function getProject(projectId: string): Promise<ApiProject | null> {
@@ -264,6 +283,36 @@ export async function generateArtifact(input: {
   }
 
   return (await response.json()) as ApiArtifactGenerateResponse;
+}
+
+export async function attachArtifactDesignSystem(input: {
+  projectId: string;
+  artifactId: string;
+  designSystemPackId: string | null;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/design-system`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        designSystemPackId: input.designSystemPackId
+      })
+    }
+  );
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to attach design system (${response.status})`
+    );
+  }
+
+  return (await response.json()) as {
+    workspace: ApiArtifactWorkspace;
+  };
 }
 
 export async function restoreArtifactVersion(input: {
