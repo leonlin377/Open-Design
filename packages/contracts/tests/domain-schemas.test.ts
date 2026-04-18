@@ -7,6 +7,7 @@ import {
   ArtifactWorkspaceSchema,
   CommentAnchorSchema,
   DesignSystemPackSchema,
+  SceneTemplateKindSchema,
   SceneDocumentSchema
 } from "../src/index";
 
@@ -19,6 +20,14 @@ describe("ArtifactKindSchema", () => {
 
   test("rejects unsupported artifact kinds", () => {
     expect(() => ArtifactKindSchema.parse("figma")).toThrowError();
+  });
+});
+
+describe("SceneTemplateKindSchema", () => {
+  test("accepts supported section templates", () => {
+    expect(SceneTemplateKindSchema.parse("hero")).toBe("hero");
+    expect(SceneTemplateKindSchema.parse("feature-grid")).toBe("feature-grid");
+    expect(SceneTemplateKindSchema.parse("cta")).toBe("cta");
   });
 });
 

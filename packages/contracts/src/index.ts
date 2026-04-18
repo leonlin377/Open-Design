@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const ArtifactKindSchema = z.enum(["website", "prototype", "slides"]);
+export const SceneTemplateKindSchema = z.enum(["hero", "feature-grid", "cta"]);
 
 export const ViewportRectSchema = z.object({
   x: z.number().finite(),
@@ -145,6 +146,7 @@ export const DesignSystemPackSchema = z.object({
 });
 
 export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
+export type SceneTemplateKind = z.infer<typeof SceneTemplateKindSchema>;
 export type ArtifactCommentStatus = z.infer<typeof ArtifactCommentStatusSchema>;
 export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSourceSchema>;
 export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;

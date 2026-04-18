@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type {
   ArtifactComment,
   ArtifactWorkspace,
+  SceneTemplateKind,
   ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 
@@ -269,4 +270,36 @@ export async function resolveArtifactComment(input: {
   }
 
   return (await response.json()) as ApiArtifactComment;
+}
+
+export async function appendSceneTemplate(input: {
+  projectId: string;
+  artifactId: string;
+  template: SceneTemplateKind;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/scene/nodes`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        template: input.template
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to append scene template (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    workspace: ApiArtifactWorkspace;
+    appendedNode: {
+      id: string;
+      type: string;
+      name: string;
+    };
+  };
 }

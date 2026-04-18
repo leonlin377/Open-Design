@@ -170,6 +170,20 @@ describe("Projects and artifacts", () => {
         source: "manual"
       });
 
+      const appendHeroResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendHeroResponse.statusCode).toBe(201);
+      expect(appendHeroResponse.json().appendedNode).toMatchObject({
+        type: "section",
+        name: "Hero Section"
+      });
+
       const commentResponse = await app.inject({
         method: "POST",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/comments`,
@@ -208,8 +222,12 @@ describe("Projects and artifacts", () => {
       expect(refreshedWorkspaceResponse.statusCode).toBe(200);
       expect(refreshedWorkspaceResponse.json().workspace).toMatchObject({
         versionCount: 2,
-        openCommentCount: 0
+        openCommentCount: 0,
+        sceneDocument: {
+          version: 2
+        }
       });
+      expect(refreshedWorkspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(1);
     } finally {
       await app.close();
     }

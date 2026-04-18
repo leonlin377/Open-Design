@@ -31,6 +31,10 @@ export interface ArtifactWorkspaceRepository {
     artifactId: string,
     activeVersionId: string | null
   ): Promise<ArtifactWorkspaceRecord | null>;
+  updateSceneDocument(
+    artifactId: string,
+    sceneDocument: SceneDocument
+  ): Promise<ArtifactWorkspaceRecord | null>;
 }
 
 function toIsoTimestamp(value: string | Date) {
@@ -99,6 +103,25 @@ export class InMemoryArtifactWorkspaceRepository implements ArtifactWorkspaceRep
     const updated: ArtifactWorkspaceRecord = {
       ...workspace,
       activeVersionId,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.workspaces.set(artifactId, updated);
+    return updated;
+  }
+
+  async updateSceneDocument(
+    artifactId: string,
+    sceneDocument: SceneDocument
+  ): Promise<ArtifactWorkspaceRecord | null> {
+    const workspace = this.workspaces.get(artifactId);
+    if (!workspace) {
+      return null;
+    }
+
+    const updated: ArtifactWorkspaceRecord = {
+      ...workspace,
+      sceneDocument,
       updatedAt: new Date().toISOString()
     };
 
@@ -178,6 +201,30 @@ export class PostgresArtifactWorkspaceRepository implements ArtifactWorkspaceRep
        where artifact_id = $1
        returning artifact_id, intent, active_version_id, scene_document, created_at, updated_at`,
       [artifactId, activeVersionId]
+    );
+
+    const workspace = result.rows[0];
+    return workspace ? mapWorkspaceRecord(workspace) : null;
+  }
+
+  async updateSceneDocument(
+    artifactId: string,
+    sceneDocument: SceneDocument
+  ): Promise<ArtifactWorkspaceRecord | null> {
+    const result = await this.database.query<{
+      artifact_id: string;
+      intent: string;
+      active_version_id: string | null;
+      scene_document: unknown;
+      created_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      `update artifact_workspaces
+       set scene_document = $2::jsonb,
+           updated_at = now()
+       where artifact_id = $1
+       returning artifact_id, intent, active_version_id, scene_document, created_at, updated_at`,
+      [artifactId, JSON.stringify(sceneDocument)]
     );
 
     const workspace = result.rows[0];

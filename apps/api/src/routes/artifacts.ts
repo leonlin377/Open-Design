@@ -2,11 +2,13 @@ import {
   ArtifactKindSchema,
   ArtifactVersionSourceSchema,
   CommentAnchorSchema,
+  SceneTemplateKindSchema,
   type ArtifactComment,
+  type SceneNode,
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 import { planSyncPatch } from "@opendesign/code-sync";
-import { createEmptySceneDocument } from "@opendesign/scene-engine";
+import { appendRootSceneNode, createEmptySceneDocument } from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
@@ -41,6 +43,10 @@ const createArtifactCommentBodySchema = z.object({
   anchor: CommentAnchorSchema
 });
 
+const appendSceneTemplateBodySchema = z.object({
+  template: SceneTemplateKindSchema
+});
+
 const artifactCommentParamsSchema = z.object({
   projectId: z.string().min(1),
   artifactId: z.string().min(1),
@@ -58,6 +64,79 @@ export interface ArtifactRouteOptions {
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
+    function buildTemplateNode(input: {
+      artifact: {
+        id: string;
+        kind: z.infer<typeof ArtifactKindSchema>;
+        name: string;
+      };
+      intent: string;
+      template: z.infer<typeof SceneTemplateKindSchema>;
+    }): SceneNode {
+      const nodeId = `${input.template}_${crypto.randomUUID()}`;
+
+      if (input.template === "hero") {
+        return {
+          id: nodeId,
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            eyebrow:
+              input.artifact.kind === "slides"
+                ? "Deck Surface"
+                : input.artifact.kind === "prototype"
+                  ? "Flow Surface"
+                  : "Launch Surface",
+            headline: `${input.artifact.name} leads with cinematic hierarchy.`,
+            body: input.intent
+          },
+          children: []
+        };
+      }
+
+      if (input.template === "feature-grid") {
+        return {
+          id: nodeId,
+          type: "section",
+          name: "Feature Grid",
+          props: {
+            template: "feature-grid",
+            title: "Artifact system lanes",
+            items: [
+              {
+                label: "Scene",
+                body: "Sections stay versioned and ready for review snapshots."
+              },
+              {
+                label: "Design",
+                body: "Brand rhythm and layout motifs stay attached to the workspace."
+              },
+              {
+                label: "Export",
+                body: "Preview, handoff, and export flows derive from one source of truth."
+              }
+            ]
+          },
+          children: []
+        };
+      }
+
+      return {
+        id: nodeId,
+        type: "section",
+        name: "Call To Action",
+        props: {
+          template: "cta",
+          headline: "Ready for the next review pass?",
+          body: "Promote the current artifact into a snapshot, then push it toward export.",
+          primaryAction: "Create Snapshot",
+          secondaryAction: "Export Handoff"
+        },
+        children: []
+      };
+    }
+
     function buildSeedIntent(artifact: { kind: string; name: string }) {
       const lead =
         artifact.kind === "website"
@@ -314,6 +393,54 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
       await options.workspaces.updateActiveVersion(artifact.id, version.id);
       return reply.code(201).send(version);
+    });
+
+    app.post("/projects/:projectId/artifacts/:artifactId/scene/nodes", async (request, reply) => {
+      const params = artifactDetailParamsSchema.parse(request.params);
+      const body = appendSceneTemplateBodySchema.parse(request.body);
+      const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+      if (!project) {
+        return reply.code(404).send({
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND"
+        });
+      }
+
+      if (!artifact) {
+        return reply.code(404).send({
+          error: "Artifact not found",
+          code: "ARTIFACT_NOT_FOUND"
+        });
+      }
+
+      const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+      const node = buildTemplateNode({
+        artifact,
+        intent: workspace.intent,
+        template: body.template
+      });
+      const sceneDocument = appendRootSceneNode(workspace.sceneDocument, node);
+      const updatedWorkspace = await options.workspaces.updateSceneDocument(
+        artifact.id,
+        sceneDocument
+      );
+
+      if (!updatedWorkspace) {
+        return reply.code(500).send({
+          error: "Workspace update failed",
+          code: "WORKSPACE_UPDATE_FAILED"
+        });
+      }
+
+      return reply.code(201).send({
+        workspace: buildWorkspacePayload({
+          workspace: updatedWorkspace,
+          versions,
+          comments
+        }),
+        appendedNode: node
+      });
     });
 
     app.post("/projects/:projectId/artifacts/:artifactId/comments", async (request, reply) => {

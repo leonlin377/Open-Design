@@ -385,6 +385,11 @@ main {
   gap: 10px;
 }
 
+.scene-node-list {
+  display: grid;
+  gap: 10px;
+}
+
 .field {
   display: grid;
   gap: 8px;

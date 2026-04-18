@@ -145,6 +145,59 @@ describe("PostgresArtifactWorkspaceRepository", () => {
       updatedAt: "2026-04-18T08:35:00.000Z"
     });
   });
+
+  it("updates scene documents and returns the persisted workspace", async () => {
+    const query = createQueryMock([
+      {
+        artifact_id: "artifact-1",
+        intent: "Build a cinematic hero.",
+        active_version_id: "version-1",
+        scene_document: {
+          id: "scene-1",
+          artifactId: "artifact-1",
+          kind: "website",
+          version: 2,
+          nodes: [
+            {
+              id: "hero-1",
+              type: "section",
+              name: "Hero Section",
+              props: {
+                template: "hero"
+              },
+              children: []
+            }
+          ],
+          metadata: {}
+        },
+        created_at: new Date("2026-04-18T08:30:00.000Z"),
+        updated_at: new Date("2026-04-18T08:36:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactWorkspaceRepository({ query });
+    const workspace = await repository.updateSceneDocument("artifact-1", {
+      id: "scene-1",
+      artifactId: "artifact-1",
+      kind: "website",
+      version: 2,
+      nodes: [
+        {
+          id: "hero-1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero"
+          },
+          children: []
+        }
+      ],
+      metadata: {}
+    });
+
+    expect(workspace?.sceneDocument.version).toBe(2);
+    expect(workspace?.sceneDocument.nodes).toHaveLength(1);
+  });
 });
 
 describe("PostgresArtifactVersionRepository", () => {

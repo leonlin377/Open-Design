@@ -1,55 +1,210 @@
 "use client";
 
 import { Sandpack } from "@codesandbox/sandpack-react";
+import type { SceneNode } from "@opendesign/contracts";
 
 type ArtifactPreviewProps = {
   artifactKind: "website" | "prototype" | "slides";
   artifactName: string;
   prompt: string;
+  sceneNodes: SceneNode[];
 };
 
-function buildAppCode({ artifactKind, artifactName, prompt }: ArtifactPreviewProps) {
-  const headlineByKind = {
+type PreviewSection = {
+  id: string;
+  template: string;
+  name: string;
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  title?: string;
+  items?: Array<{
+    label: string;
+    body: string;
+  }>;
+  primaryAction?: string;
+  secondaryAction?: string;
+};
+
+function buildPreviewSections({
+  artifactKind,
+  artifactName,
+  prompt,
+  sceneNodes
+}: ArtifactPreviewProps): PreviewSection[] {
+  const defaultHeroByKind = {
     website: "Design artifacts with a live bridge to code.",
     prototype: "Prototype flows without leaving the artifact workspace.",
     slides: "Turn design intent into a sharp narrative deck."
   } as const;
 
-  const eyebrowByKind = {
+  const defaultEyebrowByKind = {
     website: "Launch Surface",
     prototype: "Flow Surface",
     slides: "Deck Surface"
   } as const;
 
+  if (sceneNodes.length === 0) {
+    return [
+      {
+        id: "seed-hero",
+        template: "hero",
+        name: "Seed Hero",
+        eyebrow: defaultEyebrowByKind[artifactKind],
+        headline: `${artifactName} is ready for the first scene section.`,
+        body: prompt
+      }
+    ];
+  }
+
+  return sceneNodes.map((node) => {
+    const props = node.props as Record<string, unknown>;
+    const template = typeof props.template === "string" ? props.template : node.type;
+
+    if (template === "hero") {
+      return {
+        id: node.id,
+        template,
+        name: node.name,
+        eyebrow:
+          typeof props.eyebrow === "string"
+            ? props.eyebrow
+            : defaultEyebrowByKind[artifactKind],
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : `${artifactName} leads with cinematic hierarchy.`,
+        body: typeof props.body === "string" ? props.body : prompt
+      };
+    }
+
+    if (template === "feature-grid") {
+      const items = Array.isArray(props.items)
+        ? props.items
+            .filter((item): item is { label: string; body: string } => {
+              return (
+                typeof item === "object" &&
+                item !== null &&
+                typeof (item as { label?: unknown }).label === "string" &&
+                typeof (item as { body?: unknown }).body === "string"
+              );
+            })
+            .map((item) => ({
+              label: item.label,
+              body: item.body
+            }))
+        : [];
+
+      return {
+        id: node.id,
+        template,
+        name: node.name,
+        title:
+          typeof props.title === "string" ? props.title : `${artifactName} system lanes`,
+        items
+      };
+    }
+
+    if (template === "cta") {
+      return {
+        id: node.id,
+        template,
+        name: node.name,
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : "Ready for the next review pass?",
+        body:
+          typeof props.body === "string"
+            ? props.body
+            : "Promote the artifact into a snapshot and push it toward export.",
+        primaryAction:
+          typeof props.primaryAction === "string" ? props.primaryAction : "Create Snapshot",
+        secondaryAction:
+          typeof props.secondaryAction === "string" ? props.secondaryAction : "Export Handoff"
+      };
+    }
+
+    return {
+      id: node.id,
+      template: "generic",
+      name: node.name,
+      headline: node.name,
+      body: typeof props.body === "string" ? props.body : prompt
+    };
+  });
+}
+
+function buildAppCode(props: ArtifactPreviewProps) {
+  const sections = JSON.stringify(buildPreviewSections(props));
+
   return `import "./styles.css";
 
 export default function App() {
+  const sections = ${sections};
+
   return (
     <main className="shell">
-      <section className="hero">
-        <span className="eyebrow">${eyebrowByKind[artifactKind]}</span>
-        <h1>${headlineByKind[artifactKind]}</h1>
-        <p>${prompt.replace(/"/g, '\\"')}</p>
-        <div className="actions">
-          <button>Refine artifact</button>
-          <button className="ghost">Export handoff</button>
-        </div>
-      </section>
+      <header className="masthead">
+        <span className="label">${props.artifactName}</span>
+        <strong>{sections.length} live section{sections.length === 1 ? "" : "s"}</strong>
+      </header>
 
-      <section className="grid">
-        <article className="panel featured">
-          <span className="label">${artifactName}</span>
-          <strong>Scene and code stay aligned while the artifact evolves.</strong>
-        </article>
-        <article className="panel">
-          <span className="label">Design system</span>
-          <strong>Brand rhythm, typography, and layout motifs are reused automatically.</strong>
-        </article>
-        <article className="panel">
-          <span className="label">Export</span>
-          <strong>HTML, ZIP, PDF, and handoff bundles are generated from the same source of truth.</strong>
-        </article>
-      </section>
+      {sections.map((section) => {
+        if (section.template === "hero") {
+          return (
+            <section key={section.id} className="hero">
+              <span className="eyebrow">{section.eyebrow}</span>
+              <h1>{section.headline}</h1>
+              <p>{section.body}</p>
+              <div className="actions">
+                <button>Refine artifact</button>
+                <button className="ghost">Export handoff</button>
+              </div>
+            </section>
+          );
+        }
+
+        if (section.template === "feature-grid") {
+          return (
+            <section key={section.id} className="grid">
+              {(section.items ?? []).map((item, index) => (
+                <article
+                  key={\`\${section.id}-\${index}\`}
+                  className={index === 0 ? "panel featured" : "panel"}
+                >
+                  <span className="label">{item.label}</span>
+                  <strong>{item.body}</strong>
+                </article>
+              ))}
+            </section>
+          );
+        }
+
+        if (section.template === "cta") {
+          return (
+            <section key={section.id} className="cta">
+              <div className="cta-copy">
+                <span className="eyebrow">Action Lane</span>
+                <h2>{section.headline}</h2>
+                <p>{section.body}</p>
+              </div>
+              <div className="actions">
+                <button>{section.primaryAction}</button>
+                <button className="ghost">{section.secondaryAction}</button>
+              </div>
+            </section>
+          );
+        }
+
+        return (
+          <section key={section.id} className="panel generic">
+            <span className="label">{section.name}</span>
+            <strong>{section.headline}</strong>
+            <p>{section.body}</p>
+          </section>
+        );
+      })}
     </main>
   );
 }`;
@@ -71,6 +226,12 @@ body { margin: 0; }
   padding: 32px;
   display: grid;
   gap: 22px;
+}
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 .hero, .panel {
   border-radius: 24px;
@@ -140,9 +301,33 @@ button.ghost {
   font-size: 1.1rem;
   line-height: 1.5;
 }
+.cta {
+  border-radius: 24px;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: linear-gradient(135deg, #f1ebe0, #e4d7bf);
+  padding: 24px 28px;
+  display: grid;
+  gap: 16px;
+}
+.cta-copy {
+  display: grid;
+  gap: 10px;
+}
+.cta h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+}
+.generic p {
+  margin-top: 6px;
+}
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+  .masthead {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }`;
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  appendSceneTemplate,
   createArtifactComment,
   createArtifactVersion,
   resolveArtifactComment
@@ -62,6 +63,27 @@ export async function resolveArtifactCommentAction(formData: FormData) {
     projectId,
     artifactId,
     commentId
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function appendSceneTemplateAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const template = String(formData.get("template") ?? "").trim() as
+    | "hero"
+    | "feature-grid"
+    | "cta";
+
+  if (!projectId || !artifactId || !template) {
+    throw new Error("Project, artifact, and scene template are required.");
+  }
+
+  await appendSceneTemplate({
+    projectId,
+    artifactId,
+    template
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

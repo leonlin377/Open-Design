@@ -25,6 +25,17 @@ export const createEmptySceneDocument = (
   };
 };
 
+export const appendRootSceneNode = (
+  scene: SceneDocument,
+  node: SceneNode
+): SceneDocument => {
+  return {
+    ...scene,
+    version: scene.version + 1,
+    nodes: [...scene.nodes, node]
+  };
+};
+
 export const indexSceneNodesById = (nodes: SceneNode[]): SceneNodeIndex => {
   const index = new Map<string, SceneNode>();
   const stack = [...nodes];

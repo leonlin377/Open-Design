@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { createEmptySceneDocument, indexSceneNodesById } from "../src/index";
+import {
+  appendRootSceneNode,
+  createEmptySceneDocument,
+  indexSceneNodesById
+} from "../src/index";
 
 describe("createEmptySceneDocument", () => {
   test("creates a deterministic empty scene document from explicit ids", () => {
@@ -64,5 +68,43 @@ describe("indexSceneNodesById", () => {
         }
       ])
     ).toThrowError(/duplicate/i);
+  });
+});
+
+describe("appendRootSceneNode", () => {
+  test("appends a root node and increments the scene version", () => {
+    const scene = createEmptySceneDocument({
+      id: "scene_1",
+      artifactId: "artifact_1",
+      kind: "prototype",
+      version: 3
+    });
+
+    const nextScene = appendRootSceneNode(scene, {
+      id: "root",
+      type: "frame",
+      name: "Root",
+      props: {},
+      children: []
+    });
+
+    expect(nextScene).toEqual({
+      ...scene,
+      version: 4,
+      nodes: [
+        {
+          id: "root",
+          type: "frame",
+          name: "Root",
+          props: {},
+          children: []
+        }
+      ]
+    });
+    expect(scene).toEqual({
+      ...scene,
+      version: 3,
+      nodes: []
+    });
   });
 });

@@ -8,6 +8,7 @@ import {
   listArtifacts
 } from "../../../../lib/opendesign-api";
 import {
+  appendSceneTemplateAction,
   createArtifactCommentAction,
   createArtifactVersionAction,
   resolveArtifactCommentAction
@@ -65,6 +66,12 @@ export default async function StudioPage({ params }: StudioPageProps) {
   const activeCommentCount = comments.filter((comment) => comment.status === "open").length;
   const rootNode = workspace.sceneDocument.nodes[0];
   const frameLabel = rootNode?.name ?? "Empty canvas";
+  const sceneNodes = workspace.sceneDocument.nodes;
+  const sceneTemplates = [
+    { template: "hero" as const, label: "Add Hero" },
+    { template: "feature-grid" as const, label: "Add Feature Grid" },
+    { template: "cta" as const, label: "Add CTA" }
+  ];
 
   return (
     <main className="studio-shell">
@@ -126,6 +133,37 @@ export default async function StudioPage({ params }: StudioPageProps) {
               </p>
             </div>
           </div>
+          <Surface className="project-card" as="section">
+            <div>
+              <h3>Scene Sections</h3>
+              <p className="footer-note">
+                Append a root section template to the current scene document.
+              </p>
+            </div>
+            <div className="artifact-action-grid">
+              {sceneTemplates.map((entry) => (
+                <form key={entry.template} action={appendSceneTemplateAction}>
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="artifactId" value={artifact.id} />
+                  <input type="hidden" name="template" value={entry.template} />
+                  <Button variant="outline" size="sm" type="submit">
+                    {entry.label}
+                  </Button>
+                </form>
+              ))}
+            </div>
+            <div className="scene-node-list">
+              {sceneNodes.length === 0 ? (
+                <div className="footer-note">No scene sections yet.</div>
+              ) : null}
+              {sceneNodes.map((node) => (
+                <Surface key={node.id} className="kv">
+                  <span>{node.name}</span>
+                  {String(node.props.template ?? node.type)}
+                </Surface>
+              ))}
+            </div>
+          </Surface>
           <div className="project-meta">
             <span>Sync: {workspace.syncPlan.mode}</span>
             <span>Scope: {workspace.syncPlan.changeScope}</span>
@@ -158,6 +196,7 @@ export default async function StudioPage({ params }: StudioPageProps) {
               artifactKind={artifactKind}
               artifactName={`${projectLabel} ${artifactLabel}`}
               prompt={workspace.intent}
+              sceneNodes={sceneNodes}
             />
             <Surface className="kv">
               <span>Active Frame</span>
