@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
+import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { createEmptySceneDocument } from "@opendesign/scene-engine";
 
-import { planSyncPatch, syncSceneToCodeWorkspace } from "../src/index";
+import {
+  planSyncPatch,
+  syncCodeToSceneDocument,
+  syncSceneToCodeWorkspace
+} from "../src/index";
 
 describe("planSyncPatch", () => {
   test("uses a full sync plan for supported round-trip code edits", () => {
@@ -194,5 +199,81 @@ describe("syncSceneToCodeWorkspace", () => {
     expect(decision.applied).toBe(false);
     expect(decision.codeWorkspace).toBeNull();
     expect(decision.reason).toContain("preserved");
+  });
+});
+
+describe("syncCodeToSceneDocument", () => {
+  test("updates a website scene from supported App.tsx sections data", () => {
+    const currentSceneDocument = {
+      ...createEmptySceneDocument({
+        artifactId: "artifact_1",
+        kind: "website"
+      }),
+      version: 2,
+      nodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            eyebrow: "Launch Surface",
+            headline: "Initial headline",
+            body: "Initial body"
+          },
+          children: []
+        }
+      ]
+    };
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: "Atlas",
+      prompt: "Seed prompt",
+      sceneNodes: currentSceneDocument.nodes
+    });
+
+    const decision = syncCodeToSceneDocument({
+      artifactKind: "website",
+      currentSceneDocument,
+      files: {
+        ...bundle.files,
+        "/App.tsx": bundle.files["/App.tsx"]!
+          .replace("Initial headline", "Updated from code")
+          .replace("Initial body", "Updated body from code")
+      }
+    });
+
+    expect(decision.applied).toBe(true);
+    expect(decision.sceneDocument?.version).toBe(3);
+    expect(decision.sceneDocument?.nodes[0]).toMatchObject({
+      props: {
+        headline: "Updated from code",
+        body: "Updated body from code"
+      }
+    });
+  });
+
+  test("preserves scene when App.tsx is no longer a supported scaffold", () => {
+    const currentSceneDocument = createEmptySceneDocument({
+      artifactId: "artifact_1",
+      kind: "website"
+    });
+
+    const decision = syncCodeToSceneDocument({
+      artifactKind: "website",
+      currentSceneDocument,
+      files: {
+        "/App.tsx":
+          "export default function App() { return <main>custom preserved scaffold</main>; }",
+        "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+        "/styles.css": "main { color: rebeccapurple; }",
+        "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+        "/package.json": '{"name":"preserve-code","private":true}'
+      }
+    });
+
+    expect(decision.applied).toBe(false);
+    expect(decision.sceneDocument).toBeNull();
+    expect(decision.reason).toContain("unsupported");
   });
 });

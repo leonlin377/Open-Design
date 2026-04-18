@@ -42,6 +42,10 @@ type StudioInspectorProps = {
         status: "saved";
         workspace: unknown;
         previousCodeWorkspaceUpdatedAt: string | null;
+        sceneSync: {
+          status: "synced" | "unchanged";
+          reason: string;
+        };
       }
     | {
         status: "conflict";
@@ -123,8 +127,11 @@ function SaveCodeWorkspaceForm(props: {
       }
 
       setFeedback({
-        tone: "success",
-        message: "Saved code workspace. ZIP export now follows the updated scaffold."
+        tone: result?.sceneSync.status === "unchanged" ? "warning" : "success",
+        message:
+          result?.sceneSync.status === "synced"
+            ? "Saved code workspace and synced supported section data back into the scene."
+            : `Saved code workspace. ${result?.sceneSync.reason ?? "Scene stayed unchanged."}`
       });
     });
   }

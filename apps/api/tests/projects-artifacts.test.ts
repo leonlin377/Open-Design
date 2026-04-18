@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { buildApp } from "../src/app";
 
 const originalFetch = globalThis.fetch;
@@ -398,6 +399,84 @@ describe("Projects and artifacts", () => {
         updateResponse.json().workspace.codeWorkspace.files["/App.tsx"]
       ).toContain("custom preserved scaffold");
       expect(updateResponse.json().workspace.codeWorkspace.baseSceneVersion).toBe(2);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("syncs supported App.tsx section edits back into the scene on code save", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Code To Scene Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Code To Scene Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendResponse.statusCode).toBe(201);
+
+      const generatedBundle = buildArtifactSourceBundle({
+        artifactKind: "website",
+        artifactName: artifact.name,
+        prompt: appendResponse.json().workspace.intent,
+        sceneNodes: appendResponse.json().workspace.sceneDocument.nodes
+      });
+
+      const saveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            ...generatedBundle.files,
+            "/App.tsx": generatedBundle.files["/App.tsx"]
+              .replace("Hero Section", "Hero Section")
+              .replace(
+                "Code To Scene Artifact leads with cinematic hierarchy.",
+                "Code-driven headline"
+              )
+              .replace(
+                appendResponse.json().workspace.intent,
+                "Body copy updated from supported code sync."
+              )
+          },
+          expectedUpdatedAt: appendResponse.json().workspace.codeWorkspace.updatedAt
+        }
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().workspace.sceneDocument).toMatchObject({
+        version: 3,
+        nodes: [
+          {
+            props: {
+              headline: "Code-driven headline",
+              body: "Body copy updated from supported code sync."
+            }
+          }
+        ]
+      });
+      expect(saveResponse.json().workspace.codeWorkspace).toMatchObject({
+        baseSceneVersion: 3
+      });
+      expect(saveResponse.json().sceneSync).toMatchObject({
+        status: "synced"
+      });
     } finally {
       await app.close();
     }
@@ -1100,6 +1179,65 @@ describe("Projects and artifacts", () => {
         "Code Workspace Artifact is ready for the first scene section."
       );
       expect(htmlExportResponse.body).not.toContain("Saved scaffold");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("saves unsupported code workspaces without mutating the scene", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Unsupported Sync Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Unsupported Sync Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      const saveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx":
+              "export default function App() { return <main>custom preserved scaffold</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: rgb(214, 255, 95); }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"saved-workspace","private":true}'
+          },
+          expectedUpdatedAt: appendResponse.json().workspace.codeWorkspace.updatedAt
+        }
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().workspace.sceneDocument.version).toBe(2);
+      expect(saveResponse.json().workspace.sceneDocument.nodes[0]).toMatchObject({
+        props: {
+          headline: "Unsupported Sync Artifact leads with cinematic hierarchy."
+        }
+      });
+      expect(saveResponse.json().sceneSync).toMatchObject({
+        status: "unchanged"
+      });
+      expect(saveResponse.json().workspace.codeWorkspace).toMatchObject({
+        baseSceneVersion: 2
+      });
     } finally {
       await app.close();
     }

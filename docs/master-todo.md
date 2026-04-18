@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `70%`
+Current estimated product completion for a serious V1: `72%`
 
 ```
-[##############------] 70%
+[##############------] 72%
 ```
 
 ## Current Reality
@@ -83,7 +83,7 @@ Goal: Make scene editing and code editing feel like one system instead of parall
 - [x] Implement real `scene -> code` sync in `packages/code-sync`
   Done when:
   Scene edits regenerate a stable scaffold without losing supported code edits.
-- [ ] Implement supported `code -> scene` back-sync for the safe subset
+- [x] Implement supported `code -> scene` back-sync for the safe subset
   Done when:
   Edits to supported files can update scene nodes or sections.
 - [x] Show saved code workspace boundaries clearly in Studio
@@ -215,4 +215,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Add provider-specific generation failure states in Chat Rail
 - [x] Add apply-stage generation failure handling for invalid scene/code patches
 - [x] Implement real scene -> code synchronization for generated website artifacts
-- [ ] Start supported `code -> scene` back-sync for the safe website subset
+- [x] Start supported `code -> scene` back-sync for the safe website subset
+- [ ] Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety

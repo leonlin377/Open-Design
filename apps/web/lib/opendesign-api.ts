@@ -509,11 +509,16 @@ export async function saveArtifactCodeWorkspace(input: {
   const payload = (await response.json()) as {
     workspace: ApiArtifactWorkspace;
     previousCodeWorkspaceUpdatedAt: string | null;
+    sceneSync: {
+      status: "synced" | "unchanged";
+      reason: string;
+    };
   };
 
   return {
     status: "saved" as const,
     workspace: payload.workspace,
-    previousCodeWorkspaceUpdatedAt: payload.previousCodeWorkspaceUpdatedAt
+    previousCodeWorkspaceUpdatedAt: payload.previousCodeWorkspaceUpdatedAt,
+    sceneSync: payload.sceneSync
   };
 }

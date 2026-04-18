@@ -17,7 +17,11 @@ import {
   type SceneNode,
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
-import { planSyncPatch, syncSceneToCodeWorkspace } from "@opendesign/code-sync";
+import {
+  planSyncPatch,
+  syncCodeToSceneDocument,
+  syncSceneToCodeWorkspace
+} from "@opendesign/code-sync";
 import {
   buildArtifactHtmlExport,
   buildArtifactSourceBundle
@@ -1254,11 +1258,35 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const sceneSyncDecision = syncCodeToSceneDocument({
+          artifactKind: artifact.kind,
+          currentSceneDocument: workspace.sceneDocument,
+          files: body.files
+        });
+        const sceneWorkspace =
+          sceneSyncDecision.applied && sceneSyncDecision.sceneDocument
+            ? await options.workspaces.updateSceneDocument(
+                artifact.id,
+                sceneSyncDecision.sceneDocument
+              )
+            : workspace;
+
+        if (!sceneWorkspace) {
+          return sendApiError(reply, 500, {
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: {
+              stage: "save-code-workspace-scene-sync"
+            }
+          });
+        }
+
         const updatedWorkspace = await options.workspaces.updateCodeWorkspace(
           artifact.id,
           {
             files: body.files,
-            baseSceneVersion: workspace.sceneDocument.version
+            baseSceneVersion: sceneWorkspace.sceneDocument.version
           }
         );
 
@@ -1279,7 +1307,11 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             versions,
             comments
           }),
-          previousCodeWorkspaceUpdatedAt: workspace.codeWorkspace?.updatedAt ?? null
+          previousCodeWorkspaceUpdatedAt: workspace.codeWorkspace?.updatedAt ?? null,
+          sceneSync: {
+            status: sceneSyncDecision.applied ? "synced" : "unchanged",
+            reason: sceneSyncDecision.reason
+          }
         };
       }
     );
