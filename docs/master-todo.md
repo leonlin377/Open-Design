@@ -1,22 +1,55 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `5e126dd`
+Repo baseline: `4f41dac`
+
+## Why This Exists
+
+This file is the single execution board for OpenDesign.
+
+- Every remaining task should be pulled from this board.
+- Work should continue by advancing the topmost `Ready` or `In Progress` task unless a blocker forces a reorder.
+- "High-quality complete" means product behavior, persistence, export, validation, and operational paths all meet the quality gates below.
 
 ## Status Legend
 
-- `[x]` Done
-- `[~]` In Progress
-- `[ ]` Not Started
-- `Blocker` High-risk dependency or prerequisite
+- `[x] Done`
+- `[>] In Progress`
+- `[r] Ready`
+- `[!] Blocked`
+- `[ ] Not Started`
+
+## Quality Gates For Real Completion
+
+The project is not "done" until all of these are true:
+
+1. Core artifact flows work for `website`, `prototype`, and `slides`.
+2. Scene, code, preview, comments, versions, and exports behave coherently.
+3. Design-system imports materially constrain generation output.
+4. Shared review flows, roles, and handoff bundles are usable by another person.
+5. Assets, persistence, and Dockerized runtime behave correctly in production-style mode.
+6. Core Studio flows are covered by Playwright E2E.
+7. The product no longer feels like an internal shell and has onboarding, guidance, and operational docs.
 
 ## Overall Progress
 
 Current estimated product completion for a serious V1: `79%`
 
-```
+```text
 [################----] 79%
 ```
+
+## Phase Scoreboard
+
+| Phase | Area | Estimated Completion | Status |
+| --- | --- | --- | --- |
+| 1 | AI generation pipeline | 86% | `[>]` |
+| 2 | Scene/code synchronization | 82% | `[>]` |
+| 3 | Design system ingest and grounding | 72% | `[>]` |
+| 4 | Prototype and slides | 0% | `[ ]` |
+| 5 | Collaboration and handoff | 0% | `[ ]` |
+| 6 | Assets, reliability, ops | 35% | `[>]` |
+| 7 | Product polish | 25% | `[>]` |
 
 ## Current Reality
 
@@ -32,191 +65,296 @@ What is already working:
 - [x] Saved code workspace persistence
 - [x] Snapshot creation and version restore for scene + saved code workspace
 - [x] HTML export and runnable ZIP source export
+- [x] GitHub, local-directory, and fetch-based site-capture design-system import
 
-What is still missing from a true Claude Design benchmark:
+What still blocks a true Claude Design benchmark:
 
-- [ ] Real AI generation pipeline
-- [~] Real scene/code synchronization
-- [~] Design system ingestion and grounding
-- [ ] Prototype mode
-- [ ] Slides mode
+- [ ] Browser-grade site capture with screenshots and richer style evidence
+- [ ] Design-system-constrained generation
+- [ ] Broader safe `code -> scene` synchronization
+- [ ] Prototype artifact type
+- [ ] Slides artifact type
 - [ ] Sharing, roles, and collaboration flows
-- [ ] Rich asset pipeline
-- [ ] Handoff-grade export bundles
-- [ ] End-to-end quality and operational hardening
+- [ ] Asset pipeline backed by MinIO/S3
+- [ ] Handoff export bundles and async export jobs
+- [ ] Playwright E2E and production-grade operational validation
+- [ ] Product polish and onboarding
 
-## Execution Order
+## Execution Rules
 
-The order below is the build order I will keep following unless a lower-level blocker forces a change.
+1. Pull work from `Current Execution Queue` first.
+2. Keep at most 3 items in active implementation at once.
+3. Do not start Phase 4 or Phase 5 before the active P0 items in Phases 2 and 3 are no longer blocking them.
+4. Every completed task must have updated validation evidence in this file or in linked tests/docs.
+5. If a task is discovered to be under-scoped, split it here before continuing implementation.
 
-1. AI generation and artifact pipeline
-2. Scene/code synchronization and Studio editing quality
-3. Design system ingest and grounded generation
-4. Prototype and slides surfaces
-5. Collaboration, sharing, and handoff/export polish
-6. Reliability, security, E2E coverage, and ops hardening
+## Current Execution Queue
+
+These are the tasks that should be worked continuously next.
+
+### DS-004 Upgrade Site Capture To Playwright Browser Capture
+
+- Status: `[r]`
+- Priority: `P0`
+- Owner Lane: `api`, `shared`, `infra`
+- Depends On: `DS-001`, `DS-002`, `DS-003`
+- Blocks: `DS-005`
+- Why Now:
+  Current site capture is fetch-based HTML/CSS evidence only. It is the main gap between the current ingest flow and a high-quality grounded design import.
+- Definition Of Done:
+  - A URL is captured through Playwright in a browser context.
+  - Import stores screenshot evidence plus richer DOM/style evidence.
+  - Existing `/api/design-systems/import/site-capture` remains stable for callers.
+  - Failure modes are explicit and recoverable.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test -- tests/design-systems.test.ts`
+  - `pnpm --dir packages/design-ingest exec vitest run tests/design-ingest.test.ts`
+  - `pnpm typecheck`
+- Expected Artifacts:
+  - `apps/api/src/routes/design-systems.ts`
+  - `packages/design-ingest/src/index.ts`
+  - `apps/api/tests/design-systems.test.ts`
+  - `packages/design-ingest/tests/design-ingest.test.ts`
+- Next Slice:
+  - `DS-005 Use imported packs as generation constraints`
+
+### DS-005 Use Imported Packs As Generation Constraints
+
+- Status: `[r]`
+- Priority: `P0`
+- Owner Lane: `api`, `shared`, `web`
+- Depends On: `DS-004`, `GEN-001`
+- Blocks: `TYPE-001`, `TYPE-002`
+- Why Now:
+  Imported packs exist, but they do not yet materially change output. Without grounding, the design-system phase is not actually complete.
+- Definition Of Done:
+  - Artifact generation accepts an attached pack or pack reference.
+  - Generation plan/prompt/context includes tokens, motifs, and component signatures.
+  - Generated scene/code visibly changes based on selected packs.
+  - Tests cover at least one grounded generation path.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test`
+  - `pnpm --filter @opendesign/contracts test`
+  - `pnpm typecheck`
+- Expected Artifacts:
+  - `apps/api/src/generation.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `packages/contracts/src/index.ts`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+- Next Slice:
+  - `SYNC-003 Broaden supported code -> scene sync`
+
+### SYNC-003 Broaden Supported Code -> Scene Sync Beyond App.tsx Sections Data
+
+- Status: `[r]`
+- Priority: `P0`
+- Owner Lane: `shared`, `api`, `web`
+- Depends On: `SYNC-001`, `SYNC-002`
+- Blocks: `TYPE-001`, `TYPE-002`, `COLLAB-003`
+- Why Now:
+  Current back-sync only supports the conservative `App.tsx` sections data format. That is enough for safety, but not enough for a high-quality editor workflow.
+- Definition Of Done:
+  - Safe supported scaffold surface expands beyond the current `const sections = [...]` path.
+  - Unsupported edits still fail closed and do not corrupt scene state.
+  - Studio clearly indicates whether a save also synced scene state.
+- Validation Commands:
+  - `pnpm --dir packages/code-sync exec vitest run tests/code-sync.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Expected Artifacts:
+  - `packages/code-sync/src/index.ts`
+  - `packages/code-sync/tests/code-sync.test.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/web/components/studio-inspector.tsx`
+- Next Slice:
+  - `TYPE-001 Implement prototype-specific scene nodes and preview`
+
+### OPS-001 Add Playwright E2E Coverage For Core Studio Flows
+
+- Status: `[r]`
+- Priority: `P1`
+- Owner Lane: `e2e`, `web`, `api`
+- Depends On: `DS-004`, `DS-005`, `SYNC-003`
+- Blocks: `OPS-003`, `POL-002`
+- Why Now:
+  Core behavior is already broad enough that manual verification is becoming the bottleneck.
+- Definition Of Done:
+  - Login, create project, create artifact, edit scene, save code, snapshot, restore, and export are covered.
+  - Tests run in Docker-compatible local workflow.
+- Validation Commands:
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm exec playwright test`
+- Expected Artifacts:
+  - `apps/web/e2e/*`
+  - `playwright.config.*`
+  - `README.md`
+- Next Slice:
+  - `OPS-003 Validate full Docker studio stack in real build/run mode`
+
+### TYPE-001 Implement Prototype-Specific Scene Nodes And Preview Behavior
+
+- Status: `[ ]`
+- Priority: `P1`
+- Owner Lane: `shared`, `web`, `api`
+- Depends On: `DS-005`, `SYNC-003`
+- Blocks: `TYPE-003`, `COLLAB-004`
+- Why Now:
+  Website-only is the biggest remaining product-surface gap.
+- Definition Of Done:
+  - Prototype artifacts support multiple states or transitions.
+  - Preview can navigate or represent flows, not just static sections.
+  - Persistence, versions, and exports remain coherent.
+- Validation Commands:
+  - `pnpm test`
+  - `pnpm build`
+- Expected Artifacts:
+  - `packages/scene-engine/*`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/web/components/*`
+- Next Slice:
+  - `TYPE-003 Add prototype-specific export path`
+
+### TYPE-002 Implement Slides-Specific Scene Structure
+
+- Status: `[ ]`
+- Priority: `P1`
+- Owner Lane: `shared`, `web`, `api`
+- Depends On: `DS-005`, `SYNC-003`
+- Blocks: `TYPE-004`
+- Why Now:
+  Slides is the other missing flagship artifact surface.
+- Definition Of Done:
+  - Slides support deck/page structure and sequential rendering.
+  - Studio shows artifact-appropriate controls for slide editing.
+  - Versions and exports remain stable.
+- Validation Commands:
+  - `pnpm test`
+  - `pnpm build`
+- Expected Artifacts:
+  - `packages/scene-engine/*`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+  - `apps/api/src/routes/artifacts.ts`
+- Next Slice:
+  - `TYPE-004 Add slides export path`
+
+## Blocked Registry
+
+These tasks are known to depend on unfinished upstream work.
+
+- `[!] TYPE-003 Add prototype-specific export path`
+  Blocked by: `TYPE-001`
+- `[!] TYPE-004 Add slides export path`
+  Blocked by: `TYPE-002`
+- `[!] COLLAB-001 Add share tokens for artifact/project review`
+  Blocked by: `OPS-001`
+- `[!] COLLAB-002 Add roles: viewer/commenter/editor`
+  Blocked by: `COLLAB-001`
+- `[!] COLLAB-003 Upgrade comment anchors to element-aware anchors`
+  Blocked by: `SYNC-003`
+- `[!] COLLAB-004 Build handoff export bundle`
+  Blocked by: `TYPE-001`, `TYPE-002`, `ASSET-001`
+- `[!] OPS-003 Validate full Docker studio stack in real build/run mode`
+  Blocked by: `OPS-001`, `ASSET-001`
+
+## Remaining Master Task List
+
+This is the full remaining backlog, grouped by phase.
 
 ## Phase 1: AI Generation Pipeline
 
 Goal: Move from manual scene editing to a real artifact-generation system.
 
-- [x] Wire LiteLLM into the actual artifact generation flow
-  Done when:
-  API routes can call a configured gateway and receive streamed responses.
-- [x] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
-  Done when:
-  Shared contracts exist and API handlers validate them before applying patches.
-- [~] Add generation route for prompt-driven artifact creation
+- [>] `GEN-001` Add generation route for prompt-driven artifact creation
   Done when:
   Studio can submit a prompt and receive scene/code updates from the backend.
-- [x] Add streaming status/events for generation progress
+- [r] `GEN-002` Attach imported packs to generation context and plan building
+  Depends On: `DS-005`
   Done when:
-  Web UI can show generation states without refresh.
-- [x] Add failure handling for invalid patches, timeout, and provider errors
-  Done when:
-  The UI surfaces explicit error states and the workspace remains recoverable.
+  Prompt execution uses selected design-system evidence as grounding input.
 
 ## Phase 2: Scene/Code Synchronization
 
 Goal: Make scene editing and code editing feel like one system instead of parallel hacks.
 
-- [x] Implement real `scene -> code` sync in `packages/code-sync`
+- [x] `SYNC-001` Implement real `scene -> code` sync in `packages/code-sync`
+- [x] `SYNC-002` Implement supported `code -> scene` back-sync for the safe subset
+- [r] `SYNC-003` Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety
   Done when:
-  Scene edits regenerate a stable scaffold without losing supported code edits.
-- [x] Implement supported `code -> scene` back-sync for the safe subset
-  Done when:
-  Edits to supported files can update scene nodes or sections.
-- [x] Show saved code workspace boundaries clearly in Studio
-  Current:
-  Saved code state, scene drift warning, dirty-state, reset-to-saved, and restore-aware messaging are implemented.
-- [x] Add session draft dirty-state detection in the code editor
-  Done when:
-  Studio clearly shows when current code differs from saved code workspace.
-- [x] Add reset-to-saved action for the code editor
-  Done when:
-  Users can discard local draft edits and return to the saved scaffold instantly.
-- [x] Add explicit generation, save, restore, and export feedback states in UI
-  Done when:
-  Users always know what changed and what the current source of truth is.
-- [x] Add scene/code diff support in the Versions lane
-  Done when:
-  Restores are previewable and users can inspect what changed before switching.
+  More scaffold edits round-trip without relaxing fail-closed behavior.
 
 ## Phase 3: Design System Ingest
 
 Goal: Ground artifact generation in real tokens, components, and visual evidence.
 
-- [x] Implement GitHub repository import
+- [x] `DS-001` Implement GitHub repository import
+- [x] `DS-002` Implement local directory import
+- [>] `DS-003` Implement site-capture import and persistence flow
+  Current:
+  Fetch-based HTML/CSS/DOM evidence capture is implemented and tested.
+- [r] `DS-004` Upgrade site capture import from fetch-based evidence to Playwright browser capture
   Done when:
-  A repository path can be parsed into tokens, motifs, and evidence records.
-- [x] Implement local directory import
+  A URL can be crawled through a real browser session and reduced into screenshots, style evidence, and extracted tokens.
+- [r] `DS-005` Use imported packs as generation constraints
   Done when:
-  Studio can ingest a local component/token directory and persist a pack.
-- [~] Implement site capture import with Playwright
-  Done when:
-  A URL can be crawled and reduced into screenshots, style evidence, and extracted tokens.
-- [x] Persist `DesignSystemPack` records in the backend
-  Done when:
-  Packs are stored, listed, and attachable to artifacts.
-- [ ] Use imported packs as generation constraints
-  Done when:
-  Prompt output changes based on selected pack tokens and motifs.
+  Prompt output changes based on selected pack tokens, motifs, and component signatures.
 
 ## Phase 4: Artifact Types Beyond Website
 
 Goal: Support the full artifact surface instead of just website-first flows.
 
-- [ ] Implement prototype-specific scene nodes and preview behavior
-  Done when:
-  Prototype artifacts support multiple states or flow transitions in preview.
-- [ ] Implement slides-specific scene structure
-  Done when:
-  Slide/page stacks, deck-level layout, and sequential rendering exist.
-- [ ] Add prototype-specific export path
-  Done when:
-  Prototype artifacts can export runnable review bundles.
-- [ ] Add slides export path
-  Done when:
-  Slides can export at least PDF and a deck-oriented source package.
-- [ ] Add per-artifact editor affordances in Studio
-  Done when:
-  Website, prototype, and slides each expose context-appropriate controls.
+- [ ] `TYPE-001` Implement prototype-specific scene nodes and preview behavior
+- [ ] `TYPE-002` Implement slides-specific scene structure
+- [ ] `TYPE-003` Add prototype-specific export path
+- [ ] `TYPE-004` Add slides export path
+- [ ] `TYPE-005` Add per-artifact editor affordances in Studio
 
 ## Phase 5: Collaboration and Handoff
 
 Goal: Make the system usable by more than one person and suitable for review.
 
-- [ ] Add share tokens for artifact/project review
-  Done when:
-  A non-owner can open a shared artifact view by secure link.
-- [ ] Add roles: `viewer`, `commenter`, `editor`
-  Done when:
-  Access checks work in API and UI.
-- [ ] Upgrade comment anchors from canvas-level fallback to element-aware anchors
-  Done when:
-  Comments can stay attached to specific nodes or sections through edits.
-- [ ] Build handoff export bundle
-  Done when:
-  Export includes scene state, code state, assets, and machine-readable manifest files.
-- [ ] Add export job tracking
-  Done when:
-  Large exports can run asynchronously with status and retry behavior.
+- [ ] `COLLAB-001` Add share tokens for artifact/project review
+- [ ] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
+- [ ] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
+- [ ] `COLLAB-004` Build handoff export bundle
+- [ ] `COLLAB-005` Add export job tracking
 
-## Phase 6: Assets, Reliability, and Ops
+## Phase 6: Assets, Reliability, And Ops
 
 Goal: Make the product stable enough for serious usage.
 
-- [ ] Add asset upload/storage pipeline backed by MinIO/S3
-  Done when:
-  Images, fonts, and attachments are stored and referenced from workspaces and exports.
-- [x] Add stale-write/conflict protection for code workspace saves and restores
-  Done when:
-  Users do not silently overwrite newer saved state.
-- [x] Add structured API error model and recovery paths
-  Done when:
-  The UI can distinguish auth, validation, conflict, and provider failures.
-- [ ] Add Playwright E2E coverage for core Studio flows
-  Done when:
-  Login, create project, edit scene, save code, snapshot, restore, and export are covered.
-- [ ] Add production-grade logging and operational diagnostics
-  Done when:
-  Failed exports, failed auth flows, and failed generation calls are inspectable.
-- [ ] Validate full Docker studio stack in real build/run mode
-  Done when:
-  `web`, `api`, `postgres`, `redis`, and `minio` run together successfully in containerized mode.
+- [ ] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
+- [x] `OPS-001A` Add stale-write/conflict protection for code workspace saves and restores
+- [x] `OPS-001B` Add structured API error model and recovery paths
+- [r] `OPS-001` Add Playwright E2E coverage for core Studio flows
+- [ ] `OPS-002` Add production-grade logging and operational diagnostics
+- [ ] `OPS-003` Validate full Docker studio stack in real build/run mode
 
 ## Phase 7: Product Polish
 
 Goal: Close the gap between a functional system and a high-quality product.
 
-- [x] Replace section-form sprawl in Studio page with reusable editor modules
-  Done when:
-  Scene inspector logic is no longer concentrated in one large page file.
-- [ ] Improve visual hierarchy and artifact canvas fidelity
-  Done when:
-  Studio feels like an intentional product, not an internal tool shell.
-- [ ] Add onboarding and empty-state guidance
-  Done when:
-  First-time users can create and understand an artifact without repo knowledge.
-- [ ] Tighten README and developer docs
-  Done when:
-  Another engineer can boot, inspect, and extend the project without guesswork.
+- [x] `POL-001` Replace section-form sprawl in Studio page with reusable editor modules
+- [ ] `POL-002` Improve visual hierarchy and artifact canvas fidelity
+- [ ] `POL-003` Add onboarding and empty-state guidance
+- [ ] `POL-004` Tighten README and developer docs
 
-## Active Next Slice
+## Recently Completed
 
-This is the immediate build sequence I should continue with next:
+- [x] GitHub design-system import
+- [x] Local-directory design-system import
+- [x] Fetch-based site-capture import
+- [x] Scene -> code synchronization for generated website artifacts
+- [x] Safe-subset code -> scene synchronization
+- [x] Streaming generation progress and structured generation failures
 
-- [x] Add scene/code diff preview in Versions lane
-- [x] Harden generation route from fallback-only into streamed LiteLLM execution
-- [x] Add generation status and failure UI in Chat Rail
-- [x] Move section editing out of the Studio page into reusable editor components
-- [x] Add structured API error model and recovery paths
-- [x] Add streaming status/events for generation progress
-- [x] Add provider-specific generation failure states in Chat Rail
-- [x] Add apply-stage generation failure handling for invalid scene/code patches
-- [x] Implement real scene -> code synchronization for generated website artifacts
-- [x] Start supported `code -> scene` back-sync for the safe website subset
-- [ ] Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety
-- [x] Implement local-directory design-system import and persistence flow
-- [x] Implement site-capture design-system import and persistence flow
-- [ ] Upgrade site-capture import from fetch-based HTML/CSS evidence to Playwright browser capture
+## Immediate Next Slice
+
+If no blocker appears, continue in this exact order:
+
+1. `DS-004` Upgrade site capture to Playwright browser capture
+2. `DS-005` Use imported packs as generation constraints
+3. `SYNC-003` Broaden supported code -> scene sync safely
+4. `OPS-001` Add Playwright E2E coverage for core Studio flows
+5. `TYPE-001` Prototype-specific scene and preview
+6. `TYPE-002` Slides-specific scene structure
