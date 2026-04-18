@@ -43,6 +43,17 @@ export type RepositoryTextFile = {
   content: string;
 };
 
+export type SiteCaptureStylesheet = {
+  sourceRef: string;
+  content: string;
+};
+
+export type SiteCaptureDomNode = {
+  tag: string;
+  className?: string | null;
+  text?: string | null;
+};
+
 export type PackEvidenceSummary = {
   evidenceCount: number;
   provenanceCount: number;
@@ -130,6 +141,16 @@ function extractCssVariables(content: string) {
   return matches.map((match) => ({
     key: match[1] ?? "",
     value: (match[2] ?? "").trim()
+  }));
+}
+
+function extractCssDeclarations(content: string, property: string) {
+  const expression = new RegExp(`${property}\\s*:\\s*([^;]+);`, "gi");
+  const matches = [...content.matchAll(expression)];
+
+  return matches.map((match) => ({
+    key: property,
+    value: (match[1] ?? "").trim()
   }));
 }
 
@@ -311,6 +332,177 @@ export const extractDesignSystemPackFromRepositoryFiles = (input: {
       id: crypto.randomUUID(),
       name: packName,
       source: input.source.type,
+      tokens: {
+        colors,
+        typography
+      },
+      components: [...components.values()],
+      motifs,
+      provenance
+    },
+    evidence,
+    warnings
+  };
+};
+
+export const extractDesignSystemPackFromSiteCapture = (input: {
+  source: SiteCaptureImportSource;
+  html: string;
+  stylesheets: SiteCaptureStylesheet[];
+  domNodes: SiteCaptureDomNode[];
+}): ExtractedPackResult => {
+  const colors: Record<string, string> = {};
+  const typography: Record<string, string> = {};
+  const components = new Map<string, DesignSystemPack["components"][number]>();
+  const provenance: DesignSystemPack["provenance"] = [];
+  const evidence: ExtractedEvidence[] = [
+    {
+      label: input.source.url,
+      kind: "dom",
+      sourceRef: input.source.url
+    }
+  ];
+  const warnings: string[] = [];
+  const baseUrl = new URL(input.source.url);
+
+  const styleSources: SiteCaptureStylesheet[] = [
+    ...input.stylesheets,
+    {
+      sourceRef: input.source.url,
+      content: [...input.html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
+        .map((match) => match[1] ?? "")
+        .join("\n")
+    }
+  ];
+
+  for (const stylesheet of styleSources) {
+    if (stylesheet.content.trim().length === 0) {
+      continue;
+    }
+
+    evidence.push({
+      label: stylesheet.sourceRef,
+      kind: "dom",
+      sourceRef: stylesheet.sourceRef
+    });
+
+    const cssVariables = extractCssVariables(stylesheet.content);
+    const fontFamilies = extractCssDeclarations(stylesheet.content, "font-family");
+    const fontSizes = extractCssDeclarations(stylesheet.content, "font-size");
+
+    for (const variable of cssVariables) {
+      const tokenKey = normalizeTokenKey(variable.key);
+      if (!tokenKey) {
+        continue;
+      }
+
+      if (isColorValue(variable.value) || isColorPath(variable.key)) {
+        colors[tokenKey] = variable.value;
+        provenance.push({
+          id: buildProvenanceId("token", `${stylesheet.sourceRef}.${tokenKey}`, provenance.length),
+          type: "token",
+          sourceRef: stylesheet.sourceRef,
+          targets: [`tokens.colors.${tokenKey}`]
+        });
+        continue;
+      }
+
+      if (isTypographyPath(variable.key)) {
+        typography[tokenKey] = variable.value;
+        provenance.push({
+          id: buildProvenanceId("token", `${stylesheet.sourceRef}.${tokenKey}`, provenance.length),
+          type: "token",
+          sourceRef: stylesheet.sourceRef,
+          targets: [`tokens.typography.${tokenKey}`]
+        });
+      }
+    }
+
+    for (const declaration of [...fontFamilies, ...fontSizes]) {
+      const tokenKey = normalizeTokenKey(`${declaration.key}.${declaration.value}`);
+      if (!tokenKey) {
+        continue;
+      }
+
+      typography[tokenKey] = declaration.value;
+      provenance.push({
+        id: buildProvenanceId("token", `${stylesheet.sourceRef}.${tokenKey}`, provenance.length),
+        type: "token",
+        sourceRef: stylesheet.sourceRef,
+        targets: [`tokens.typography.${tokenKey}`]
+      });
+    }
+  }
+
+  for (const node of input.domNodes) {
+    const tag = node.tag.toLowerCase();
+    const classLabel = node.className?.trim();
+    const signature = classLabel ? `${tag}.${classLabel}` : tag;
+
+    if (!["button", "input", "nav", "header", "footer", "section", "a"].includes(tag)) {
+      continue;
+    }
+
+    const componentId = `component_${normalizeTokenKey(signature) || tag}`;
+
+    if (!components.has(componentId)) {
+      components.set(componentId, {
+        id: componentId,
+        name: classLabel ? `${tag} ${classLabel}` : tag,
+        category: tag,
+        signature
+      });
+      provenance.push({
+        id: buildProvenanceId("component", signature, provenance.length),
+        type: "dom",
+        sourceRef: input.source.url,
+        targets: [`components.${componentId}`]
+      });
+    }
+  }
+
+  const motifs: DesignSystemPack["motifs"] = [];
+
+  if (Object.keys(colors).length > 0) {
+    motifs.push({
+      id: "motif_site_color_system",
+      label: "Captured Color System",
+      description: "Site capture extracted reusable color tokens from page styles."
+    });
+  }
+
+  if (Object.keys(typography).length > 0) {
+    motifs.push({
+      id: "motif_site_typography",
+      label: "Captured Typography",
+      description: "Site capture extracted type styles and font evidence from page styles."
+    });
+  }
+
+  if (components.size > 0) {
+    motifs.push({
+      id: "motif_site_components",
+      label: "Captured Components",
+      description: "Site capture identified reusable component signatures from the DOM."
+    });
+  }
+
+  if (
+    Object.keys(colors).length === 0 &&
+    Object.keys(typography).length === 0 &&
+    components.size === 0
+  ) {
+    warnings.push(
+      "Site capture did not find obvious reusable tokens or component signatures in the provided page."
+    );
+  }
+
+  return {
+    source: input.source,
+    pack: {
+      id: crypto.randomUUID(),
+      name: baseUrl.hostname,
+      source: "site-capture",
       tokens: {
         colors,
         typography

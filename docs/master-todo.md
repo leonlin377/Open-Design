@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `77%`
+Current estimated product completion for a serious V1: `79%`
 
 ```
-[################----] 77%
+[################----] 79%
 ```
 
 ## Current Reality
@@ -112,7 +112,7 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 - [x] Implement local directory import
   Done when:
   Studio can ingest a local component/token directory and persist a pack.
-- [ ] Implement site capture import with Playwright
+- [~] Implement site capture import with Playwright
   Done when:
   A URL can be crawled and reduced into screenshots, style evidence, and extracted tokens.
 - [x] Persist `DesignSystemPack` records in the backend
@@ -218,4 +218,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Start supported `code -> scene` back-sync for the safe website subset
 - [ ] Broaden supported code -> scene sync beyond `App.tsx` sections data while preserving safety
 - [x] Implement local-directory design-system import and persistence flow
-- [ ] Implement site-capture design-system import and persistence flow
+- [x] Implement site-capture design-system import and persistence flow
+- [ ] Upgrade site-capture import from fetch-based HTML/CSS evidence to Playwright browser capture

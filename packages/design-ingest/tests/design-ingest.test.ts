@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   extractDesignSystemPackFromRepositoryFiles,
+  extractDesignSystemPackFromSiteCapture,
   summarizePackEvidence
 } from "../src/index";
 
@@ -173,5 +174,80 @@ describe("extractDesignSystemPackFromRepositoryFiles", () => {
         }
       }
     });
+  });
+
+  test("extracts tokens and component signatures from captured site data", () => {
+    const result = extractDesignSystemPackFromSiteCapture({
+      source: {
+        type: "site-capture",
+        url: "https://atlas.example.com"
+      },
+      html: `
+        <html>
+          <head>
+            <style>
+              :root { --color-primary: #0f172a; }
+              h1 { font-size: 72px; }
+            </style>
+          </head>
+          <body>
+            <header class="masthead"></header>
+            <button class="cta-button">Launch</button>
+          </body>
+        </html>
+      `,
+      stylesheets: [
+        {
+          sourceRef: "https://atlas.example.com/styles.css",
+          content: ".hero { font-family: Avenir Next; }"
+        }
+      ],
+      domNodes: [
+        {
+          tag: "header",
+          className: "masthead",
+          text: null
+        },
+        {
+          tag: "button",
+          className: "cta-button",
+          text: "Launch"
+        }
+      ]
+    });
+
+    expect(result.pack).toMatchObject({
+      name: "atlas.example.com",
+      source: "site-capture",
+      tokens: {
+        colors: {
+          "color.primary": "#0f172a"
+        }
+      }
+    });
+    expect(result.pack.tokens.typography).toEqual(
+      expect.objectContaining({
+        "font.family.avenir.next": "Avenir Next",
+        "font.size.72px": "72px"
+      })
+    );
+    expect(result.pack.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          signature: "button.cta-button"
+        }),
+        expect.objectContaining({
+          signature: "header.masthead"
+        })
+      ])
+    );
+    expect(result.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "dom",
+          sourceRef: "https://atlas.example.com"
+        })
+      ])
+    );
   });
 });

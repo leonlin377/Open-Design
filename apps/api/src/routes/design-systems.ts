@@ -1,4 +1,8 @@
-import { summarizePackEvidence, extractDesignSystemPackFromRepositoryFiles } from "@opendesign/design-ingest";
+import {
+  summarizePackEvidence,
+  extractDesignSystemPackFromRepositoryFiles,
+  extractDesignSystemPackFromSiteCapture
+} from "@opendesign/design-ingest";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
@@ -22,6 +26,10 @@ const localDirectoryImportBodySchema = z.object({
       })
     )
     .min(1)
+});
+
+const siteCaptureImportBodySchema = z.object({
+  url: z.string().url()
 });
 
 type GithubRepoResponse = {
@@ -74,6 +82,95 @@ function scoreRepositoryFile(path: string) {
 
 function isSupportedRepositoryFile(path: string) {
   return /\.(css|scss|json|ts|tsx|js|jsx)$/i.test(path);
+}
+
+function extractStylesheetUrls(html: string, pageUrl: string) {
+  const matches = [...html.matchAll(/<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>/gi)];
+
+  return matches
+    .map((match) => match[1] ?? "")
+    .filter((href) => href.length > 0)
+    .map((href) => {
+      try {
+        return new URL(href, pageUrl).toString();
+      } catch {
+        return null;
+      }
+    })
+    .filter((href): href is string => Boolean(href));
+}
+
+function extractDomNodesFromHtml(html: string) {
+  const matches = [
+    ...html.matchAll(
+      /<(button|input|nav|header|footer|section|a)\b([^>]*)>([\s\S]*?)<\/\1>|<(input)\b([^>]*)\/?>/gi
+    )
+  ];
+
+  return matches
+    .map((match) => {
+      const tag = (match[1] ?? match[4] ?? "").toLowerCase();
+      const attributes = match[2] ?? match[5] ?? "";
+      const classNameMatch = attributes.match(/class=["']([^"']+)["']/i);
+      const textContent = (match[3] ?? "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return {
+        tag,
+        className: classNameMatch?.[1] ?? null,
+        text: textContent || null
+      };
+    })
+    .filter((node) => node.tag.length > 0);
+}
+
+async function fetchSiteCapture(input: { url: string }) {
+  const pageResponse = await fetch(input.url, {
+    headers: {
+      "user-agent": "OpenDesign"
+    }
+  });
+
+  if (!pageResponse.ok) {
+    return {
+      status: "failed" as const,
+      message: `Site capture request failed with status ${pageResponse.status}.`
+    };
+  }
+
+  const html = await pageResponse.text();
+  const stylesheetUrls = extractStylesheetUrls(html, input.url).slice(0, 8);
+  const stylesheets = await Promise.all(
+    stylesheetUrls.map(async (stylesheetUrl) => {
+      try {
+        const stylesheetResponse = await fetch(stylesheetUrl, {
+          headers: {
+            "user-agent": "OpenDesign"
+          }
+        });
+
+        if (!stylesheetResponse.ok) {
+          return null;
+        }
+
+        return {
+          sourceRef: stylesheetUrl,
+          content: await stylesheetResponse.text()
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return {
+    status: "ok" as const,
+    html,
+    stylesheets: stylesheets.filter((item): item is NonNullable<typeof item> => Boolean(item)),
+    domNodes: extractDomNodesFromHtml(html)
+  };
 }
 
 async function fetchGithubRepositoryFiles(input: {
@@ -274,6 +371,42 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
           absolutePath: body.absolutePath
         },
         files: supportedFiles.slice(0, 48)
+      });
+      const record = await options.designSystems.create({
+        ownerUserId: session?.user.id ?? null,
+        pack: extraction.pack
+      });
+
+      return reply.code(201).send({
+        pack: record,
+        warnings: extraction.warnings,
+        summary: summarizePackEvidence(extraction)
+      });
+    });
+
+    app.post("/design-systems/import/site-capture", async (request, reply) => {
+      const body = siteCaptureImportBodySchema.parse(request.body);
+      const session = await getRequestSession(options.auth, request);
+      const siteCapture = await fetchSiteCapture({
+        url: body.url
+      });
+
+      if (siteCapture.status === "failed") {
+        return sendApiError(reply, 422, {
+          error: siteCapture.message,
+          code: "DESIGN_SYSTEM_IMPORT_FAILED",
+          recoverable: true
+        });
+      }
+
+      const extraction = extractDesignSystemPackFromSiteCapture({
+        source: {
+          type: "site-capture",
+          url: body.url
+        },
+        html: siteCapture.html,
+        stylesheets: siteCapture.stylesheets,
+        domNodes: siteCapture.domNodes
       });
       const record = await options.designSystems.create({
         ownerUserId: session?.user.id ?? null,

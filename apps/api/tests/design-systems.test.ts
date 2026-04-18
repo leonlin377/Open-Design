@@ -272,4 +272,109 @@ describe("Design systems", () => {
       await app.close();
     }
   });
+
+  it("imports a captured site into a persisted design system pack", async () => {
+    globalThis.fetch = vi.fn(async (input) => {
+      const url = String(input);
+
+      if (url === "https://atlas.example.com") {
+        return new Response(
+          `
+            <html>
+              <head>
+                <link rel="stylesheet" href="/styles.css" />
+                <style>:root { --color-primary: #0f172a; }</style>
+              </head>
+              <body>
+                <header class="masthead"></header>
+                <button class="cta-button">Launch</button>
+              </body>
+            </html>
+          `,
+          {
+            status: 200,
+            headers: {
+              "content-type": "text/html"
+            }
+          }
+        );
+      }
+
+      if (url === "https://atlas.example.com/styles.css") {
+        return new Response(".hero { font-family: Avenir Next; font-size: 72px; }", {
+          status: 200,
+          headers: {
+            "content-type": "text/css"
+          }
+        });
+      }
+
+      return new Response("not found", { status: 404 });
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/site-capture",
+        payload: {
+          url: "https://atlas.example.com"
+        }
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({
+        pack: {
+          name: "atlas.example.com",
+          source: "site-capture",
+          tokens: {
+            colors: {
+              "color.primary": "#0f172a"
+            }
+          }
+        },
+        summary: {
+          evidenceCount: expect.any(Number)
+        }
+      });
+      expect(response.json().pack.components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            signature: "button.cta-button"
+          })
+        ])
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns a structured error when site capture cannot fetch the page", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response("blocked", {
+        status: 403
+      })
+    ) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/site-capture",
+        payload: {
+          url: "https://blocked.example.com"
+        }
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({
+        code: "DESIGN_SYSTEM_IMPORT_FAILED",
+        recoverable: true
+      });
+    } finally {
+      await app.close();
+    }
+  });
 });
