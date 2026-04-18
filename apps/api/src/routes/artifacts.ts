@@ -8,6 +8,7 @@ import {
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 import { planSyncPatch } from "@opendesign/code-sync";
+import { buildArtifactHtmlExport } from "@opendesign/exporters";
 import {
   appendRootSceneNode,
   createEmptySceneDocument,
@@ -374,6 +375,42 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         comments
       };
     });
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/exports/html",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        const { workspace } = await ensureWorkspaceState(artifact);
+        const bundle = buildArtifactHtmlExport({
+          artifactName: artifact.name,
+          sceneDocument: workspace.sceneDocument
+        });
+
+        reply.header("content-type", "text/html; charset=utf-8");
+        reply.header(
+          "content-disposition",
+          `attachment; filename="${bundle.filename.replaceAll('"', "")}"`
+        );
+
+        return reply.send(bundle.html);
+      }
+    );
 
     app.post("/projects/:projectId/artifacts", async (request, reply) => {
       const params = artifactParamsSchema.parse(request.params);

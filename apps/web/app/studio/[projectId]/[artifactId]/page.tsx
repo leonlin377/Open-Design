@@ -122,7 +122,12 @@ export default async function StudioPage({ params }: StudioPageProps) {
           <Link href="/projects" className="button-link ghost">
             All Projects
           </Link>
-          <Button variant="primary">Publish Artifact</Button>
+          <Link
+            href={`/studio/${project.id}/${artifact.id}/export/html`}
+            className="button-link primary"
+          >
+            Export HTML
+          </Link>
         </div>
       </header>
 

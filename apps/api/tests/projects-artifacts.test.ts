@@ -344,4 +344,46 @@ describe("Projects and artifacts", () => {
       await app.close();
     }
   });
+
+  it("exports scene-backed html documents", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Export Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Export Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/html`
+      });
+
+      expect(exportResponse.statusCode).toBe(200);
+      expect(exportResponse.headers["content-type"]).toContain("text/html");
+      expect(exportResponse.headers["content-disposition"]).toContain(
+        'attachment; filename="export-artifact.html"'
+      );
+      expect(exportResponse.body).toContain("<!doctype html>");
+      expect(exportResponse.body).toContain("Export Artifact leads with cinematic hierarchy.");
+    } finally {
+      await app.close();
+    }
+  });
 });
