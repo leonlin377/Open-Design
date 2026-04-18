@@ -157,7 +157,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
             className="button-link ghost"
           >
-            Export Source
+            Export ZIP
           </Link>
           <Link
             href={`/studio/${project.id}/${artifact.id}/export/html`}
@@ -550,7 +550,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                       href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
                       className="button-link ghost"
                     >
-                      Download Source
+                      Download ZIP
                     </Link>
                     <Link
                       href={`/studio/${project.id}/${artifact.id}/export/html`}

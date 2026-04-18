@@ -1,4 +1,5 @@
 import type { ArtifactKind, SceneDocument, SceneNode } from "@opendesign/contracts";
+import { strToU8, zipSync } from "fflate";
 
 export type ExportArtifact = {
   id: string;
@@ -65,6 +66,11 @@ export type SourceBundleFileMap = Record<string, string>;
 export type SourceExportBundle = {
   filenameBase: string;
   files: SourceBundleFileMap;
+};
+
+export type SourceArchiveBundle = {
+  filename: string;
+  bytes: Uint8Array;
 };
 
 type RenderableSection = {
@@ -541,6 +547,24 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       "/App.tsx": appCode,
       "/styles.css": ARTIFACT_SOURCE_STYLES
     }
+  };
+};
+
+export const buildArtifactSourceArchive = (
+  bundle: SourceExportBundle
+): SourceArchiveBundle => {
+  const archiveEntries = Object.fromEntries(
+    Object.entries(bundle.files).map(([filePath, content]) => [
+      `${bundle.filenameBase}${filePath}`,
+      strToU8(content)
+    ])
+  );
+
+  return {
+    filename: `${bundle.filenameBase}-source.zip`,
+    bytes: zipSync(archiveEntries, {
+      level: 6
+    })
   };
 };
 

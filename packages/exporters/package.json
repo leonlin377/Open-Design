@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@opendesign/contracts": "workspace:*"
+    "@opendesign/contracts": "workspace:*",
+    "fflate": "^0.8.2"
   }
 }

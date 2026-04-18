@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { strFromU8, unzipSync } from "fflate";
 import {
   buildArtifactHtmlExport,
+  buildArtifactSourceArchive,
   buildArtifactSourceBundle,
   buildHandoffManifestSummary
 } from "../src/index";
@@ -157,5 +159,27 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/main.tsx"]).toContain('import App from "./App"');
     expect(bundle.files["/index.html"]).toContain("<div id=\"root\"></div>");
     expect(bundle.files["/README.md"]).toContain("npm run dev");
+  });
+});
+
+describe("buildArtifactSourceArchive", () => {
+  test("packages the generated source bundle as a zip archive", () => {
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: "Atlas Website",
+      prompt: "Build a cinematic launch experience.",
+      sceneNodes: []
+    });
+    const archive = buildArtifactSourceArchive(bundle);
+    const unzipped = unzipSync(archive.bytes);
+
+    expect(archive.filename).toBe("atlas-website-source.zip");
+    expect(strFromU8(unzipped["atlas-website/package.json"]!)).toContain('"vite"');
+    expect(strFromU8(unzipped["atlas-website/main.tsx"]!)).toContain(
+      'import App from "./App"'
+    );
+    expect(strFromU8(unzipped["atlas-website/App.tsx"]!)).toContain(
+      "Atlas Website is ready for the first scene section."
+    );
   });
 });

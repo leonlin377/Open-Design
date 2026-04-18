@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { buildArtifactSourceArchive } from "@opendesign/exporters";
 import { getBrowserApiOrigin } from "../../../../../../lib/opendesign-api";
 
 export async function GET(
@@ -35,12 +36,16 @@ export async function GET(
     filenameBase?: string;
     files?: Record<string, string>;
   };
+  const archive = buildArtifactSourceArchive({
+    filenameBase: payload.filenameBase ?? "artifact",
+    files: payload.files ?? {}
+  });
 
-  return new Response(JSON.stringify(payload, null, 2), {
+  return new Response(Buffer.from(archive.bytes), {
     status: 200,
     headers: {
-      "content-type": "application/json; charset=utf-8",
-      "content-disposition": `attachment; filename="${payload.filenameBase ?? "artifact"}-bundle.json"`
+      "content-type": "application/zip",
+      "content-disposition": `attachment; filename="${archive.filename}"`
     }
   });
 }
