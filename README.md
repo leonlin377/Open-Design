@@ -54,3 +54,7 @@ Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.
 - `packages/design-ingest`: design system ingestion interfaces
 - `packages/exporters`: export and handoff interfaces
 - `packages/ui`: shared UI primitives
+
+## Roadmap
+
+- Master execution checklist: [docs/master-todo.md](/Users/leon/本地开发项目/opendesign/docs/master-todo.md)
