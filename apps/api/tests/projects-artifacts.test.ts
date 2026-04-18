@@ -285,14 +285,36 @@ describe("Projects and artifacts", () => {
 
       expect(generateResponse.statusCode).toBe(201);
       expect(generateResponse.json()).toMatchObject({
-        plan: {
-          provider: "heuristic",
-          sections: ["hero", "feature-grid", "cta"]
-        },
         generation: {
-          provider: "heuristic",
-          transport: "fallback",
-          warning: expect.any(String)
+          plan: {
+            provider: "heuristic",
+            sections: ["hero", "feature-grid", "cta"]
+          },
+          diagnostics: {
+            provider: "heuristic",
+            transport: "fallback",
+            warning: expect.any(String)
+          },
+          scenePatch: {
+            mode: "append-root-sections",
+            appendedNodes: [
+              expect.objectContaining({
+                template: "hero"
+              }),
+              expect.objectContaining({
+                template: "feature-grid"
+              }),
+              expect.objectContaining({
+                template: "cta"
+              })
+            ]
+          },
+          codePatch: {
+            mode: "unchanged"
+          },
+          commentResolution: {
+            mode: "none"
+          }
         },
         version: {
           artifactId: artifact.id,
@@ -302,7 +324,7 @@ describe("Projects and artifacts", () => {
           activeVersionId: generateResponse.json().version.id
         }
       });
-      expect(generateResponse.json().appendedNodes).toHaveLength(3);
+      expect(generateResponse.json().generation.scenePatch.appendedNodes).toHaveLength(3);
 
       const workspaceResponse = await app.inject({
         method: "GET",

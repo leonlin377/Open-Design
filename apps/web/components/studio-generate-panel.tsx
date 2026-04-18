@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Surface } from "@opendesign/ui";
+import type {
+  ApiArtifactGenerateResponse,
+  ApiErrorPayload
+} from "../lib/opendesign-api";
 
 type StudioGeneratePanelProps = {
   projectId: string;
@@ -10,39 +14,26 @@ type StudioGeneratePanelProps = {
   initialPrompt: string;
 };
 
-type GenerationResponse = {
-  plan: {
-    provider: "litellm" | "heuristic";
-    sections: string[];
-  };
-  generation: {
-    provider: "litellm" | "heuristic";
-    transport: "stream" | "fallback";
-    warning: string | null;
-  };
-  appendedNodes: Array<{
-    id: string;
-    type: string;
-    name: string;
-  }>;
-};
-
 function readErrorMessage(payload: unknown, fallback: string) {
-  if (payload && typeof payload === "object" && "message" in payload) {
-    const value = payload.message;
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
+  if (!payload || typeof payload !== "object") {
+    return fallback;
   }
 
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const value = payload.error;
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
+  const candidate = payload as Partial<ApiErrorPayload>;
+
+  if (typeof candidate.error !== "string" || !candidate.error.trim()) {
+    return fallback;
   }
 
-  return fallback;
+  if (candidate.code === "WORKSPACE_UPDATE_FAILED") {
+    return `${candidate.error}. Reload the Studio and retry the generation pass.`;
+  }
+
+  if (candidate.code === "ARTIFACT_NOT_FOUND" || candidate.code === "PROJECT_NOT_FOUND") {
+    return `${candidate.error}. Return to the project list and reopen the artifact before retrying.`;
+  }
+
+  return candidate.error;
 }
 
 export function StudioGeneratePanel({
@@ -97,18 +88,19 @@ export function StudioGeneratePanel({
           throw new Error(readErrorMessage(parsed, "Artifact generation failed."));
         }
 
-        const payload = (await response.json()) as GenerationResponse;
-        const sectionLabel = payload.appendedNodes.length === 1 ? "section" : "sections";
+        const payload = (await response.json()) as ApiArtifactGenerateResponse;
+        const appendedNodeCount = payload.generation.scenePatch.appendedNodes.length;
+        const sectionLabel = appendedNodeCount === 1 ? "section" : "sections";
 
         setFeedback(
-          payload.generation.warning
+          payload.generation.diagnostics.warning
             ? {
                 tone: "warning",
-                message: `${payload.generation.warning} Generated ${payload.appendedNodes.length} ${sectionLabel} for this pass.`
+                message: `${payload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${sectionLabel} for this pass.`
               }
             : {
                 tone: "success",
-                message: `Generated ${payload.appendedNodes.length} ${sectionLabel} via LiteLLM and refreshed the Studio workspace.`
+                message: `Generated ${appendedNodeCount} ${sectionLabel} via ${payload.generation.plan.provider} and refreshed the Studio workspace.`
               }
         );
         router.refresh();

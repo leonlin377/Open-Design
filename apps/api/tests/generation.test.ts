@@ -145,5 +145,6 @@ describe("generateArtifactPlan", () => {
     expect(result.plan.provider).toBe("litellm");
     expect(result.plan.sections).toEqual(["hero", "feature-grid", "cta"]);
     expect(result.diagnostics.warning).toBeNull();
+    expect(result.diagnostics.transport).toBe("json");
   });
 });

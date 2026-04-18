@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `59%`
+Current estimated product completion for a serious V1: `60%`
 
 ```
-[############--------] 59%
+[############--------] 60%
 ```
 
 ## Current Reality
@@ -63,7 +63,7 @@ Goal: Move from manual scene editing to a real artifact-generation system.
 - [x] Wire LiteLLM into the actual artifact generation flow
   Done when:
   API routes can call a configured gateway and receive streamed responses.
-- [ ] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
+- [x] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
   Done when:
   Shared contracts exist and API handlers validate them before applying patches.
 - [~] Add generation route for prompt-driven artifact creation
@@ -210,5 +210,5 @@ This is the immediate build sequence I should continue with next:
 - [x] Harden generation route from fallback-only into streamed LiteLLM execution
 - [x] Add generation status and failure UI in Chat Rail
 - [x] Move section editing out of the Studio page into reusable editor components
-- [ ] Define generation contracts for `artifact-plan`, `scene-patch`, `code-patch`, and `comment-resolution`
 - [ ] Add structured API error model and recovery paths
+- [ ] Add streaming status/events for generation progress

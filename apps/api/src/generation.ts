@@ -1,15 +1,11 @@
 import {
+  ArtifactGenerationDiagnosticsSchema,
   ArtifactGenerationPlanSchema,
   type ArtifactGenerationPlan,
+  type ArtifactGenerationDiagnostics,
   type ArtifactKind,
   type SceneTemplateKind
 } from "@opendesign/contracts";
-
-type ArtifactGenerationDiagnostics = {
-  provider: ArtifactGenerationPlan["provider"];
-  transport: "stream" | "fallback";
-  warning: string | null;
-};
 
 export type ArtifactPlanGenerationResult = {
   plan: ArtifactGenerationPlan;
@@ -81,11 +77,11 @@ function buildHeuristicResult(
 ): ArtifactPlanGenerationResult {
   return {
     plan: buildHeuristicPlan(input),
-    diagnostics: {
+    diagnostics: ArtifactGenerationDiagnosticsSchema.parse({
       provider: "heuristic",
       transport: "fallback",
       warning
-    }
+    })
   };
 }
 
@@ -264,11 +260,11 @@ async function generatePlanViaLiteLLM(
         prompt: input.prompt,
         provider: "litellm"
       }),
-      diagnostics: {
+      diagnostics: ArtifactGenerationDiagnosticsSchema.parse({
         provider: "litellm",
-        transport: "stream",
+        transport: contentType.includes("text/event-stream") ? "stream" : "json",
         warning: null
-      }
+      })
     };
   } catch {
     return null;

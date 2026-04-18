@@ -108,12 +108,73 @@ export const ArtifactCodeWorkspaceSchema = z.object({
   updatedAt: z.string().min(1)
 });
 
+export const ArtifactGenerationProviderSchema = z.enum(["litellm", "heuristic"]);
+export const ArtifactGenerationTransportSchema = z.enum(["stream", "json", "fallback"]);
+
 export const ArtifactGenerationPlanSchema = z.object({
   prompt: z.string().min(1),
   intent: z.string().min(1),
   rationale: z.string().min(1),
   sections: z.array(SceneTemplateKindSchema).min(1).max(6),
-  provider: z.enum(["litellm", "heuristic"])
+  provider: ArtifactGenerationProviderSchema
+});
+
+export const ArtifactGenerationDiagnosticsSchema = z.object({
+  provider: ArtifactGenerationProviderSchema,
+  transport: ArtifactGenerationTransportSchema,
+  warning: z.string().min(1).nullable()
+});
+
+export const ArtifactScenePatchNodeSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1),
+  name: z.string().min(1),
+  template: SceneTemplateKindSchema
+});
+
+export const ArtifactScenePatchSchema = z.object({
+  mode: z.enum(["append-root-sections", "no-op"]),
+  rationale: z.string().min(1),
+  appendedNodes: z.array(ArtifactScenePatchNodeSchema)
+});
+
+export const ArtifactCodePatchSchema = z.object({
+  mode: z.enum(["unchanged", "pending-sync"]),
+  rationale: z.string().min(1),
+  filesTouched: z.array(z.string().min(1))
+});
+
+export const ArtifactCommentResolutionSchema = z.object({
+  mode: z.enum(["none", "queued"]),
+  rationale: z.string().min(1),
+  resolvedCommentIds: z.array(z.string().min(1))
+});
+
+export const ArtifactGenerationRunSchema = z.object({
+  plan: ArtifactGenerationPlanSchema,
+  diagnostics: ArtifactGenerationDiagnosticsSchema,
+  scenePatch: ArtifactScenePatchSchema,
+  codePatch: ArtifactCodePatchSchema,
+  commentResolution: ArtifactCommentResolutionSchema
+});
+
+export const ApiErrorCodeSchema = z.enum([
+  "AUTH_HANDLER_FAILURE",
+  "PROJECT_NOT_FOUND",
+  "ARTIFACT_NOT_FOUND",
+  "VERSION_NOT_FOUND",
+  "COMMENT_NOT_FOUND",
+  "SCENE_NODE_NOT_FOUND",
+  "WORKSPACE_UPDATE_FAILED",
+  "INVALID_CODE_WORKSPACE",
+  "CODE_WORKSPACE_CONFLICT"
+]);
+
+export const ApiErrorSchema = z.object({
+  error: z.string().min(1),
+  code: ApiErrorCodeSchema,
+  recoverable: z.boolean().default(false),
+  details: z.record(z.string(), z.unknown()).optional()
 });
 
 export const ArtifactVersionDiffSummarySchema = z.object({
@@ -143,6 +204,12 @@ export const ArtifactWorkspaceSchema = z.object({
   versionCount: z.number().int().nonnegative(),
   openCommentCount: z.number().int().nonnegative(),
   updatedAt: z.string().min(1)
+});
+
+export const ArtifactGenerateResponseSchema = z.object({
+  generation: ArtifactGenerationRunSchema,
+  version: ArtifactVersionSnapshotSchema,
+  workspace: ArtifactWorkspaceSchema
 });
 
 export const DesignSystemComponentSchema = z.object({
@@ -186,9 +253,22 @@ export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
 export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSchema>;
 export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
 export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
+export type ArtifactGenerationProvider = z.infer<typeof ArtifactGenerationProviderSchema>;
+export type ArtifactGenerationTransport = z.infer<typeof ArtifactGenerationTransportSchema>;
 export type ArtifactGenerationPlan = z.infer<typeof ArtifactGenerationPlanSchema>;
+export type ArtifactGenerationDiagnostics = z.infer<
+  typeof ArtifactGenerationDiagnosticsSchema
+>;
+export type ArtifactScenePatch = z.infer<typeof ArtifactScenePatchSchema>;
+export type ArtifactCodePatch = z.infer<typeof ArtifactCodePatchSchema>;
+export type ArtifactCommentResolution = z.infer<
+  typeof ArtifactCommentResolutionSchema
+>;
+export type ArtifactGenerationRun = z.infer<typeof ArtifactGenerationRunSchema>;
+export type ArtifactGenerateResponse = z.infer<typeof ArtifactGenerateResponseSchema>;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
+export type ApiError = z.infer<typeof ApiErrorSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;
 export type SceneDocument = z.infer<typeof SceneDocumentSchema>;

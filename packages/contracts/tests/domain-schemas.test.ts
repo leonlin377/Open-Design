@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import {
   ArtifactCommentSchema,
+  ArtifactGenerateResponseSchema,
+  ApiErrorSchema,
+  ArtifactGenerationRunSchema,
   ArtifactGenerationPlanSchema,
   ArtifactKindSchema,
   ArtifactVersionDiffSummarySchema,
@@ -192,6 +195,141 @@ describe("ArtifactGenerationPlanSchema", () => {
 
     expect(plan.sections).toHaveLength(3);
     expect(plan.provider).toBe("heuristic");
+  });
+});
+
+describe("ArtifactGenerationRunSchema", () => {
+  test("accepts a structured generation payload with scene and code patch metadata", () => {
+    const run = ArtifactGenerationRunSchema.parse({
+      plan: {
+        prompt: "Create a cinematic landing page for Atlas Commerce.",
+        intent: "Build a cinematic launch surface for Atlas Commerce.",
+        rationale:
+          "The page needs a hero, supporting features, and a CTA to close the story.",
+        sections: ["hero", "feature-grid", "cta"],
+        provider: "litellm"
+      },
+      diagnostics: {
+        provider: "litellm",
+        transport: "stream",
+        warning: null
+      },
+      scenePatch: {
+        mode: "append-root-sections",
+        rationale: "Append the generated section stack to the root scene.",
+        appendedNodes: [
+          {
+            id: "hero_1",
+            type: "section",
+            name: "Hero Section",
+            template: "hero"
+          }
+        ]
+      },
+      codePatch: {
+        mode: "unchanged",
+        rationale: "Saved code workspaces remain unchanged until scene/code sync is implemented.",
+        filesTouched: []
+      },
+      commentResolution: {
+        mode: "none",
+        rationale: "Prompt generation does not resolve open review comments yet.",
+        resolvedCommentIds: []
+      }
+    });
+
+    expect(run.scenePatch.appendedNodes[0]?.template).toBe("hero");
+    expect(run.codePatch.mode).toBe("unchanged");
+  });
+});
+
+describe("ArtifactGenerateResponseSchema", () => {
+  test("accepts the persisted generation response envelope", () => {
+    const response = ArtifactGenerateResponseSchema.parse({
+      generation: {
+        plan: {
+          prompt: "Create a cinematic landing page for Atlas Commerce.",
+          intent: "Build a cinematic launch surface for Atlas Commerce.",
+          rationale:
+            "The page needs a hero, supporting features, and a CTA to close the story.",
+          sections: ["hero", "feature-grid", "cta"],
+          provider: "heuristic"
+        },
+        diagnostics: {
+          provider: "heuristic",
+          transport: "fallback",
+          warning: "LiteLLM gateway is not configured."
+        },
+        scenePatch: {
+          mode: "append-root-sections",
+          rationale: "Append the generated section stack to the root scene.",
+          appendedNodes: []
+        },
+        codePatch: {
+          mode: "unchanged",
+          rationale: "Saved code workspaces remain unchanged until scene/code sync is implemented.",
+          filesTouched: []
+        },
+        commentResolution: {
+          mode: "none",
+          rationale: "Prompt generation does not resolve open review comments yet.",
+          resolvedCommentIds: []
+        }
+      },
+      version: {
+        id: "version_1",
+        artifactId: "artifact_1",
+        label: "Prompt 1",
+        summary: "Generated from prompt",
+        source: "prompt",
+        sceneVersion: 4,
+        hasCodeWorkspaceSnapshot: false,
+        createdAt: "2026-04-19T12:00:00.000Z"
+      },
+      workspace: {
+        artifactId: "artifact_1",
+        intent: "Build a cinematic launch surface for Atlas Commerce.",
+        activeVersionId: "version_1",
+        sceneDocument: {
+          id: "scene_1",
+          artifactId: "artifact_1",
+          kind: "website",
+          version: 4,
+          nodes: [],
+          metadata: {}
+        },
+        codeWorkspace: null,
+        syncPlan: {
+          mode: "full",
+          reason: "Scene remains the source of truth.",
+          sourceMode: "scene",
+          targetMode: "code-supported",
+          changeScope: "document"
+        },
+        versionCount: 2,
+        openCommentCount: 0,
+        updatedAt: "2026-04-19T12:00:00.000Z"
+      }
+    });
+
+    expect(response.generation.diagnostics.transport).toBe("fallback");
+    expect(response.version.source).toBe("prompt");
+  });
+});
+
+describe("ApiErrorSchema", () => {
+  test("accepts structured api errors with recovery hints", () => {
+    const error = ApiErrorSchema.parse({
+      error: "Workspace update failed",
+      code: "WORKSPACE_UPDATE_FAILED",
+      recoverable: true,
+      details: {
+        retryable: true
+      }
+    });
+
+    expect(error.code).toBe("WORKSPACE_UPDATE_FAILED");
+    expect(error.recoverable).toBe(true);
   });
 });
 

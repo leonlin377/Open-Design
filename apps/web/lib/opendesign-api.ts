@@ -2,8 +2,9 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import type {
+  ApiError,
+  ArtifactGenerateResponse,
   ArtifactComment,
-  ArtifactGenerationPlan,
   ArtifactVersionDiffSummary,
   ArtifactWorkspace,
   SceneTemplateKind,
@@ -41,6 +42,8 @@ export type ApiArtifact = {
 export type ApiArtifactWorkspace = ArtifactWorkspace;
 export type ApiArtifactVersion = ArtifactVersionSnapshot;
 export type ApiArtifactComment = ArtifactComment;
+export type ApiArtifactGenerateResponse = ArtifactGenerateResponse;
+export type ApiErrorPayload = ApiError;
 
 export type ApiArtifactWorkspacePayload = {
   artifact: ApiArtifact;
@@ -248,21 +251,7 @@ export async function generateArtifact(input: {
     throw new Error(`Failed to generate artifact (${response.status})`);
   }
 
-  return (await response.json()) as {
-    plan: ArtifactGenerationPlan;
-    generation: {
-      provider: "litellm" | "heuristic";
-      transport: "stream" | "fallback";
-      warning: string | null;
-    };
-    appendedNodes: Array<{
-      id: string;
-      type: string;
-      name: string;
-    }>;
-    version: ApiArtifactVersion;
-    workspace: ApiArtifactWorkspace;
-  };
+  return (await response.json()) as ApiArtifactGenerateResponse;
 }
 
 export async function restoreArtifactVersion(input: {

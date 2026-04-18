@@ -1,7 +1,13 @@
 import {
+  ApiErrorSchema,
+  ArtifactCommentResolutionSchema,
+  ArtifactCodePatchSchema,
+  ArtifactGenerateResponseSchema,
+  ArtifactGenerationRunSchema,
   ArtifactVersionDiffSummarySchema,
   ArtifactKindSchema,
   ArtifactGenerationPlanSchema,
+  ArtifactScenePatchSchema,
   ArtifactVersionSourceSchema,
   CommentAnchorSchema,
   SceneTemplateKindSchema,
@@ -127,6 +133,18 @@ export interface ArtifactRouteOptions {
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
+    function sendApiError(
+      reply: {
+        code: (statusCode: number) => {
+          send: (payload: unknown) => unknown;
+        };
+      },
+      statusCode: number,
+      input: z.input<typeof ApiErrorSchema>
+    ) {
+      return reply.code(statusCode).send(ApiErrorSchema.parse(input));
+    }
+
     function buildTemplateNode(input: {
       artifact: {
         id: string;
@@ -463,16 +481,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -666,9 +686,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       );
 
       if (!intentWorkspace || !sceneWorkspace) {
-        return reply.code(500).send({
+        return sendApiError(reply, 500, {
           error: "Workspace update failed",
-          code: "WORKSPACE_UPDATE_FAILED"
+          code: "WORKSPACE_UPDATE_FAILED",
+          recoverable: true,
+          details: {
+            stage: "generate"
+          }
         });
       }
 
@@ -685,17 +709,46 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const activeWorkspace =
         (await options.workspaces.updateActiveVersion(artifact.id, version.id)) ?? sceneWorkspace;
 
-      return reply.code(201).send({
+      const generationRun = ArtifactGenerationRunSchema.parse({
         plan,
-        generation: generation.diagnostics,
-        appendedNodes,
+        diagnostics: generation.diagnostics,
+        scenePatch: ArtifactScenePatchSchema.parse({
+          mode: appendedNodes.length > 0 ? "append-root-sections" : "no-op",
+          rationale: "Append the generated section stack to the root scene document.",
+          appendedNodes: appendedNodes.map((node) => ({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            template:
+              node.props.template === "feature-grid" ||
+              node.props.template === "cta" ||
+              node.props.template === "hero"
+                ? node.props.template
+                : "hero"
+          }))
+        }),
+        codePatch: ArtifactCodePatchSchema.parse({
+          mode: "unchanged",
+          rationale:
+            "Saved code workspaces remain unchanged until scene/code synchronization is implemented.",
+          filesTouched: []
+        }),
+        commentResolution: ArtifactCommentResolutionSchema.parse({
+          mode: "none",
+          rationale: "Prompt generation does not resolve open review comments yet.",
+          resolvedCommentIds: []
+        })
+      });
+
+      return reply.code(201).send(ArtifactGenerateResponseSchema.parse({
+        generation: generationRun,
         version,
         workspace: buildWorkspacePayload({
           workspace: activeWorkspace,
           versions: [version, ...versions],
           comments
         })
-      });
+      }));
     });
 
     app.post(
