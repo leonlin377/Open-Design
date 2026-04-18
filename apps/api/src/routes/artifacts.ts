@@ -64,6 +64,14 @@ const updateSceneNodeBodySchema = z
     headline: z.string().min(1).optional(),
     body: z.string().min(1).optional(),
     title: z.string().min(1).optional(),
+    items: z
+      .array(
+        z.object({
+          label: z.string().min(1),
+          body: z.string().min(1)
+        })
+      )
+      .optional(),
     primaryAction: z.string().min(1).optional(),
     secondaryAction: z.string().min(1).optional()
   })
@@ -491,10 +499,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
 
         try {
-          const sceneDocument = updateRootSceneNode(workspace.sceneDocument, {
-            nodeId: params.nodeId,
-            ...(body.name ? { name: body.name } : {}),
-            props: Object.fromEntries(
+          const props = {
+            ...Object.fromEntries(
               Object.entries({
                 eyebrow: body.eyebrow,
                 headline: body.headline,
@@ -503,8 +509,16 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
                 primaryAction: body.primaryAction,
                 secondaryAction: body.secondaryAction
               }).filter(([, value]) => typeof value === "string" && value.length > 0)
-            )
+            ),
+            ...(body.items ? { items: body.items } : {})
+          };
+
+          const sceneDocument = updateRootSceneNode(workspace.sceneDocument, {
+            nodeId: params.nodeId,
+            ...(body.name ? { name: body.name } : {}),
+            props
           });
+
           const updatedWorkspace = await options.workspaces.updateSceneDocument(
             artifact.id,
             sceneDocument

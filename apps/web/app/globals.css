@@ -390,6 +390,11 @@ main {
   gap: 10px;
 }
 
+.scene-item-grid {
+  display: grid;
+  gap: 10px;
+}
+
 .field {
   display: grid;
   gap: 8px;

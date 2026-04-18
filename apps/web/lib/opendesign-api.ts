@@ -313,6 +313,10 @@ export async function updateSceneNode(input: {
   headline?: string;
   body?: string;
   title?: string;
+  items?: Array<{
+    label: string;
+    body: string;
+  }>;
   primaryAction?: string;
   secondaryAction?: string;
 }) {
@@ -331,9 +335,20 @@ export async function updateSceneNode(input: {
             headline: input.headline,
             body: input.body,
             title: input.title,
+            items: input.items,
             primaryAction: input.primaryAction,
             secondaryAction: input.secondaryAction
-          }).filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+          }).filter(([, value]) => {
+            if (typeof value === "string") {
+              return value.trim().length > 0;
+            }
+
+            if (Array.isArray(value)) {
+              return value.length > 0;
+            }
+
+            return false;
+          })
         )
       )
     }

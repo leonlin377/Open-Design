@@ -26,6 +26,21 @@ type PreviewSection = {
   secondaryAction?: string;
 };
 
+const defaultFeatureGridItems = [
+  {
+    label: "Scene",
+    body: "Sections stay versioned and ready for review snapshots."
+  },
+  {
+    label: "Design",
+    body: "Brand rhythm and layout motifs stay attached to the workspace."
+  },
+  {
+    label: "Export",
+    body: "Preview, handoff, and export flows derive from one source of truth."
+  }
+];
+
 function buildPreviewSections({
   artifactKind,
   artifactName,
@@ -101,7 +116,7 @@ function buildPreviewSections({
         name: node.name,
         title:
           typeof props.title === "string" ? props.title : `${artifactName} system lanes`,
-        items
+        items: items.length > 0 ? items : defaultFeatureGridItems
       };
     }
 

@@ -257,4 +257,91 @@ describe("Projects and artifacts", () => {
       await app.close();
     }
   });
+
+  it("updates feature-grid title and items", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Grid Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Grid Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const appendGridResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "feature-grid"
+        }
+      });
+
+      expect(appendGridResponse.statusCode).toBe(201);
+      const nodeId = appendGridResponse.json().appendedNode.id;
+
+      const updateGridResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${nodeId}`,
+        payload: {
+          name: "Updated Feature Grid",
+          title: "Updated Grid Title",
+          items: [
+            {
+              label: "Scene Ops",
+              body: "Scene edits stay structured and versioned."
+            },
+            {
+              label: "Design Ops",
+              body: "Design motifs remain portable across artifacts."
+            },
+            {
+              label: "Export Ops",
+              body: "Exports stay aligned with the live preview."
+            }
+          ]
+        }
+      });
+
+      expect(updateGridResponse.statusCode).toBe(200);
+      expect(updateGridResponse.json().workspace.sceneDocument).toMatchObject({
+        version: 3
+      });
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace.sceneDocument.nodes[0]).toMatchObject({
+        name: "Updated Feature Grid",
+        props: {
+          title: "Updated Grid Title",
+          items: [
+            {
+              label: "Scene Ops",
+              body: "Scene edits stay structured and versioned."
+            },
+            {
+              label: "Design Ops",
+              body: "Design motifs remain portable across artifacts."
+            },
+            {
+              label: "Export Ops",
+              body: "Exports stay aligned with the live preview."
+            }
+          ]
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
 });

@@ -94,6 +94,39 @@ export async function updateSceneNodeAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const artifactId = String(formData.get("artifactId") ?? "").trim();
   const nodeId = String(formData.get("nodeId") ?? "").trim();
+  const itemsTailJson = String(formData.get("itemsTailJson") ?? "").trim();
+  const items = [0, 1, 2]
+    .map((index) => ({
+      label: String(formData.get(`item${index}Label`) ?? "").trim(),
+      body: String(formData.get(`item${index}Body`) ?? "").trim()
+    }))
+    .filter((item) => item.label.length > 0 && item.body.length > 0);
+  const itemsTail = itemsTailJson
+    ? (() => {
+        try {
+          const parsed = JSON.parse(itemsTailJson) as unknown;
+
+          if (!Array.isArray(parsed)) {
+            return [];
+          }
+
+          return parsed.filter(
+            (
+              item
+            ): item is {
+              label: string;
+              body: string;
+            } =>
+              typeof item === "object" &&
+              item !== null &&
+              typeof (item as { label?: unknown }).label === "string" &&
+              typeof (item as { body?: unknown }).body === "string"
+          );
+        } catch {
+          return [];
+        }
+      })()
+    : [];
 
   if (!projectId || !artifactId || !nodeId) {
     throw new Error("Project, artifact, and scene node are required.");
@@ -108,6 +141,7 @@ export async function updateSceneNodeAction(formData: FormData) {
     headline: String(formData.get("headline") ?? "").trim() || undefined,
     body: String(formData.get("body") ?? "").trim() || undefined,
     title: String(formData.get("title") ?? "").trim() || undefined,
+    items: items.length > 0 || itemsTail.length > 0 ? [...items, ...itemsTail] : undefined,
     primaryAction: String(formData.get("primaryAction") ?? "").trim() || undefined,
     secondaryAction: String(formData.get("secondaryAction") ?? "").trim() || undefined
   });
