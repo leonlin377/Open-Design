@@ -10,6 +10,11 @@ import type {
   SceneTemplateKind,
   ArtifactVersionSnapshot
 } from "@opendesign/contracts";
+import {
+  buildApiRequestError,
+  parseApiErrorPayload,
+  readApiErrorMessage
+} from "./api-errors";
 
 export type ApiSession = {
   session: {
@@ -84,6 +89,10 @@ async function apiFetch(path: string, init?: RequestInit) {
   });
 }
 
+async function throwApiResponseError(response: Response, fallback: string): Promise<never> {
+  throw await buildApiRequestError(response, fallback);
+}
+
 export async function getSession(): Promise<ApiSession> {
   const response = await apiFetch("/api/auth/session");
 
@@ -99,7 +108,7 @@ export async function listProjects(): Promise<ApiProject[]> {
   const response = await apiFetch("/api/projects");
 
   if (!response.ok) {
-    throw new Error(`Failed to load projects (${response.status})`);
+    await throwApiResponseError(response, `Failed to load projects (${response.status})`);
   }
 
   return (await response.json()) as ApiProject[];
@@ -113,7 +122,7 @@ export async function getProject(projectId: string): Promise<ApiProject | null> 
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to load project (${response.status})`);
+    await throwApiResponseError(response, `Failed to load project (${response.status})`);
   }
 
   return (await response.json()) as ApiProject;
@@ -129,7 +138,7 @@ export async function createProject(input: { name: string }) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create project (${response.status})`);
+    await throwApiResponseError(response, `Failed to create project (${response.status})`);
   }
 
   return (await response.json()) as ApiProject;
@@ -139,7 +148,7 @@ export async function listArtifacts(projectId: string): Promise<ApiArtifact[]> {
   const response = await apiFetch(`/api/projects/${projectId}/artifacts`);
 
   if (!response.ok) {
-    throw new Error(`Failed to load artifacts (${response.status})`);
+    await throwApiResponseError(response, `Failed to load artifacts (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifact[];
@@ -156,7 +165,7 @@ export async function getArtifact(
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to load artifact (${response.status})`);
+    await throwApiResponseError(response, `Failed to load artifact (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifact;
@@ -179,7 +188,7 @@ export async function createArtifact(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create artifact (${response.status})`);
+    await throwApiResponseError(response, `Failed to create artifact (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifact;
@@ -196,7 +205,10 @@ export async function getArtifactWorkspace(
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to load artifact workspace (${response.status})`);
+    await throwApiResponseError(
+      response,
+      `Failed to load artifact workspace (${response.status})`
+    );
   }
 
   return (await response.json()) as ApiArtifactWorkspacePayload;
@@ -223,7 +235,7 @@ export async function createArtifactVersion(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to create version (${response.status})`);
+    await throwApiResponseError(response, `Failed to create version (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifactVersion;
@@ -248,7 +260,7 @@ export async function generateArtifact(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to generate artifact (${response.status})`);
+    await throwApiResponseError(response, `Failed to generate artifact (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifactGenerateResponse;
@@ -267,7 +279,7 @@ export async function restoreArtifactVersion(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to restore version (${response.status})`);
+    await throwApiResponseError(response, `Failed to restore version (${response.status})`);
   }
 
   return (await response.json()) as {
@@ -290,7 +302,7 @@ export async function getArtifactVersionDiff(input: {
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to load version diff (${response.status})`);
+    await throwApiResponseError(response, `Failed to load version diff (${response.status})`);
   }
 
   return (await response.json()) as {
@@ -323,7 +335,7 @@ export async function createArtifactComment(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to create comment (${response.status})`);
+    await throwApiResponseError(response, `Failed to create comment (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifactComment;
@@ -342,7 +354,7 @@ export async function resolveArtifactComment(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to resolve comment (${response.status})`);
+    await throwApiResponseError(response, `Failed to resolve comment (${response.status})`);
   }
 
   return (await response.json()) as ApiArtifactComment;
@@ -367,7 +379,10 @@ export async function appendSceneTemplate(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to append scene template (${response.status})`);
+    await throwApiResponseError(
+      response,
+      `Failed to append scene template (${response.status})`
+    );
   }
 
   return (await response.json()) as {
@@ -431,7 +446,7 @@ export async function updateSceneNode(input: {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to update scene node (${response.status})`);
+    await throwApiResponseError(response, `Failed to update scene node (${response.status})`);
   }
 
   return (await response.json()) as {
@@ -460,21 +475,35 @@ export async function saveArtifactCodeWorkspace(input: {
   );
 
   if (response.status === 409) {
-    const payload = (await response.json()) as {
-      error: string;
-      code: string;
-      currentUpdatedAt: string | null;
-    };
+    let parsed: unknown = null;
+
+    try {
+      parsed = await response.json();
+    } catch {
+      parsed = null;
+    }
+
+    const payload = parseApiErrorPayload(parsed);
+    const currentUpdatedAt =
+      payload?.details &&
+      typeof payload.details.currentUpdatedAt === "string"
+        ? payload.details.currentUpdatedAt
+        : payload?.details?.currentUpdatedAt === null
+          ? null
+          : null;
 
     return {
       status: "conflict" as const,
-      message: payload.error,
-      currentUpdatedAt: payload.currentUpdatedAt
+      message: readApiErrorMessage(parsed, "Code workspace save conflicted with newer state."),
+      currentUpdatedAt
     };
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to save code workspace (${response.status})`);
+    await throwApiResponseError(
+      response,
+      `Failed to save code workspace (${response.status})`
+    );
   }
 
   const payload = (await response.json()) as {

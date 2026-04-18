@@ -5,6 +5,7 @@ import {
   sessionGuard,
   type OpenDesignAuth
 } from "../auth/session";
+import { sendApiError } from "../lib/api-errors";
 
 export interface AuthRouteOptions {
   auth: OpenDesignAuth;
@@ -30,9 +31,13 @@ export const registerAuthRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
         return sendAuthResponse(reply, response);
       } catch (error) {
         request.log.error({ error }, "better-auth handler failed");
-        return reply.code(500).send({
+        return sendApiError(reply, 500, {
           error: "Better Auth handler failed",
-          code: "AUTH_HANDLER_FAILURE"
+          code: "AUTH_HANDLER_FAILURE",
+          recoverable: true,
+          details: {
+            stage: "auth-handler"
+          }
         });
       }
     }

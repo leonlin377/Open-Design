@@ -160,6 +160,7 @@ export const ArtifactGenerationRunSchema = z.object({
 
 export const ApiErrorCodeSchema = z.enum([
   "AUTH_HANDLER_FAILURE",
+  "VALIDATION_ERROR",
   "PROJECT_NOT_FOUND",
   "ARTIFACT_NOT_FOUND",
   "VERSION_NOT_FOUND",

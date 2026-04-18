@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ProjectRepository } from "../repositories/projects";
 
@@ -32,16 +33,18 @@ export const registerProjectRoutes: FastifyPluginAsync<ProjectRouteOptions> =
       const project = await options.projects.getById(params.projectId);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (project.ownerUserId && project.ownerUserId !== session?.user.id) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 

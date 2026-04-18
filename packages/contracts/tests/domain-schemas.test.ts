@@ -331,6 +331,25 @@ describe("ApiErrorSchema", () => {
     expect(error.code).toBe("WORKSPACE_UPDATE_FAILED");
     expect(error.recoverable).toBe(true);
   });
+
+  test("accepts validation errors with issue details", () => {
+    const error = ApiErrorSchema.parse({
+      error: "Request validation failed",
+      code: "VALIDATION_ERROR",
+      recoverable: true,
+      details: {
+        issues: [
+          {
+            path: "name",
+            message: "Invalid input"
+          }
+        ]
+      }
+    });
+
+    expect(error.code).toBe("VALIDATION_ERROR");
+    expect(error.details?.issues).toHaveLength(1);
+  });
 });
 
 describe("ArtifactVersionDiffSummarySchema", () => {

@@ -84,7 +84,8 @@ describe("Projects and artifacts", () => {
       expect(response.statusCode).toBe(404);
       expect(response.json()).toEqual({
         error: "Project not found",
-        code: "PROJECT_NOT_FOUND"
+        code: "PROJECT_NOT_FOUND",
+        recoverable: false
       });
     } finally {
       await app.close();
@@ -116,7 +117,8 @@ describe("Projects and artifacts", () => {
       expect(missingArtifact.statusCode).toBe(404);
       expect(missingArtifact.json()).toEqual({
         error: "Artifact not found",
-        code: "ARTIFACT_NOT_FOUND"
+        code: "ARTIFACT_NOT_FOUND",
+        recoverable: false
       });
     } finally {
       await app.close();
@@ -690,7 +692,11 @@ describe("Projects and artifacts", () => {
 
       expect(staleSaveResponse.statusCode).toBe(409);
       expect(staleSaveResponse.json()).toMatchObject({
-        code: "CODE_WORKSPACE_CONFLICT"
+        code: "CODE_WORKSPACE_CONFLICT",
+        recoverable: true,
+        details: {
+          currentUpdatedAt: expect.any(String)
+        }
       });
 
       const workspaceResponse = await app.inject({
@@ -969,6 +975,34 @@ describe("Projects and artifacts", () => {
       expect(htmlExportResponse.statusCode).toBe(200);
       expect(htmlExportResponse.body).toContain("Snapshot hero");
       expect(htmlExportResponse.body).not.toContain("Ready for the next review pass?");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns a structured validation error payload for invalid request bodies", async () => {
+    const app = await buildApp();
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: {}
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: "Request validation failed",
+        code: "VALIDATION_ERROR",
+        recoverable: true,
+        details: {
+          issues: [
+            {
+              path: "name",
+              message: expect.any(String)
+            }
+          ]
+        }
+      });
     } finally {
       await app.close();
     }

@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `60%`
+Current estimated product completion for a serious V1: `62%`
 
 ```
-[############--------] 60%
+[############--------] 62%
 ```
 
 ## Current Reality
@@ -172,9 +172,11 @@ Goal: Make the product stable enough for serious usage.
 - [x] Add stale-write/conflict protection for code workspace saves and restores
   Done when:
   Users do not silently overwrite newer saved state.
-- [ ] Add structured API error model and recovery paths
+- [~] Add structured API error model and recovery paths
   Done when:
   The UI can distinguish auth, validation, conflict, and provider failures.
+  Current:
+  Explicit route errors, auth bridge failures, validation errors, and code-workspace conflicts now use shared `ApiError` helpers end-to-end. Provider-specific generation failures still need their own structured path.
 - [ ] Add Playwright E2E coverage for core Studio flows
   Done when:
   Login, create project, edit scene, save code, snapshot, restore, and export are covered.
@@ -210,5 +212,6 @@ This is the immediate build sequence I should continue with next:
 - [x] Harden generation route from fallback-only into streamed LiteLLM execution
 - [x] Add generation status and failure UI in Chat Rail
 - [x] Move section editing out of the Studio page into reusable editor components
-- [ ] Add structured API error model and recovery paths
+- [~] Add structured API error model and recovery paths
 - [ ] Add streaming status/events for generation progress
+- [ ] Add provider-specific generation failure states in Chat Rail

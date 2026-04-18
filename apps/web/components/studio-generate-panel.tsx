@@ -3,38 +3,14 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Surface } from "@opendesign/ui";
-import type {
-  ApiArtifactGenerateResponse,
-  ApiErrorPayload
-} from "../lib/opendesign-api";
+import type { ApiArtifactGenerateResponse } from "../lib/opendesign-api";
+import { buildApiRequestError } from "../lib/api-errors";
 
 type StudioGeneratePanelProps = {
   projectId: string;
   artifactId: string;
   initialPrompt: string;
 };
-
-function readErrorMessage(payload: unknown, fallback: string) {
-  if (!payload || typeof payload !== "object") {
-    return fallback;
-  }
-
-  const candidate = payload as Partial<ApiErrorPayload>;
-
-  if (typeof candidate.error !== "string" || !candidate.error.trim()) {
-    return fallback;
-  }
-
-  if (candidate.code === "WORKSPACE_UPDATE_FAILED") {
-    return `${candidate.error}. Reload the Studio and retry the generation pass.`;
-  }
-
-  if (candidate.code === "ARTIFACT_NOT_FOUND" || candidate.code === "PROJECT_NOT_FOUND") {
-    return `${candidate.error}. Return to the project list and reopen the artifact before retrying.`;
-  }
-
-  return candidate.error;
-}
 
 export function StudioGeneratePanel({
   projectId,
@@ -77,15 +53,7 @@ export function StudioGeneratePanel({
         );
 
         if (!response.ok) {
-          let parsed: unknown = null;
-
-          try {
-            parsed = await response.json();
-          } catch {
-            parsed = null;
-          }
-
-          throw new Error(readErrorMessage(parsed, "Artifact generation failed."));
+          throw await buildApiRequestError(response, "Artifact generation failed.");
         }
 
         const payload = (await response.json()) as ApiArtifactGenerateResponse;

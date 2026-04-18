@@ -1,5 +1,4 @@
 import {
-  ApiErrorSchema,
   ArtifactCommentResolutionSchema,
   ArtifactCodePatchSchema,
   ArtifactGenerateResponseSchema,
@@ -29,6 +28,7 @@ import {
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { generateArtifactPlan } from "../generation";
+import { sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
 import type { ArtifactVersionRepository } from "../repositories/artifact-versions";
@@ -133,18 +133,6 @@ export interface ArtifactRouteOptions {
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
-    function sendApiError(
-      reply: {
-        code: (statusCode: number) => {
-          send: (payload: unknown) => unknown;
-        };
-      },
-      statusCode: number,
-      input: z.input<typeof ApiErrorSchema>
-    ) {
-      return reply.code(statusCode).send(ApiErrorSchema.parse(input));
-    }
-
     function buildTemplateNode(input: {
       artifact: {
         id: string;
@@ -458,18 +446,20 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { project } = await resolveAuthorizedProject(request, params.projectId);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       const artifact = await options.artifacts.getById(params.projectId, params.artifactId);
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -517,16 +507,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -554,16 +546,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -591,9 +585,10 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { project } = await resolveAuthorizedProject(request, params.projectId);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -611,16 +606,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -645,16 +642,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -758,16 +757,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -777,9 +778,10 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         if (!versionState) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Version not found",
-            code: "VERSION_NOT_FOUND"
+            code: "VERSION_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -789,9 +791,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         if (!sceneWorkspace) {
-          return reply.code(500).send({
+          return sendApiError(reply, 500, {
             error: "Workspace update failed",
-            code: "WORKSPACE_UPDATE_FAILED"
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: {
+              stage: "restore-scene"
+            }
           });
         }
 
@@ -806,9 +812,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         if (!codeWorkspace) {
-          return reply.code(500).send({
+          return sendApiError(reply, 500, {
             error: "Workspace update failed",
-            code: "WORKSPACE_UPDATE_FAILED"
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: {
+              stage: "restore-code-workspace"
+            }
           });
         }
 
@@ -838,16 +848,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -857,9 +869,10 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         if (!versionState) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Version not found",
-            code: "VERSION_NOT_FOUND"
+            code: "VERSION_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -884,16 +897,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -910,9 +925,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       );
 
       if (!updatedWorkspace) {
-        return reply.code(500).send({
+        return sendApiError(reply, 500, {
           error: "Workspace update failed",
-          code: "WORKSPACE_UPDATE_FAILED"
+          code: "WORKSPACE_UPDATE_FAILED",
+          recoverable: true,
+          details: {
+            stage: "append-scene-template"
+          }
         });
       }
 
@@ -938,23 +957,29 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (missingRequiredFiles.length > 0) {
-          return reply.code(400).send({
+          return sendApiError(reply, 400, {
             error: `Code workspace is missing required scaffold files: ${missingRequiredFiles.join(", ")}`,
-            code: "INVALID_CODE_WORKSPACE"
+            code: "INVALID_CODE_WORKSPACE",
+            recoverable: true,
+            details: {
+              missingRequiredFiles
+            }
           });
         }
 
@@ -963,11 +988,14 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const currentUpdatedAt = workspace.codeWorkspace?.updatedAt ?? null;
 
         if (expectedUpdatedAt !== currentUpdatedAt) {
-          return reply.code(409).send({
+          return sendApiError(reply, 409, {
             error:
               "Saved code workspace changed since this Studio session loaded. Reload the latest saved code before saving again.",
             code: "CODE_WORKSPACE_CONFLICT",
-            currentUpdatedAt
+            recoverable: true,
+            details: {
+              currentUpdatedAt
+            }
           });
         }
 
@@ -980,9 +1008,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         if (!updatedWorkspace) {
-          return reply.code(500).send({
+          return sendApiError(reply, 500, {
             error: "Workspace update failed",
-            code: "WORKSPACE_UPDATE_FAILED"
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: {
+              stage: "save-code-workspace"
+            }
           });
         }
 
@@ -1005,16 +1037,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
@@ -1047,9 +1081,13 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           );
 
           if (!updatedWorkspace) {
-            return reply.code(500).send({
+            return sendApiError(reply, 500, {
               error: "Workspace update failed",
-              code: "WORKSPACE_UPDATE_FAILED"
+              code: "WORKSPACE_UPDATE_FAILED",
+              recoverable: true,
+              details: {
+                stage: "update-scene-node"
+              }
             });
           }
 
@@ -1062,9 +1100,10 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           };
         } catch (error) {
           if (error instanceof Error && /not found/i.test(error.message)) {
-            return reply.code(404).send({
+            return sendApiError(reply, 404, {
               error: "Scene node not found",
-              code: "SCENE_NODE_NOT_FOUND"
+              code: "SCENE_NODE_NOT_FOUND",
+              recoverable: false
             });
           }
 
@@ -1079,16 +1118,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Project not found",
-          code: "PROJECT_NOT_FOUND"
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
         });
       }
 
       if (!artifact) {
-        return reply.code(404).send({
+        return sendApiError(reply, 404, {
           error: "Artifact not found",
-          code: "ARTIFACT_NOT_FOUND"
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
         });
       }
 
@@ -1109,25 +1150,28 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         const { artifact, project } = await resolveAuthorizedArtifact(request, params);
 
         if (!project) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Project not found",
-            code: "PROJECT_NOT_FOUND"
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         if (!artifact) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Artifact not found",
-            code: "ARTIFACT_NOT_FOUND"
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
           });
         }
 
         const comment = await options.comments.resolve(artifact.id, params.commentId);
 
         if (!comment) {
-          return reply.code(404).send({
+          return sendApiError(reply, 404, {
             error: "Comment not found",
-            code: "COMMENT_NOT_FOUND"
+            code: "COMMENT_NOT_FOUND",
+            recoverable: false
           });
         }
 

@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Surface } from "@opendesign/ui";
+import { buildApiRequestError } from "../lib/api-errors";
 
 type AuthPanelProps = {
   session: {
@@ -18,24 +19,6 @@ type AuthPanelProps = {
 };
 
 type Mode = "sign-in" | "sign-up";
-
-function readErrorMessage(payload: unknown, fallback: string) {
-  if (payload && typeof payload === "object" && "message" in payload) {
-    const value = payload.message;
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const value = payload.error;
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  return fallback;
-}
 
 export function AuthPanel({ session }: AuthPanelProps) {
   const router = useRouter();
@@ -61,15 +44,7 @@ export function AuthPanel({ session }: AuthPanelProps) {
     });
 
     if (!response.ok) {
-      let parsed: unknown = null;
-
-      try {
-        parsed = await response.json();
-      } catch {
-        parsed = null;
-      }
-
-      throw new Error(readErrorMessage(parsed, "Authentication request failed."));
+      throw await buildApiRequestError(response, "Authentication request failed.");
     }
   }
 
