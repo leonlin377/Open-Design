@@ -8,7 +8,11 @@ import {
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 import { planSyncPatch } from "@opendesign/code-sync";
-import { appendRootSceneNode, createEmptySceneDocument } from "@opendesign/scene-engine";
+import {
+  appendRootSceneNode,
+  createEmptySceneDocument,
+  updateRootSceneNode
+} from "@opendesign/scene-engine";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
@@ -46,6 +50,26 @@ const createArtifactCommentBodySchema = z.object({
 const appendSceneTemplateBodySchema = z.object({
   template: SceneTemplateKindSchema
 });
+
+const sceneNodeParamsSchema = z.object({
+  projectId: z.string().min(1),
+  artifactId: z.string().min(1),
+  nodeId: z.string().min(1)
+});
+
+const updateSceneNodeBodySchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    eyebrow: z.string().min(1).optional(),
+    headline: z.string().min(1).optional(),
+    body: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
+    primaryAction: z.string().min(1).optional(),
+    secondaryAction: z.string().min(1).optional()
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field must be provided."
+  });
 
 const artifactCommentParamsSchema = z.object({
   projectId: z.string().min(1),
@@ -442,6 +466,76 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         appendedNode: node
       });
     });
+
+    app.post(
+      "/projects/:projectId/artifacts/:artifactId/scene/nodes/:nodeId",
+      async (request, reply) => {
+        const params = sceneNodeParamsSchema.parse(request.params);
+        const body = updateSceneNodeBodySchema.parse(request.body);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+
+        try {
+          const sceneDocument = updateRootSceneNode(workspace.sceneDocument, {
+            nodeId: params.nodeId,
+            ...(body.name ? { name: body.name } : {}),
+            props: Object.fromEntries(
+              Object.entries({
+                eyebrow: body.eyebrow,
+                headline: body.headline,
+                body: body.body,
+                title: body.title,
+                primaryAction: body.primaryAction,
+                secondaryAction: body.secondaryAction
+              }).filter(([, value]) => typeof value === "string" && value.length > 0)
+            )
+          });
+          const updatedWorkspace = await options.workspaces.updateSceneDocument(
+            artifact.id,
+            sceneDocument
+          );
+
+          if (!updatedWorkspace) {
+            return reply.code(500).send({
+              error: "Workspace update failed",
+              code: "WORKSPACE_UPDATE_FAILED"
+            });
+          }
+
+          return {
+            workspace: buildWorkspacePayload({
+              workspace: updatedWorkspace,
+              versions,
+              comments
+            })
+          };
+        } catch (error) {
+          if (error instanceof Error && /not found/i.test(error.message)) {
+            return reply.code(404).send({
+              error: "Scene node not found",
+              code: "SCENE_NODE_NOT_FOUND"
+            });
+          }
+
+          throw error;
+        }
+      }
+    );
 
     app.post("/projects/:projectId/artifacts/:artifactId/comments", async (request, reply) => {
       const params = artifactDetailParamsSchema.parse(request.params);

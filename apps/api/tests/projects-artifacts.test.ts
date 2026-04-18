@@ -183,6 +183,22 @@ describe("Projects and artifacts", () => {
         type: "section",
         name: "Hero Section"
       });
+      const heroNodeId = appendHeroResponse.json().appendedNode.id;
+
+      const updateHeroResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes/${heroNodeId}`,
+        payload: {
+          name: "Updated Hero",
+          headline: "Updated cinematic headline",
+          body: "Updated artifact body copy"
+        }
+      });
+
+      expect(updateHeroResponse.statusCode).toBe(200);
+      expect(updateHeroResponse.json().workspace.sceneDocument).toMatchObject({
+        version: 3
+      });
 
       const commentResponse = await app.inject({
         method: "POST",
@@ -224,10 +240,19 @@ describe("Projects and artifacts", () => {
         versionCount: 2,
         openCommentCount: 0,
         sceneDocument: {
-          version: 2
+          version: 3
         }
       });
       expect(refreshedWorkspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(1);
+      expect(
+        refreshedWorkspaceResponse.json().workspace.sceneDocument.nodes[0]
+      ).toMatchObject({
+        name: "Updated Hero",
+        props: {
+          headline: "Updated cinematic headline",
+          body: "Updated artifact body copy"
+        }
+      });
     } finally {
       await app.close();
     }

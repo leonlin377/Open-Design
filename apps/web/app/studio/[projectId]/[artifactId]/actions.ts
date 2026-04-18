@@ -5,7 +5,8 @@ import {
   appendSceneTemplate,
   createArtifactComment,
   createArtifactVersion,
-  resolveArtifactComment
+  resolveArtifactComment,
+  updateSceneNode
 } from "../../../../lib/opendesign-api";
 
 function getStudioPath(projectId: string, artifactId: string) {
@@ -84,6 +85,31 @@ export async function appendSceneTemplateAction(formData: FormData) {
     projectId,
     artifactId,
     template
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function updateSceneNodeAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const nodeId = String(formData.get("nodeId") ?? "").trim();
+
+  if (!projectId || !artifactId || !nodeId) {
+    throw new Error("Project, artifact, and scene node are required.");
+  }
+
+  await updateSceneNode({
+    projectId,
+    artifactId,
+    nodeId,
+    name: String(formData.get("name") ?? "").trim() || undefined,
+    eyebrow: String(formData.get("eyebrow") ?? "").trim() || undefined,
+    headline: String(formData.get("headline") ?? "").trim() || undefined,
+    body: String(formData.get("body") ?? "").trim() || undefined,
+    title: String(formData.get("title") ?? "").trim() || undefined,
+    primaryAction: String(formData.get("primaryAction") ?? "").trim() || undefined,
+    secondaryAction: String(formData.get("secondaryAction") ?? "").trim() || undefined
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

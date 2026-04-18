@@ -11,7 +11,8 @@ import {
   appendSceneTemplateAction,
   createArtifactCommentAction,
   createArtifactVersionAction,
-  resolveArtifactCommentAction
+  resolveArtifactCommentAction,
+  updateSceneNodeAction
 } from "./actions";
 
 const artifactLabels: Record<string, string> = {
@@ -157,9 +158,67 @@ export default async function StudioPage({ params }: StudioPageProps) {
                 <div className="footer-note">No scene sections yet.</div>
               ) : null}
               {sceneNodes.map((node) => (
-                <Surface key={node.id} className="kv">
-                  <span>{node.name}</span>
-                  {String(node.props.template ?? node.type)}
+                <Surface key={node.id} className="project-card" as="section">
+                  <div>
+                    <h3>{node.name}</h3>
+                    <p className="footer-note">
+                      {String(node.props.template ?? node.type)} · {node.id.slice(-8)}
+                    </p>
+                  </div>
+                  <form action={updateSceneNodeAction} className="stack-form">
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input type="hidden" name="artifactId" value={artifact.id} />
+                    <input type="hidden" name="nodeId" value={node.id} />
+                    <label className="field">
+                      <span>Section Name</span>
+                      <input name="name" defaultValue={node.name} />
+                    </label>
+                    {typeof node.props.eyebrow === "string" ? (
+                      <label className="field">
+                        <span>Eyebrow</span>
+                        <input name="eyebrow" defaultValue={node.props.eyebrow} />
+                      </label>
+                    ) : null}
+                    {typeof node.props.title === "string" ? (
+                      <label className="field">
+                        <span>Title</span>
+                        <input name="title" defaultValue={node.props.title} />
+                      </label>
+                    ) : null}
+                    {typeof node.props.headline === "string" ? (
+                      <label className="field">
+                        <span>Headline</span>
+                        <input name="headline" defaultValue={node.props.headline} />
+                      </label>
+                    ) : null}
+                    {typeof node.props.body === "string" ? (
+                      <label className="field">
+                        <span>Body</span>
+                        <textarea name="body" defaultValue={node.props.body} rows={4} />
+                      </label>
+                    ) : null}
+                    {typeof node.props.primaryAction === "string" ? (
+                      <label className="field">
+                        <span>Primary Action</span>
+                        <input
+                          name="primaryAction"
+                          defaultValue={node.props.primaryAction}
+                        />
+                      </label>
+                    ) : null}
+                    {typeof node.props.secondaryAction === "string" ? (
+                      <label className="field">
+                        <span>Secondary Action</span>
+                        <input
+                          name="secondaryAction"
+                          defaultValue={node.props.secondaryAction}
+                        />
+                      </label>
+                    ) : null}
+                    <Button variant="ghost" size="sm" type="submit">
+                      Update Section
+                    </Button>
+                  </form>
                 </Surface>
               ))}
             </div>

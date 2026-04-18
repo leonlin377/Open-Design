@@ -167,16 +167,22 @@ export default function App() {
 
         if (section.template === "feature-grid") {
           return (
-            <section key={section.id} className="grid">
-              {(section.items ?? []).map((item, index) => (
-                <article
-                  key={\`\${section.id}-\${index}\`}
-                  className={index === 0 ? "panel featured" : "panel"}
-                >
-                  <span className="label">{item.label}</span>
-                  <strong>{item.body}</strong>
-                </article>
-              ))}
+            <section key={section.id} className="feature-grid-shell">
+              <div className="feature-grid-copy">
+                <span className="eyebrow">System Grid</span>
+                <h2>{section.title}</h2>
+              </div>
+              <div className="grid">
+                {(section.items ?? []).map((item, index) => (
+                  <article
+                    key={\`\${section.id}-\${index}\`}
+                    className={index === 0 ? "panel featured" : "panel"}
+                  >
+                    <span className="label">{item.label}</span>
+                    <strong>{item.body}</strong>
+                  </article>
+                ))}
+              </div>
             </section>
           );
         }
@@ -282,6 +288,16 @@ button.ghost {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+.feature-grid-shell,
+.feature-grid-copy {
+  display: grid;
+  gap: 12px;
+}
+.feature-grid-copy h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  line-height: 1.05;
 }
 .panel {
   min-height: 180px;

@@ -303,3 +303,47 @@ export async function appendSceneTemplate(input: {
     };
   };
 }
+
+export async function updateSceneNode(input: {
+  projectId: string;
+  artifactId: string;
+  nodeId: string;
+  name?: string;
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  title?: string;
+  primaryAction?: string;
+  secondaryAction?: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/scene/nodes/${input.nodeId}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(
+        Object.fromEntries(
+          Object.entries({
+            name: input.name,
+            eyebrow: input.eyebrow,
+            headline: input.headline,
+            body: input.body,
+            title: input.title,
+            primaryAction: input.primaryAction,
+            secondaryAction: input.secondaryAction
+          }).filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+        )
+      )
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to update scene node (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    workspace: ApiArtifactWorkspace;
+  };
+}

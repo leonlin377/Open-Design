@@ -36,6 +36,40 @@ export const appendRootSceneNode = (
   };
 };
 
+export const updateRootSceneNode = (
+  scene: SceneDocument,
+  input: {
+    nodeId: string;
+    name?: string;
+    props?: Record<string, unknown>;
+  }
+): SceneDocument => {
+  const index = scene.nodes.findIndex((node) => node.id === input.nodeId);
+
+  if (index === -1) {
+    throw new Error(`Scene node not found: ${input.nodeId}`);
+  }
+
+  const current = scene.nodes[index]!;
+  const nextNode: SceneNode = {
+    ...current,
+    ...(input.name ? { name: input.name } : {}),
+    props: {
+      ...current.props,
+      ...(input.props ?? {})
+    }
+  };
+
+  const nodes = [...scene.nodes];
+  nodes[index] = nextNode;
+
+  return {
+    ...scene,
+    version: scene.version + 1,
+    nodes
+  };
+};
+
 export const indexSceneNodesById = (nodes: SceneNode[]): SceneNodeIndex => {
   const index = new Map<string, SceneNode>();
   const stack = [...nodes];
