@@ -19,6 +19,9 @@ export async function buildApp(options: AppOptions = {}) {
     prefix: "/api",
     projects: persistence.projects,
     artifacts: persistence.artifacts,
+    workspaces: persistence.workspaces,
+    versions: persistence.versions,
+    comments: persistence.comments,
     auth: persistence.auth,
     authBaseURL: persistence.authBaseURL
   });

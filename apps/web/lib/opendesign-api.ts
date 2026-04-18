@@ -1,6 +1,11 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import type {
+  ArtifactComment,
+  ArtifactWorkspace,
+  ArtifactVersionSnapshot
+} from "@opendesign/contracts";
 
 export type ApiSession = {
   session: {
@@ -28,6 +33,17 @@ export type ApiArtifact = {
   kind: "website" | "prototype" | "slides";
   createdAt: string;
   updatedAt: string;
+};
+
+export type ApiArtifactWorkspace = ArtifactWorkspace;
+export type ApiArtifactVersion = ArtifactVersionSnapshot;
+export type ApiArtifactComment = ArtifactComment;
+
+export type ApiArtifactWorkspacePayload = {
+  artifact: ApiArtifact;
+  workspace: ApiArtifactWorkspace;
+  versions: ApiArtifactVersion[];
+  comments: ApiArtifactComment[];
 };
 
 export function getBrowserApiOrigin() {
@@ -81,6 +97,20 @@ export async function listProjects(): Promise<ApiProject[]> {
   return (await response.json()) as ApiProject[];
 }
 
+export async function getProject(projectId: string): Promise<ApiProject | null> {
+  const response = await apiFetch(`/api/projects/${projectId}`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load project (${response.status})`);
+  }
+
+  return (await response.json()) as ApiProject;
+}
+
 export async function createProject(input: { name: string }) {
   const response = await apiFetch("/api/projects", {
     method: "POST",
@@ -107,6 +137,23 @@ export async function listArtifacts(projectId: string): Promise<ApiArtifact[]> {
   return (await response.json()) as ApiArtifact[];
 }
 
+export async function getArtifact(
+  projectId: string,
+  artifactId: string
+): Promise<ApiArtifact | null> {
+  const response = await apiFetch(`/api/projects/${projectId}/artifacts/${artifactId}`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load artifact (${response.status})`);
+  }
+
+  return (await response.json()) as ApiArtifact;
+}
+
 export async function createArtifact(input: {
   projectId: string;
   name: string;
@@ -128,4 +175,98 @@ export async function createArtifact(input: {
   }
 
   return (await response.json()) as ApiArtifact;
+}
+
+export async function getArtifactWorkspace(
+  projectId: string,
+  artifactId: string
+): Promise<ApiArtifactWorkspacePayload | null> {
+  const response = await apiFetch(`/api/projects/${projectId}/artifacts/${artifactId}/workspace`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load artifact workspace (${response.status})`);
+  }
+
+  return (await response.json()) as ApiArtifactWorkspacePayload;
+}
+
+export async function createArtifactVersion(input: {
+  projectId: string;
+  artifactId: string;
+  label: string;
+  summary?: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/versions`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        label: input.label,
+        summary: input.summary
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to create version (${response.status})`);
+  }
+
+  return (await response.json()) as ApiArtifactVersion;
+}
+
+export async function createArtifactComment(input: {
+  projectId: string;
+  artifactId: string;
+  body: string;
+  anchor?: ArtifactComment["anchor"];
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/comments`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        body: input.body,
+        anchor:
+          input.anchor ?? {
+            elementId: "artifact-canvas",
+            selectionPath: ["artifact-canvas"]
+          }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to create comment (${response.status})`);
+  }
+
+  return (await response.json()) as ApiArtifactComment;
+}
+
+export async function resolveArtifactComment(input: {
+  projectId: string;
+  artifactId: string;
+  commentId: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/comments/${input.commentId}/resolve`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to resolve comment (${response.status})`);
+  }
+
+  return (await response.json()) as ApiArtifactComment;
 }

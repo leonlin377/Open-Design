@@ -7,6 +7,10 @@ const createProjectBodySchema = z.object({
   name: z.string().min(1)
 });
 
+const projectParamsSchema = z.object({
+  projectId: z.string().min(1)
+});
+
 export interface ProjectRouteOptions {
   projects: ProjectRepository;
   auth: OpenDesignAuth;
@@ -20,6 +24,28 @@ export const registerProjectRoutes: FastifyPluginAsync<ProjectRouteOptions> =
       return options.projects.list({
         ownerUserId: session?.user.id
       });
+    });
+
+    app.get("/projects/:projectId", async (request, reply) => {
+      const params = projectParamsSchema.parse(request.params);
+      const session = await getRequestSession(options.auth, request);
+      const project = await options.projects.getById(params.projectId);
+
+      if (!project) {
+        return reply.code(404).send({
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND"
+        });
+      }
+
+      if (project.ownerUserId && project.ownerUserId !== session?.user.id) {
+        return reply.code(404).send({
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND"
+        });
+      }
+
+      return project;
     });
 
     app.post("/projects", async (request, reply) => {

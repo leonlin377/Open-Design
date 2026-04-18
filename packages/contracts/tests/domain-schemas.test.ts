@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  ArtifactCommentSchema,
   ArtifactKindSchema,
+  ArtifactVersionSnapshotSchema,
+  ArtifactWorkspaceSchema,
   CommentAnchorSchema,
   DesignSystemPackSchema,
   SceneDocumentSchema
@@ -124,5 +127,73 @@ describe("DesignSystemPackSchema", () => {
     });
 
     expect(pack.provenance[0]?.targets).toContain("tokens.colors.primary");
+  });
+});
+
+describe("ArtifactVersionSnapshotSchema", () => {
+  test("accepts persisted version metadata", () => {
+    const version = ArtifactVersionSnapshotSchema.parse({
+      id: "version_1",
+      artifactId: "artifact_1",
+      label: "V1 Seed",
+      summary: "Initial seeded workspace snapshot",
+      source: "seed",
+      sceneVersion: 1,
+      createdAt: "2026-04-18T09:00:00.000Z"
+    });
+
+    expect(version.source).toBe("seed");
+    expect(version.sceneVersion).toBe(1);
+  });
+});
+
+describe("ArtifactCommentSchema", () => {
+  test("accepts anchored open comments", () => {
+    const comment = ArtifactCommentSchema.parse({
+      id: "comment_1",
+      artifactId: "artifact_1",
+      body: "Tighten the left rail spacing and push the eyebrow upward.",
+      status: "open",
+      anchor: {
+        elementId: "hero",
+        selectionPath: ["root", "hero"]
+      },
+      createdAt: "2026-04-18T09:10:00.000Z",
+      updatedAt: "2026-04-18T09:10:00.000Z"
+    });
+
+    expect(comment.anchor.elementId).toBe("hero");
+    expect(comment.status).toBe("open");
+  });
+});
+
+describe("ArtifactWorkspaceSchema", () => {
+  test("accepts workspace overview payloads", () => {
+    const workspace = ArtifactWorkspaceSchema.parse({
+      artifactId: "artifact_1",
+      intent: "Build a cinematic artifact shell with bold type and an export-ready inspector.",
+      activeVersionId: "version_2",
+      sceneDocument: {
+        id: "scene_1",
+        artifactId: "artifact_1",
+        kind: "website",
+        version: 2,
+        nodes: [],
+        metadata: {}
+      },
+      syncPlan: {
+        mode: "full",
+        reason: "Scene edits can still round-trip into supported code.",
+        sourceMode: "scene",
+        targetMode: "code-supported",
+        changeScope: "document"
+      },
+      versionCount: 2,
+      openCommentCount: 1,
+      updatedAt: "2026-04-18T09:15:00.000Z"
+    });
+
+    expect(workspace.syncPlan.mode).toBe("full");
+    expect(workspace.versionCount).toBe(2);
   });
 });

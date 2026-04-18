@@ -54,6 +54,63 @@ export const SceneDocumentSchema = z.object({
   })
 });
 
+export const ArtifactCommentStatusSchema = z.enum(["open", "resolved"]);
+
+export const ArtifactVersionSourceSchema = z.enum([
+  "seed",
+  "prompt",
+  "comment",
+  "manual"
+]);
+
+export const SyncEndpointModeSchema = z.enum([
+  "scene",
+  "code-supported",
+  "code-advanced"
+]);
+
+export const SyncChangeScopeSchema = z.enum(["node", "section", "document"]);
+export const SyncModeSchema = z.enum(["full", "constrained"]);
+
+export const ArtifactSyncPlanSchema = z.object({
+  mode: SyncModeSchema,
+  reason: z.string().min(1),
+  sourceMode: SyncEndpointModeSchema,
+  targetMode: z.union([SyncEndpointModeSchema, z.literal("scene")]),
+  changeScope: SyncChangeScopeSchema
+});
+
+export const ArtifactVersionSnapshotSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  label: z.string().min(1),
+  summary: z.string().min(1),
+  source: ArtifactVersionSourceSchema,
+  sceneVersion: z.number().int().positive(),
+  createdAt: z.string().min(1)
+});
+
+export const ArtifactCommentSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  body: z.string().min(1),
+  status: ArtifactCommentStatusSchema,
+  anchor: CommentAnchorSchema,
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1)
+});
+
+export const ArtifactWorkspaceSchema = z.object({
+  artifactId: z.string().min(1),
+  intent: z.string().min(1),
+  activeVersionId: z.string().min(1).nullable(),
+  sceneDocument: SceneDocumentSchema,
+  syncPlan: ArtifactSyncPlanSchema,
+  versionCount: z.number().int().nonnegative(),
+  openCommentCount: z.number().int().nonnegative(),
+  updatedAt: z.string().min(1)
+});
+
 export const DesignSystemComponentSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -88,6 +145,12 @@ export const DesignSystemPackSchema = z.object({
 });
 
 export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
+export type ArtifactCommentStatus = z.infer<typeof ArtifactCommentStatusSchema>;
+export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSourceSchema>;
+export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
+export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSchema>;
+export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
+export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;
 export type SceneDocument = z.infer<typeof SceneDocumentSchema>;

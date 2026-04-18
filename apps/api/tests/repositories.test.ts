@@ -1,4 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ArtifactComment, ArtifactVersionSnapshot } from "@opendesign/contracts";
+import {
+  PostgresArtifactCommentRepository
+} from "../src/repositories/artifact-comments";
+import {
+  PostgresArtifactVersionRepository
+} from "../src/repositories/artifact-versions";
+import {
+  PostgresArtifactWorkspaceRepository,
+  type ArtifactWorkspaceRecord
+} from "../src/repositories/artifact-workspaces";
 import {
   PostgresArtifactRepository,
   type Artifact
@@ -90,6 +101,115 @@ describe("PostgresArtifactRepository", () => {
         kind: "website",
         createdAt: "2026-04-18T08:10:00.000Z",
         updatedAt: "2026-04-18T08:20:00.000Z"
+      }
+    ]);
+  });
+});
+
+describe("PostgresArtifactWorkspaceRepository", () => {
+  it("maps workspace rows with parsed scene documents", async () => {
+    const query = createQueryMock([
+      {
+        artifact_id: "artifact-1",
+        intent: "Build a cinematic hero.",
+        active_version_id: "version-1",
+        scene_document: {
+          id: "scene-1",
+          artifactId: "artifact-1",
+          kind: "website",
+          version: 1,
+          nodes: [],
+          metadata: {}
+        },
+        created_at: new Date("2026-04-18T08:30:00.000Z"),
+        updated_at: new Date("2026-04-18T08:35:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactWorkspaceRepository({ query });
+    const workspace = await repository.getByArtifactId("artifact-1");
+
+    expect(workspace).toEqual<ArtifactWorkspaceRecord>({
+      artifactId: "artifact-1",
+      intent: "Build a cinematic hero.",
+      activeVersionId: "version-1",
+      sceneDocument: {
+        id: "scene-1",
+        artifactId: "artifact-1",
+        kind: "website",
+        version: 1,
+        nodes: [],
+        metadata: {}
+      },
+      createdAt: "2026-04-18T08:30:00.000Z",
+      updatedAt: "2026-04-18T08:35:00.000Z"
+    });
+  });
+});
+
+describe("PostgresArtifactVersionRepository", () => {
+  it("maps version rows for an artifact", async () => {
+    const query = createQueryMock([
+      {
+        id: "version-1",
+        artifact_id: "artifact-1",
+        label: "V1 Seed",
+        summary: "Initial seeded snapshot",
+        source: "seed",
+        scene_version: 1,
+        created_at: new Date("2026-04-18T08:40:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactVersionRepository({ query });
+    const versions = await repository.listByArtifactId("artifact-1");
+
+    expect(versions).toEqual<ArtifactVersionSnapshot[]>([
+      {
+        id: "version-1",
+        artifactId: "artifact-1",
+        label: "V1 Seed",
+        summary: "Initial seeded snapshot",
+        source: "seed",
+        sceneVersion: 1,
+        createdAt: "2026-04-18T08:40:00.000Z"
+      }
+    ]);
+  });
+});
+
+describe("PostgresArtifactCommentRepository", () => {
+  it("maps anchored comment rows", async () => {
+    const query = createQueryMock([
+      {
+        id: "comment-1",
+        artifact_id: "artifact-1",
+        body: "Increase contrast on the label.",
+        status: "open",
+        anchor: {
+          elementId: "hero",
+          selectionPath: ["root", "hero"]
+        },
+        created_at: new Date("2026-04-18T08:50:00.000Z"),
+        updated_at: new Date("2026-04-18T08:51:00.000Z")
+      }
+    ]);
+
+    const repository = new PostgresArtifactCommentRepository({ query });
+    const comments = await repository.listByArtifactId("artifact-1");
+
+    expect(comments).toEqual<ArtifactComment[]>([
+      {
+        id: "comment-1",
+        artifactId: "artifact-1",
+        body: "Increase contrast on the label.",
+        status: "open",
+        anchor: {
+          elementId: "hero",
+          selectionPath: ["root", "hero"]
+        },
+        createdAt: "2026-04-18T08:50:00.000Z",
+        updatedAt: "2026-04-18T08:51:00.000Z"
       }
     ]);
   });

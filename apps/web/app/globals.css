@@ -400,7 +400,20 @@ main {
   font: inherit;
 }
 
-.field input:focus {
+.field textarea {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke);
+  background: rgba(10, 12, 16, 0.65);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.field input:focus,
+.field textarea:focus {
   outline: 1px solid rgba(214, 255, 95, 0.45);
   border-color: rgba(214, 255, 95, 0.45);
 }

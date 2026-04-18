@@ -18,6 +18,7 @@ interface Queryable {
 
 export interface ArtifactRepository {
   listByProject(projectId: string): Promise<Artifact[]>;
+  getById(projectId: string, artifactId: string): Promise<Artifact | null>;
   create(input: {
     projectId: string;
     name: string;
@@ -52,6 +53,14 @@ export class InMemoryArtifactRepository implements ArtifactRepository {
 
   async listByProject(projectId: string): Promise<Artifact[]> {
     return this.artifacts.filter((artifact) => artifact.projectId === projectId);
+  }
+
+  async getById(projectId: string, artifactId: string): Promise<Artifact | null> {
+    return (
+      this.artifacts.find(
+        (artifact) => artifact.projectId === projectId && artifact.id === artifactId
+      ) ?? null
+    );
   }
 
   async create(input: {
@@ -94,6 +103,26 @@ export class PostgresArtifactRepository implements ArtifactRepository {
     );
 
     return result.rows.map(mapArtifactRecord);
+  }
+
+  async getById(projectId: string, artifactId: string): Promise<Artifact | null> {
+    const result = await this.database.query<{
+      id: string;
+      project_id: string;
+      name: string;
+      kind: ArtifactKind;
+      created_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      `select id, project_id, name, kind, created_at, updated_at
+       from artifacts
+       where project_id = $1 and id = $2
+       limit 1`,
+      [projectId, artifactId]
+    );
+
+    const artifact = result.rows[0];
+    return artifact ? mapArtifactRecord(artifact) : null;
   }
 
   async create(input: {
