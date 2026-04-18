@@ -424,6 +424,7 @@ export async function saveArtifactCodeWorkspace(input: {
   projectId: string;
   artifactId: string;
   files: Record<string, string>;
+  expectedUpdatedAt: string | null;
 }) {
   const response = await apiFetch(
     `/api/projects/${input.projectId}/artifacts/${input.artifactId}/code-workspace`,
@@ -433,17 +434,38 @@ export async function saveArtifactCodeWorkspace(input: {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        files: input.files
+        files: input.files,
+        expectedUpdatedAt: input.expectedUpdatedAt
       })
     }
   );
+
+  if (response.status === 409) {
+    const payload = (await response.json()) as {
+      error: string;
+      code: string;
+      currentUpdatedAt: string | null;
+    };
+
+    return {
+      status: "conflict" as const,
+      message: payload.error,
+      currentUpdatedAt: payload.currentUpdatedAt
+    };
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to save code workspace (${response.status})`);
   }
 
-  return (await response.json()) as {
+  const payload = (await response.json()) as {
     workspace: ApiArtifactWorkspace;
     previousCodeWorkspaceUpdatedAt: string | null;
+  };
+
+  return {
+    status: "saved" as const,
+    workspace: payload.workspace,
+    previousCodeWorkspaceUpdatedAt: payload.previousCodeWorkspaceUpdatedAt
   };
 }

@@ -612,6 +612,77 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("rejects stale code workspace saves when the saved state already changed", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Conflict Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Conflict Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const firstSaveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Initial</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: teal; }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"initial","private":true}'
+          },
+          expectedUpdatedAt: null
+        }
+      });
+
+      expect(firstSaveResponse.statusCode).toBe(200);
+
+      const staleSaveResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/code-workspace`,
+        payload: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Stale</main>; }",
+            "/main.tsx": 'import App from "./App";\nimport "./styles.css";',
+            "/styles.css": "main { color: purple; }",
+            "/index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+            "/package.json": '{"name":"stale","private":true}'
+          },
+          expectedUpdatedAt: "2026-01-01T00:00:00.000Z"
+        }
+      });
+
+      expect(staleSaveResponse.statusCode).toBe(409);
+      expect(staleSaveResponse.json()).toMatchObject({
+        code: "CODE_WORKSPACE_CONFLICT"
+      });
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json().workspace.codeWorkspace.files["/App.tsx"]).toContain(
+        "Initial"
+      );
+      expect(workspaceResponse.json().workspace.codeWorkspace.files["/App.tsx"]).not.toContain(
+        "Stale"
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it("restores a version snapshot back into scene and saved code workspace", async () => {
     const app = await buildApp();
     try {

@@ -35,7 +35,21 @@ type StudioInspectorProps = {
   frameLabel: string;
   syncStrategy: string;
   versionLane: string;
-  saveCodeWorkspaceAction: (formData: FormData) => void | Promise<void>;
+  saveCodeWorkspaceAction: (
+    formData: FormData
+  ) => Promise<
+    | {
+        status: "saved";
+        workspace: unknown;
+        previousCodeWorkspaceUpdatedAt: string | null;
+      }
+    | {
+        status: "conflict";
+        message: string;
+        currentUpdatedAt: string | null;
+      }
+    | void
+  >;
   inspectorPanel: ReactNode;
   versionsPanel: ReactNode;
   exportPanel: ReactNode;
@@ -59,10 +73,13 @@ function SaveCodeWorkspaceForm(props: {
   sceneVersion: number;
   codeWorkspaceBaseSceneVersion: number | null;
   codeWorkspaceUpdatedAt: string | null;
-  saveCodeWorkspaceAction: (formData: FormData) => void | Promise<void>;
+  saveCodeWorkspaceAction: StudioInspectorProps["saveCodeWorkspaceAction"];
 }) {
   const { sandpack } = useSandpack();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    tone: "success" | "warning";
+    message: string;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
   const files = Object.fromEntries(
     Object.entries(sandpack.files).map(([filePath, value]) => [
@@ -79,7 +96,10 @@ function SaveCodeWorkspaceForm(props: {
   useEffect(() => {
     setFeedback(
       props.codeWorkspaceUpdatedAt
-        ? "Loaded the latest saved code workspace into the Studio session."
+        ? {
+            tone: "success",
+            message: "Loaded the latest saved code workspace into the Studio session."
+          }
         : null
     );
   }, [normalizedSavedFiles]);
@@ -89,15 +109,31 @@ function SaveCodeWorkspaceForm(props: {
     formData.set("projectId", props.projectId);
     formData.set("artifactId", props.artifactId);
     formData.set("filesJson", JSON.stringify(files));
+    formData.set("expectedUpdatedAt", props.codeWorkspaceUpdatedAt ?? "");
 
     startTransition(async () => {
-      await props.saveCodeWorkspaceAction(formData);
-      setFeedback("Saved code workspace. ZIP export now follows the updated scaffold.");
+      const result = await props.saveCodeWorkspaceAction(formData);
+
+      if (result && result.status === "conflict") {
+        setFeedback({
+          tone: "warning",
+          message: result.message
+        });
+        return;
+      }
+
+      setFeedback({
+        tone: "success",
+        message: "Saved code workspace. ZIP export now follows the updated scaffold."
+      });
     });
   }
 
   function handleReset() {
-    setFeedback("Reset the session draft back to the saved code workspace.");
+    setFeedback({
+      tone: "success",
+      message: "Reset the session draft back to the saved code workspace."
+    });
     sandpack.resetAllFiles();
   }
 
@@ -125,7 +161,9 @@ function SaveCodeWorkspaceForm(props: {
             : "The current Sandpack session matches the saved code workspace."}
         </span>
       </div>
-      {feedback ? <div className="studio-feedback success">{feedback}</div> : null}
+      {feedback ? (
+        <div className={`studio-feedback ${feedback.tone}`}>{feedback.message}</div>
+      ) : null}
       <div className="artifact-action-grid">
         <button
           type="button"

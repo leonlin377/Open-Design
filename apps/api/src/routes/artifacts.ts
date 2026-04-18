@@ -90,7 +90,8 @@ const updateSceneNodeBodySchema = z
   });
 
 const saveCodeWorkspaceBodySchema = z.object({
-  files: z.record(z.string(), z.string())
+  files: z.record(z.string(), z.string()),
+  expectedUpdatedAt: z.string().min(1).nullable().optional()
 });
 
 const requiredCodeWorkspaceFiles = [
@@ -777,6 +778,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         }
 
         const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+        const expectedUpdatedAt = body.expectedUpdatedAt ?? null;
+        const currentUpdatedAt = workspace.codeWorkspace?.updatedAt ?? null;
+
+        if (expectedUpdatedAt !== currentUpdatedAt) {
+          return reply.code(409).send({
+            error:
+              "Saved code workspace changed since this Studio session loaded. Reload the latest saved code before saving again.",
+            code: "CODE_WORKSPACE_CONFLICT",
+            currentUpdatedAt
+          });
+        }
+
         const updatedWorkspace = await options.workspaces.updateCodeWorkspace(
           artifact.id,
           {

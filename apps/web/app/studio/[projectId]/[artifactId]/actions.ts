@@ -174,6 +174,7 @@ export async function saveCodeWorkspaceAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const artifactId = String(formData.get("artifactId") ?? "").trim();
   const filesJson = String(formData.get("filesJson") ?? "").trim();
+  const expectedUpdatedAtValue = String(formData.get("expectedUpdatedAt") ?? "").trim();
 
   if (!projectId || !artifactId || !filesJson) {
     throw new Error("Project, artifact, and code workspace files are required.");
@@ -198,13 +199,19 @@ export async function saveCodeWorkspaceAction(formData: FormData) {
     throw new Error("Invalid code workspace payload.");
   }
 
-  await saveArtifactCodeWorkspace({
+  const result = await saveArtifactCodeWorkspace({
     projectId,
     artifactId,
-    files
+    files,
+    expectedUpdatedAt: expectedUpdatedAtValue || null
   });
 
+  if (result.status === "conflict") {
+    return result;
+  }
+
   revalidatePath(getStudioPath(projectId, artifactId));
+  return result;
 }
 
 export async function restoreArtifactVersionAction(formData: FormData) {

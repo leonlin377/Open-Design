@@ -12,10 +12,10 @@ Repo baseline: `5e126dd`
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `50%`
+Current estimated product completion for a serious V1: `52%`
 
 ```
-[##########----------] 50%
+[##########----------] 52%
 ```
 
 ## Current Reality
@@ -169,7 +169,7 @@ Goal: Make the product stable enough for serious usage.
 - [ ] Add asset upload/storage pipeline backed by MinIO/S3
   Done when:
   Images, fonts, and attachments are stored and referenced from workspaces and exports.
-- [ ] Add stale-write/conflict protection for code workspace saves and restores
+- [x] Add stale-write/conflict protection for code workspace saves and restores
   Done when:
   Users do not silently overwrite newer saved state.
 - [ ] Add structured API error model and recovery paths
