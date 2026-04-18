@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { buildArtifactHtmlExport, buildHandoffManifestSummary } from "../src/index";
+import {
+  buildArtifactHtmlExport,
+  buildArtifactSourceBundle,
+  buildHandoffManifestSummary
+} from "../src/index";
 
 describe("buildHandoffManifestSummary", () => {
   test("summarizes exported artifacts by kind and byte size", () => {
@@ -102,5 +106,33 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Atlas leads with cinematic hierarchy.");
     expect(bundle.html).toContain("System lanes");
     expect(bundle.html).toContain("Ready for export?");
+  });
+});
+
+describe("buildArtifactSourceBundle", () => {
+  test("renders a reusable App.tsx and styles.css bundle from scene nodes", () => {
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: "Atlas Website",
+      prompt: "Build a cinematic launch experience.",
+      sceneNodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            eyebrow: "Launch Surface",
+            headline: "Atlas leads with cinematic hierarchy.",
+            body: "Build a cinematic launch experience."
+          },
+          children: []
+        }
+      ]
+    });
+
+    expect(bundle.filenameBase).toBe("atlas-website");
+    expect(bundle.files["/App.tsx"]).toContain("Atlas leads with cinematic hierarchy.");
+    expect(bundle.files["/styles.css"]).toContain(".hero");
   });
 });

@@ -386,4 +386,47 @@ describe("Projects and artifacts", () => {
       await app.close();
     }
   });
+
+  it("exports scene-backed source bundles", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Bundle Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Bundle Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/scene/nodes`,
+        payload: {
+          template: "cta"
+        }
+      });
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/source-bundle`
+      });
+
+      expect(exportResponse.statusCode).toBe(200);
+      expect(exportResponse.json()).toMatchObject({
+        filenameBase: "bundle-artifact",
+        files: {
+          "/App.tsx": expect.stringContaining("Action Lane"),
+          "/styles.css": expect.stringContaining(".cta")
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
 });

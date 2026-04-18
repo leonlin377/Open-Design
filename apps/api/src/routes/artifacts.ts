@@ -8,7 +8,10 @@ import {
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 import { planSyncPatch } from "@opendesign/code-sync";
-import { buildArtifactHtmlExport } from "@opendesign/exporters";
+import {
+  buildArtifactHtmlExport,
+  buildArtifactSourceBundle
+} from "@opendesign/exporters";
 import {
   appendRootSceneNode,
   createEmptySceneDocument,
@@ -409,6 +412,38 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         return reply.send(bundle.html);
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/exports/source-bundle",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return reply.code(404).send({
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND"
+          });
+        }
+
+        if (!artifact) {
+          return reply.code(404).send({
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND"
+          });
+        }
+
+        const { workspace } = await ensureWorkspaceState(artifact);
+        const bundle = buildArtifactSourceBundle({
+          artifactKind: artifact.kind,
+          artifactName: artifact.name,
+          prompt: workspace.intent,
+          sceneNodes: workspace.sceneDocument.nodes
+        });
+
+        return reply.send(bundle);
       }
     );
 
