@@ -104,7 +104,11 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const rootNode = workspace.sceneDocument.nodes[0];
   const frameLabel =
     rootNode?.name ??
-    (artifactKind === "prototype" ? "Start screen" : "Empty canvas");
+    (artifactKind === "prototype"
+      ? "Start screen"
+      : artifactKind === "slides"
+        ? "Title slide"
+        : "Empty canvas");
   const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
   const generatedSourceBundle = buildArtifactSourceBundle({
@@ -218,7 +222,11 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               <p>
                 {frameLabel} · Scene v{workspace.sceneDocument.version} ·{" "}
                 {workspace.sceneDocument.nodes.length} root{" "}
-                {artifactKind === "prototype" ? "screen" : "node"}
+                {artifactKind === "prototype"
+                  ? "screen"
+                  : artifactKind === "slides"
+                    ? "slide"
+                    : "node"}
                 {workspace.sceneDocument.nodes.length === 1 ? "" : "s"}
               </p>
             </div>

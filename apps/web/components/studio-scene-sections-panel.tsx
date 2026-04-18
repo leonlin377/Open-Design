@@ -59,10 +59,20 @@ export function StudioSceneSectionsPanel({
   appendSceneTemplateAction,
   updateSceneNodeAction
 }: StudioSceneSectionsPanelProps) {
-  const sceneUnitLabel = artifactKind === "prototype" ? "screen" : "section";
-  const panelTitle = artifactKind === "prototype" ? "Prototype Screens" : "Scene Sections";
+  const sceneUnitLabel =
+    artifactKind === "prototype" ? "screen" : artifactKind === "slides" ? "slide" : "section";
+  const panelTitle =
+    artifactKind === "prototype"
+      ? "Prototype Screens"
+      : artifactKind === "slides"
+        ? "Slides Deck"
+        : "Scene Sections";
   const emptyStateLabel =
-    artifactKind === "prototype" ? "No prototype screens yet." : "No scene sections yet.";
+    artifactKind === "prototype"
+      ? "No prototype screens yet."
+      : artifactKind === "slides"
+        ? "No slides yet."
+        : "No scene sections yet.";
 
   return (
     <Surface className="project-card" as="section">
@@ -85,6 +95,12 @@ export function StudioSceneSectionsPanel({
                   : entry.template === "feature-grid"
                     ? "Add Feature Screen"
                     : "Add Action Screen"
+                : artifactKind === "slides"
+                  ? entry.template === "hero"
+                    ? "Add Title Slide"
+                    : entry.template === "feature-grid"
+                      ? "Add System Slide"
+                      : "Add Closing Slide"
                 : entry.label}
             </Button>
           </form>

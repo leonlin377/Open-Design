@@ -298,6 +298,63 @@ button.ghost {
 .prototype-nav {
   justify-content: space-between;
 }
+.slides-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.slides-rail {
+  display: grid;
+  gap: 12px;
+}
+.slides-rail button {
+  width: 100%;
+  text-align: left;
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+.slides-rail button.active {
+  background: #111827;
+  color: #f8fafc;
+}
+.slides-stage {
+  display: grid;
+  gap: 18px;
+}
+.slides-canvas {
+  width: min(100%, 760px);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  border-radius: 28px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(245, 238, 228, 0.94));
+  box-shadow: 0 28px 80px rgba(17, 24, 39, 0.16);
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.slides-card {
+  border-radius: 24px;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: rgba(255, 251, 245, 0.92);
+  box-shadow: 0 18px 48px rgba(17, 24, 39, 0.12);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+.slides-html-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+.slides-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
@@ -307,6 +364,9 @@ button.ghost {
     align-items: flex-start;
   }
   .prototype-layout {
+    grid-template-columns: 1fr;
+  }
+  .slides-layout {
     grid-template-columns: 1fr;
   }
 }`;
@@ -663,6 +723,146 @@ export default function App() {
 }`;
 }
 
+function buildSlidesAppCode(input: {
+  artifactName: string;
+  sectionsLiteral: string;
+}) {
+  return `import { useState } from "react";
+import "./styles.css";
+
+function renderSlide(slide) {
+  if (slide.template === "hero") {
+    return (
+      <section className="hero">
+        <span className="eyebrow">{slide.eyebrow}</span>
+        <h1>{slide.headline}</h1>
+        <p>{slide.body}</p>
+      </section>
+    );
+  }
+
+  if (slide.template === "feature-grid") {
+    return (
+      <section className="feature-grid-shell">
+        <div className="feature-grid-copy">
+          <span className="eyebrow">Deck System</span>
+          <h2>{slide.title}</h2>
+        </div>
+        <div className="grid">
+          {(slide.items ?? []).map((item, index) => (
+            <article
+              key={\`\${slide.id}-\${index}\`}
+              className={index === 0 ? "panel featured" : "panel"}
+            >
+              <span className="label">{item.label}</span>
+              <strong>{item.body}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (slide.template === "cta") {
+    return (
+      <section className="cta">
+        <div className="cta-copy">
+          <span className="eyebrow">Closing Lane</span>
+          <h2>{slide.headline}</h2>
+          <p>{slide.body}</p>
+        </div>
+        <div className="actions">
+          <button>{slide.primaryAction}</button>
+          <button className="ghost">{slide.secondaryAction}</button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel generic">
+      <span className="label">{slide.name}</span>
+      <strong>{slide.headline}</strong>
+      <p>{slide.body}</p>
+    </section>
+  );
+}
+
+export default function App() {
+  const slides = ${input.sectionsLiteral};
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const activeSlide = slides[activeSlideIndex] ?? slides[0];
+  const canGoBack = activeSlideIndex > 0;
+  const canGoNext = activeSlideIndex < slides.length - 1;
+
+  return (
+    <main className="shell">
+      <header className="masthead">
+        <span className="label">${input.artifactName}</span>
+        <strong>Slides Deck · {slides.length} slide{slides.length === 1 ? "" : "s"}</strong>
+      </header>
+
+      <div className="slides-layout">
+        <nav className="slides-rail">
+          {slides.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              className={index === activeSlideIndex ? "active" : undefined}
+              onClick={() => setActiveSlideIndex(index)}
+            >
+              Slide {index + 1} · {slide.name}
+            </button>
+          ))}
+        </nav>
+
+        <section className="slides-stage">
+          <div className="slides-canvas">
+            <div className="slides-meta">
+              <div className="prototype-screen-meta">
+                <span className="eyebrow">Deck Preview</span>
+                <strong>{activeSlide?.name ?? "No slide"}</strong>
+              </div>
+              <span className="prototype-flow-note">
+                Slide {Math.min(activeSlideIndex + 1, slides.length)} of {slides.length}
+              </span>
+            </div>
+
+            {activeSlide ? (
+              renderSlide(activeSlide)
+            ) : (
+              <section className="slides-card">
+                <strong>No slides yet.</strong>
+              </section>
+            )}
+          </div>
+
+          <div className="actions prototype-nav">
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setActiveSlideIndex((current) => Math.max(current - 1, 0))}
+              disabled={!canGoBack}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setActiveSlideIndex((current) => Math.min(current + 1, slides.length - 1))
+              }
+              disabled={!canGoNext}
+            >
+              Next Slide
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}`;
+}
+
 export const buildArtifactSourceBundle = (input: {
   artifactKind: ArtifactKind;
   artifactName: string;
@@ -682,6 +882,11 @@ export const buildArtifactSourceBundle = (input: {
           artifactName: input.artifactName,
           sectionsLiteral: sections
         })
+      : input.artifactKind === "slides"
+        ? buildSlidesAppCode({
+            artifactName: input.artifactName,
+            sectionsLiteral: sections
+          })
       : buildWebsiteLikeAppCode({
           artifactName: input.artifactName,
           sectionsLiteral: sections
@@ -884,6 +1089,23 @@ function renderPrototypeHtmlScreen(input: {
 </article>`;
 }
 
+function renderSlidesHtmlSlide(input: {
+  section: RenderableSection;
+  index: number;
+  total: number;
+}) {
+  return `<article class="slides-card">
+  <div class="slides-meta">
+    <div class="prototype-screen-meta">
+      <span class="eyebrow">Slides Deck</span>
+      <strong>${escapeHtml(input.section.name)}</strong>
+    </div>
+    <span class="prototype-flow-note">Slide ${input.index + 1} of ${input.total}</span>
+  </div>
+  ${renderHtmlSection(input.section)}
+</article>`;
+}
+
 export const buildArtifactHtmlExport = (input: {
   artifactName: string;
   sceneDocument: SceneDocument;
@@ -896,6 +1118,7 @@ export const buildArtifactHtmlExport = (input: {
     sceneNodes: input.sceneDocument.nodes
   });
   const isPrototype = input.sceneDocument.kind === "prototype";
+  const isSlides = input.sceneDocument.kind === "slides";
   const nodes = isPrototype
     ? `<section class="prototype-html-grid">
 ${sections
@@ -908,7 +1131,19 @@ ${sections
   )
   .join("\n")}
 </section>`
-    : sections.map(renderHtmlSection).join("\n");
+    : isSlides
+      ? `<section class="slides-html-grid">
+${sections
+  .map((section, index) =>
+    renderSlidesHtmlSlide({
+      section,
+      index,
+      total: sections.length
+    })
+  )
+  .join("\n")}
+</section>`
+      : sections.map(renderHtmlSection).join("\n");
   const safeName = input.artifactName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -930,7 +1165,7 @@ ${sections
     <main>
       <header class="masthead">
         <span class="label">${escapeHtml(input.artifactName)}</span>
-        <strong>${sections.length} live ${isPrototype ? "screen" : "section"}${sections.length === 1 ? "" : "s"}${isPrototype ? " · Prototype Flow" : ""}</strong>
+        <strong>${sections.length} live ${isPrototype ? "screen" : isSlides ? "slide" : "section"}${sections.length === 1 ? "" : "s"}${isPrototype ? " · Prototype Flow" : isSlides ? " · Slides Deck" : ""}</strong>
       </header>
       ${nodes}
     </main>

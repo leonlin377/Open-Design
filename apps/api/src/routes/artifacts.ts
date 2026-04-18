@@ -165,13 +165,23 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       designSystemName?: string | null;
     }): SceneNode {
       const nodeId = `${input.template}_${crypto.randomUUID()}`;
-      const nodeType = input.artifact.kind === "prototype" ? "screen" : "section";
+      const nodeType =
+        input.artifact.kind === "prototype"
+          ? "screen"
+          : input.artifact.kind === "slides"
+            ? "slide"
+            : "section";
 
       if (input.template === "hero") {
         return {
           id: nodeId,
           type: nodeType,
-          name: input.artifact.kind === "prototype" ? "Hero Screen" : "Hero Section",
+          name:
+            input.artifact.kind === "prototype"
+              ? "Hero Screen"
+              : input.artifact.kind === "slides"
+                ? "Title Slide"
+                : "Hero Section",
           props: {
             template: "hero",
             eyebrow:
@@ -195,7 +205,12 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         return {
           id: nodeId,
           type: nodeType,
-          name: input.artifact.kind === "prototype" ? "Feature Screen" : "Feature Grid",
+          name:
+            input.artifact.kind === "prototype"
+              ? "Feature Screen"
+              : input.artifact.kind === "slides"
+                ? "System Slide"
+                : "Feature Grid",
           props: {
             template: "feature-grid",
             title: input.designSystemName
@@ -223,7 +238,12 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       return {
         id: nodeId,
         type: nodeType,
-        name: input.artifact.kind === "prototype" ? "Action Screen" : "Call To Action",
+        name:
+          input.artifact.kind === "prototype"
+            ? "Action Screen"
+            : input.artifact.kind === "slides"
+              ? "Closing Slide"
+              : "Call To Action",
         props: {
           template: "cta",
           headline: input.designSystemName

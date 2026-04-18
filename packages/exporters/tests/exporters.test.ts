@@ -174,6 +174,63 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Offer Screen");
     expect(bundle.html).toContain("Screen 1");
   });
+
+  test("renders a slides deck storyboard from slide nodes", () => {
+    const bundle = buildArtifactHtmlExport({
+      artifactName: "Atlas Deck",
+      prompt: "Summarize the board update.",
+      sceneDocument: {
+        id: "scene_slides",
+        artifactId: "artifact_slides",
+        kind: "slides",
+        version: 3,
+        nodes: [
+          {
+            id: "slide_1",
+            type: "slide",
+            name: "Title Slide",
+            props: {
+              template: "hero",
+              eyebrow: "Deck Surface",
+              headline: "Atlas Q2 board update.",
+              body: "Open with the highest-signal company narrative."
+            },
+            children: []
+          },
+          {
+            id: "slide_2",
+            type: "slide",
+            name: "System Slide",
+            props: {
+              template: "feature-grid",
+              title: "Operating system lanes",
+              items: [
+                {
+                  label: "Revenue",
+                  body: "Revenue quality remained ahead of plan."
+                },
+                {
+                  label: "Product",
+                  body: "Core activation loops held steady."
+                },
+                {
+                  label: "Outlook",
+                  body: "The next quarter needs sharper focus."
+                }
+              ]
+            },
+            children: []
+          }
+        ],
+        metadata: {}
+      }
+    });
+
+    expect(bundle.html).toContain("Slides Deck");
+    expect(bundle.html).toContain("Title Slide");
+    expect(bundle.html).toContain("Slide 1");
+    expect(bundle.html).toContain("Atlas Q2 board update.");
+  });
 });
 
 describe("buildArtifactSourceBundle", () => {
@@ -245,6 +302,44 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/App.tsx"]).toContain("Prototype Flow");
     expect(bundle.files["/App.tsx"]).toContain("Next Screen");
     expect(bundle.files["/App.tsx"]).toContain("Welcome Screen");
+  });
+
+  test("renders a navigable slides source bundle from slide nodes", () => {
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "slides",
+      artifactName: "Atlas Deck",
+      prompt: "Summarize the board update.",
+      sceneNodes: [
+        {
+          id: "slide_1",
+          type: "slide",
+          name: "Title Slide",
+          props: {
+            template: "hero",
+            eyebrow: "Deck Surface",
+            headline: "Atlas Q2 board update.",
+            body: "Open with the highest-signal company narrative."
+          },
+          children: []
+        },
+        {
+          id: "slide_2",
+          type: "slide",
+          name: "System Slide",
+          props: {
+            template: "cta",
+            headline: "Next actions for the board.",
+            body: "Close with operating priorities and asks."
+          },
+          children: []
+        }
+      ]
+    });
+
+    expect(bundle.files["/App.tsx"]).toContain("useState");
+    expect(bundle.files["/App.tsx"]).toContain("Slides Deck");
+    expect(bundle.files["/App.tsx"]).toContain("Next Slide");
+    expect(bundle.files["/App.tsx"]).toContain("Title Slide");
   });
 });
 

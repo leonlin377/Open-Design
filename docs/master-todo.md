@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `87%`
+Current estimated product completion for a serious V1: `89%`
 
 ```text
-[##################--] 87%
+[##################--] 89%
 ```
 
 ## Phase Scoreboard
@@ -46,7 +46,7 @@ Current estimated product completion for a serious V1: `87%`
 | 1 | AI generation pipeline | 90% | `[>]` |
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
-| 4 | Prototype and slides | 35% | `[>]` |
+| 4 | Prototype and slides | 70% | `[>]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
 | 6 | Assets, reliability, ops | 35% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
@@ -68,10 +68,10 @@ What is already working:
 - [x] GitHub, local-directory, and Playwright-first site-capture design-system import
 - [x] Design-system selection and generation grounding for artifacts
 - [x] Prototype screen flows with navigable preview and coherent scene-based exports
+- [x] Slides decks with sequential preview and coherent scene-based exports
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Slides artifact type
 - [ ] Sharing, roles, and collaboration flows
 - [ ] Asset pipeline backed by MinIO/S3
 - [ ] Handoff export bundles and async export jobs
@@ -165,7 +165,7 @@ These are the tasks that should be worked continuously next.
 
 ### TYPE-002 Implement Slides-Specific Scene Structure
 
-- Status: `[ ]`
+- Status: `[x]`
 - Priority: `P1`
 - Owner Lane: `shared`, `web`, `api`
 - Depends On: `DS-005`, `SYNC-003`
@@ -173,14 +173,15 @@ These are the tasks that should be worked continuously next.
 - Why Now:
   Slides is the other missing flagship artifact surface.
 - Definition Of Done:
-  - Slides support deck/page structure and sequential rendering.
-  - Studio shows artifact-appropriate controls for slide editing.
-  - Versions and exports remain stable.
+  - [x] Slides support deck/page structure and sequential rendering.
+  - [x] Studio shows artifact-appropriate controls for slide editing.
+  - [x] Versions and exports remain stable.
 - Validation Commands:
   - `pnpm test`
   - `pnpm build`
 - Expected Artifacts:
   - `packages/scene-engine/*`
+  - `packages/exporters/*`
   - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
   - `apps/api/src/routes/artifacts.ts`
 - Next Slice:
@@ -190,10 +191,6 @@ These are the tasks that should be worked continuously next.
 
 These tasks are known to depend on unfinished upstream work.
 
-- `[!] TYPE-003 Add prototype-specific export path`
-  Blocked by: `TYPE-001`
-- `[!] TYPE-004 Add slides export path`
-  Blocked by: `TYPE-002`
 - `[!] COLLAB-001 Add share tokens for artifact/project review`
   Blocked by: `OPS-001`
 - `[!] COLLAB-002 Add roles: viewer/commenter/editor`
