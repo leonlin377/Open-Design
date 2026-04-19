@@ -44,11 +44,18 @@ export async function createArtifactAction(formData: FormData) {
 
 export async function createProjectShareTokenAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
+  const role = String(formData.get("role") ?? "viewer").trim() as
+    | "viewer"
+    | "commenter"
+    | "editor";
 
   if (!projectId) {
     throw new Error("Project is required.");
   }
 
-  const shareResponse = await createProjectShareToken(projectId);
+  const shareResponse = await createProjectShareToken({
+    projectId,
+    role
+  });
   redirect(shareResponse.sharePath as Route);
 }

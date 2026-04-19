@@ -72,11 +72,16 @@ function buildShareResourceTypeConstraint() {
   return ["project", "artifact"].map((kind) => `'${kind}'`).join(", ");
 }
 
+function buildShareRoleConstraint() {
+  return ["viewer", "commenter", "editor"].map((role) => `'${role}'`).join(", ");
+}
+
 async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   const validArtifactKinds = buildArtifactKindConstraint();
   const validVersionSources = buildArtifactVersionSourceConstraint();
   const validCommentStatuses = buildArtifactCommentStatusConstraint();
   const validShareResourceTypes = buildShareResourceTypeConstraint();
+  const validShareRoles = buildShareRoleConstraint();
 
   await pool.query(
     `create table if not exists projects (
@@ -214,6 +219,7 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
       id text primary key,
       token text not null unique,
       resource_type text not null check (resource_type in (${validShareResourceTypes})),
+      role text not null default 'viewer' check (role in (${validShareRoles})),
       resource_id text not null,
       project_id text not null references projects(id) on delete cascade,
       created_by_user_id text references "user"(id) on delete set null,
@@ -225,6 +231,11 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   await pool.query(
     `create index if not exists share_tokens_project_id_idx
      on share_tokens(project_id, created_at desc)`
+  );
+
+  await pool.query(
+    `alter table share_tokens
+     add column if not exists role text not null default 'viewer'`
   );
 }
 

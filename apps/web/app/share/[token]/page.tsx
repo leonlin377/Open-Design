@@ -1,6 +1,14 @@
 import Link from "next/link";
-import { Badge, Surface } from "@opendesign/ui";
+import { Badge, Button, Surface } from "@opendesign/ui";
+import { getArtifactEditorAffordance } from "../../../components/studio-artifact-affordances";
+import { StudioSceneSectionsPanel } from "../../../components/studio-scene-sections-panel";
 import { getSharedReview } from "../../../lib/opendesign-api";
+import {
+  appendSharedSceneTemplateAction,
+  createSharedArtifactCommentAction,
+  resolveSharedArtifactCommentAction,
+  updateSharedSceneNodeAction
+} from "./actions";
 
 type SharedReviewPageProps = {
   params: Promise<{
@@ -32,6 +40,13 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
     );
   }
 
+  const roleDescription =
+    payload.share.role === "editor"
+      ? "This link can comment, resolve threads, and edit supported scene fields."
+      : payload.share.role === "commenter"
+        ? "This link can add comments but cannot modify the artifact."
+        : "This link is view-only.";
+
   return (
     <main className="page">
       <section className="hero">
@@ -42,11 +57,12 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
             : `${payload.artifact.name} Artifact Review`}
         </h1>
         <p>
-          Read-only review surface generated from an OpenDesign share token. Use it for
-          review handoff before adding roles and edit permissions.
+          Shared review surface generated from an OpenDesign share token with explicit
+          role-based permissions.
         </p>
         <div className="hero-actions">
           <Badge tone="outline">{payload.resourceType}</Badge>
+          <Badge tone="outline">{payload.share.role}</Badge>
           <Badge tone="outline">Token {payload.share.token.slice(0, 8)}</Badge>
           <Link href="/" className="button-link ghost">
             OpenDesign
@@ -65,7 +81,9 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
           <div className="project-meta">
             <span>Project ID: {payload.project.id}</span>
             <span>Owner: {payload.project.ownerUserId ?? "local"}</span>
+            <span>Permission: {payload.share.role}</span>
           </div>
+          <p className="footer-note">{roleDescription}</p>
         </Surface>
 
         {payload.resourceType === "project" ? (
@@ -100,6 +118,14 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
           </Surface>
         ) : (
           <>
+            {(() => {
+              const affordance = getArtifactEditorAffordance(payload.artifact.kind);
+              const canComment =
+                payload.share.role === "commenter" || payload.share.role === "editor";
+              const canEdit = payload.share.role === "editor";
+
+              return (
+                <>
             <Surface className="project-card" as="section">
               <div>
                 <h3>{payload.artifact.name}</h3>
@@ -113,8 +139,10 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
                 <span>{payload.workspace.rootNodeCount} root nodes</span>
                 <span>{payload.workspace.versionCount} snapshots</span>
                 <span>{payload.workspace.openCommentCount} open comments</span>
+                <span>{payload.share.role} access</span>
               </div>
               <p className="footer-note">{payload.workspace.intent}</p>
+              <p className="footer-note">{roleDescription}</p>
             </Surface>
 
             <Surface className="project-card" as="section">
@@ -138,6 +166,90 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
                 </div>
               ) : null}
             </Surface>
+
+            {canComment ? (
+              <Surface className="project-card" as="section">
+                <div>
+                  <h3>Add Comment</h3>
+                  <p className="footer-note">
+                    Comments from shared review links are anchored to the shared artifact
+                    canvas until element-aware anchors land.
+                  </p>
+                </div>
+                <form action={createSharedArtifactCommentAction} className="stack-form">
+                  <input type="hidden" name="shareToken" value={payload.share.token} />
+                  <label className="field">
+                    <span>Comment</span>
+                    <textarea
+                      name="body"
+                      placeholder="Flag copy changes, layout concerns, or export feedback."
+                      rows={3}
+                      required
+                    />
+                  </label>
+                  <Button variant="outline" type="submit">
+                    Add Comment
+                  </Button>
+                </form>
+              </Surface>
+            ) : null}
+
+            <Surface className="project-card" as="section">
+              <div>
+                <h3>Comment Threads</h3>
+                <p className="footer-note">
+                  {canEdit
+                    ? "Editors can resolve open feedback from the shared review page."
+                    : "Review threads stay visible on shared links."}
+                </p>
+              </div>
+              <div className="stack-form">
+                {payload.comments.length === 0 ? (
+                  <div className="footer-note">No comments yet.</div>
+                ) : null}
+                {payload.comments.map((comment) => (
+                  <Surface key={comment.id} className="kv">
+                    <span>{comment.status} · {comment.anchor.elementId ?? "artifact-canvas"}</span>
+                    {comment.body}
+                    {canEdit && comment.status === "open" ? (
+                      <form action={resolveSharedArtifactCommentAction}>
+                        <input type="hidden" name="shareToken" value={payload.share.token} />
+                        <input type="hidden" name="commentId" value={comment.id} />
+                        <Button variant="ghost" size="sm" type="submit">
+                          Resolve
+                        </Button>
+                      </form>
+                    ) : null}
+                  </Surface>
+                ))}
+              </div>
+            </Surface>
+
+            {canEdit ? (
+              <StudioSceneSectionsPanel
+                projectId={payload.project.id}
+                artifactId={payload.artifact.id}
+                shareToken={payload.share.token}
+                artifactKind={payload.artifact.kind}
+                sceneNodes={payload.sceneNodes}
+                appendSceneTemplateAction={appendSharedSceneTemplateAction}
+                updateSceneNodeAction={updateSharedSceneNodeAction}
+              />
+            ) : (
+              <Surface className="project-card" as="section">
+                <div>
+                  <h3>{affordance.panelTitle}</h3>
+                  <p className="footer-note">
+                    Scene editing is restricted to editor links. This review shows{" "}
+                    {payload.sceneNodes.length} {affordance.unitLabel}
+                    {payload.sceneNodes.length === 1 ? "" : "s"} in the current artifact.
+                  </p>
+                </div>
+              </Surface>
+            )}
+                </>
+              );
+            })()}
           </>
         )}
       </div>

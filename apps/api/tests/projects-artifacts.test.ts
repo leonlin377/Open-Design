@@ -189,12 +189,16 @@ describe("Projects and artifacts", () => {
 
       const shareCreateResponse = await app.inject({
         method: "POST",
-        url: `/api/projects/${project.id}/share-tokens`
+        url: `/api/projects/${project.id}/share-tokens`,
+        payload: {
+          role: "viewer"
+        }
       });
 
       expect(shareCreateResponse.statusCode).toBe(201);
       const shareCreatePayload = shareCreateResponse.json();
       expect(shareCreatePayload.share.resourceType).toBe("project");
+      expect(shareCreatePayload.share.role).toBe("viewer");
       expect(shareCreatePayload.sharePath).toMatch(/^\/share\//);
 
       const sharedReviewResponse = await app.inject({
@@ -251,6 +255,7 @@ describe("Projects and artifacts", () => {
       expect(shareCreateResponse.statusCode).toBe(201);
       const shareCreatePayload = shareCreateResponse.json();
       expect(shareCreatePayload.share.resourceType).toBe("artifact");
+      expect(shareCreatePayload.share.role).toBe("viewer");
 
       const sharedReviewResponse = await app.inject({
         method: "GET",
@@ -267,6 +272,8 @@ describe("Projects and artifacts", () => {
           id: artifact.id,
           kind: "slides"
         },
+        sceneNodes: [],
+        comments: [],
         workspace: {
           sceneVersion: 1,
           versionCount: 1
@@ -290,6 +297,180 @@ describe("Projects and artifacts", () => {
         error: "Share token not found",
         code: "SHARE_TOKEN_NOT_FOUND",
         recoverable: false
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks viewer links from commenting but allows commenter links", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Role Review" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Launch Site", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const viewerShareResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/share-tokens`,
+        payload: {
+          role: "viewer"
+        }
+      });
+      const viewerShare = viewerShareResponse.json().share;
+
+      const blockedCommentResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${viewerShare.token}/comments`,
+        payload: {
+          body: "Viewer should not be allowed to comment."
+        }
+      });
+
+      expect(blockedCommentResponse.statusCode).toBe(403);
+      expect(blockedCommentResponse.json()).toMatchObject({
+        code: "SHARE_ROLE_FORBIDDEN"
+      });
+
+      const commenterShareResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/share-tokens`,
+        payload: {
+          role: "commenter"
+        }
+      });
+      const commenterShare = commenterShareResponse.json().share;
+
+      const allowedCommentResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${commenterShare.token}/comments`,
+        payload: {
+          body: "Commenter feedback lands on the shared artifact."
+        }
+      });
+
+      expect(allowedCommentResponse.statusCode).toBe(201);
+      expect(allowedCommentResponse.json()).toMatchObject({
+        artifactId: artifact.id,
+        body: "Commenter feedback lands on the shared artifact.",
+        status: "open"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("lets editor links update scene nodes and resolve comments", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Editor Review" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Editor Prototype", kind: "prototype" }
+      });
+      const artifact = artifactResponse.json();
+
+      await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      const editorShareResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/share-tokens`,
+        payload: {
+          role: "editor"
+        }
+      });
+      const editorShare = editorShareResponse.json().share;
+
+      const appendResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${editorShare.token}/scene/nodes`,
+        payload: {
+          template: "hero"
+        }
+      });
+
+      expect(appendResponse.statusCode).toBe(201);
+
+      const sharedStateResponse = await app.inject({
+        method: "GET",
+        url: `/api/share/${editorShare.token}`
+      });
+      const sharedState = sharedStateResponse.json();
+      const appendedNodeId = sharedState.sceneNodes[0].id;
+
+      const updateResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${editorShare.token}/scene/nodes/${appendedNodeId}`,
+        payload: {
+          name: "Edited Screen",
+          headline: "Editor changed the shared prototype."
+        }
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+
+      const commentResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${editorShare.token}/comments`,
+        payload: {
+          body: "Resolve me from the editor link."
+        }
+      });
+      const comment = commentResponse.json();
+
+      const resolveResponse = await app.inject({
+        method: "POST",
+        url: `/api/share/${editorShare.token}/comments/${comment.id}/resolve`
+      });
+
+      expect(resolveResponse.statusCode).toBe(200);
+      expect(resolveResponse.json()).toMatchObject({
+        id: comment.id,
+        status: "resolved"
+      });
+
+      const refreshedSharedState = await app.inject({
+        method: "GET",
+        url: `/api/share/${editorShare.token}`
+      });
+
+      expect(refreshedSharedState.statusCode).toBe(200);
+      expect(refreshedSharedState.json()).toMatchObject({
+        share: {
+          role: "editor"
+        },
+        sceneNodes: [
+          expect.objectContaining({
+            id: appendedNodeId,
+            name: "Edited Screen"
+          })
+        ],
+        comments: [
+          expect.objectContaining({
+            id: comment.id,
+            status: "resolved"
+          })
+        ]
       });
     } finally {
       await app.close();

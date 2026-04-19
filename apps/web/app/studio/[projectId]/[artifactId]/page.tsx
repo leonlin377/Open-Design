@@ -162,6 +162,11 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <form action={createArtifactShareTokenAction}>
             <input type="hidden" name="projectId" value={project.id} />
             <input type="hidden" name="artifactId" value={artifact.id} />
+            <select name="role" defaultValue="viewer">
+              <option value="viewer">Viewer</option>
+              <option value="commenter">Commenter</option>
+              <option value="editor">Editor</option>
+            </select>
             <Button variant="outline" size="sm" type="submit">
               Share Artifact
             </Button>

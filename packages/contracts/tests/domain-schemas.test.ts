@@ -192,6 +192,7 @@ describe("ShareTokenSchema", () => {
       id: "share_1",
       token: "opaque123",
       resourceType: "artifact",
+      role: "editor",
       resourceId: "artifact_1",
       projectId: "project_1",
       createdByUserId: "user_1",
@@ -200,6 +201,7 @@ describe("ShareTokenSchema", () => {
     });
 
     expect(share.resourceType).toBe("artifact");
+    expect(share.role).toBe("editor");
     expect(share.projectId).toBe("project_1");
   });
 });
@@ -212,6 +214,7 @@ describe("ShareReviewPayloadSchema", () => {
         id: "share_1",
         token: "opaque123",
         resourceType: "artifact",
+        role: "editor",
         resourceId: "artifact_1",
         projectId: "project_1",
         createdByUserId: null,
@@ -233,6 +236,32 @@ describe("ShareReviewPayloadSchema", () => {
         createdAt: "2026-04-19T09:10:00.000Z",
         updatedAt: "2026-04-19T09:15:00.000Z"
       },
+      sceneNodes: [
+        {
+          id: "hero_1",
+          type: "section",
+          name: "Hero Section",
+          props: {
+            template: "hero",
+            headline: "Launch faster"
+          },
+          children: []
+        }
+      ],
+      comments: [
+        {
+          id: "comment_1",
+          artifactId: "artifact_1",
+          body: "Tighten the headline.",
+          status: "open",
+          anchor: {
+            elementId: "artifact-canvas",
+            selectionPath: ["shared-review"]
+          },
+          createdAt: "2026-04-19T09:18:00.000Z",
+          updatedAt: "2026-04-19T09:18:00.000Z"
+        }
+      ],
       workspace: {
         intent: "Build a cinematic launch surface.",
         sceneVersion: 3,
@@ -260,6 +289,7 @@ describe("ShareReviewPayloadSchema", () => {
     }
     expect(payload.workspace.versionCount).toBe(2);
     expect(payload.latestVersion?.label).toBe("Review");
+    expect(payload.comments).toHaveLength(1);
   });
 });
 

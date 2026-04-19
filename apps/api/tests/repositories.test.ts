@@ -549,6 +549,7 @@ describe("PostgresShareTokenRepository", () => {
         id: "share-1",
         token: "opaque123",
         resource_type: "artifact",
+        role: "editor",
         resource_id: "artifact-1",
         project_id: "project-1",
         created_by_user_id: "user-1",
@@ -560,6 +561,7 @@ describe("PostgresShareTokenRepository", () => {
     const repository = new PostgresShareTokenRepository({ query });
     const share = await repository.create({
       resourceType: "artifact",
+      role: "editor",
       resourceId: "artifact-1",
       projectId: "project-1",
       createdByUserId: "user-1"
@@ -569,6 +571,7 @@ describe("PostgresShareTokenRepository", () => {
       id: "share-1",
       token: "opaque123",
       resourceType: "artifact",
+      role: "editor",
       resourceId: "artifact-1",
       projectId: "project-1",
       createdByUserId: "user-1",
@@ -583,6 +586,7 @@ describe("PostgresShareTokenRepository", () => {
         id: "share-1",
         token: "opaque123",
         resource_type: "project",
+        role: "viewer",
         resource_id: "project-1",
         project_id: "project-1",
         created_by_user_id: null,
@@ -598,6 +602,7 @@ describe("PostgresShareTokenRepository", () => {
       id: "share-1",
       token: "opaque123",
       resourceType: "project",
+      role: "viewer",
       resourceId: "project-1",
       projectId: "project-1",
       createdByUserId: null,

@@ -192,6 +192,7 @@ export const ApiErrorCodeSchema = z.enum([
   "PROJECT_NOT_FOUND",
   "ARTIFACT_NOT_FOUND",
   "SHARE_TOKEN_NOT_FOUND",
+  "SHARE_ROLE_FORBIDDEN",
   "VERSION_NOT_FOUND",
   "COMMENT_NOT_FOUND",
   "SCENE_NODE_NOT_FOUND",
@@ -231,11 +232,13 @@ export const ArtifactVersionDiffSummarySchema = z.object({
 });
 
 export const ShareResourceTypeSchema = z.enum(["project", "artifact"]);
+export const ShareRoleSchema = z.enum(["viewer", "commenter", "editor"]);
 
 export const ShareTokenSchema = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
   resourceType: ShareResourceTypeSchema,
+  role: ShareRoleSchema,
   resourceId: z.string().min(1),
   projectId: z.string().min(1),
   createdByUserId: z.string().min(1).nullable(),
@@ -265,6 +268,8 @@ export const ShareReviewPayloadSchema = z.discriminatedUnion("resourceType", [
     share: ShareTokenSchema,
     project: ProjectSummarySchema,
     artifact: ArtifactSummarySchema,
+    sceneNodes: z.array(SceneNodeSchema),
+    comments: z.array(ArtifactCommentSchema),
     workspace: ShareReviewArtifactWorkspaceSchema,
     latestVersion: ArtifactVersionSnapshotSchema.nullable()
   })
@@ -377,6 +382,7 @@ export type ArtifactGenerateStreamEvent = z.infer<
 >;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
 export type ShareResourceType = z.infer<typeof ShareResourceTypeSchema>;
+export type ShareRole = z.infer<typeof ShareRoleSchema>;
 export type ShareToken = z.infer<typeof ShareTokenSchema>;
 export type ShareReviewArtifactWorkspace = z.infer<
   typeof ShareReviewArtifactWorkspaceSchema

@@ -42,6 +42,7 @@ function readFeatureGridItems(value: unknown) {
 type StudioSceneSectionsPanelProps = {
   projectId: string;
   artifactId: string;
+  shareToken?: string;
   artifactKind: ApiArtifact["kind"];
   sceneNodes: SceneNode[];
   appendSceneTemplateAction: (formData: FormData) => Promise<void>;
@@ -51,6 +52,7 @@ type StudioSceneSectionsPanelProps = {
 export function StudioSceneSectionsPanel({
   projectId,
   artifactId,
+  shareToken,
   artifactKind,
   sceneNodes,
   appendSceneTemplateAction,
@@ -69,6 +71,7 @@ export function StudioSceneSectionsPanel({
           <form key={template} action={appendSceneTemplateAction}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="artifactId" value={artifactId} />
+            {shareToken ? <input type="hidden" name="shareToken" value={shareToken} /> : null}
             <input type="hidden" name="template" value={template} />
             <Button variant="outline" size="sm" type="submit">
               {affordance.templateButtonLabels[template]}
@@ -117,6 +120,9 @@ export function StudioSceneSectionsPanel({
               <form action={updateSceneNodeAction} className="stack-form">
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="artifactId" value={artifactId} />
+                {shareToken ? (
+                  <input type="hidden" name="shareToken" value={shareToken} />
+                ) : null}
                 <input type="hidden" name="nodeId" value={node.id} />
                 {featureItemsTail.length > 0 ? (
                   <input

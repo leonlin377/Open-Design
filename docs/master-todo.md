@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `95%`
+Current estimated product completion for a serious V1: `96%`
 
 ```text
-[###################-] 95%
+[###################-] 96%
 ```
 
 ## Phase Scoreboard
@@ -47,7 +47,7 @@ Current estimated product completion for a serious V1: `95%`
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
-| 5 | Collaboration and handoff | 20% | `[>]` |
+| 5 | Collaboration and handoff | 40% | `[>]` |
 | 6 | Assets, reliability, ops | 55% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
@@ -73,7 +73,7 @@ What is already working:
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Roles and richer collaboration flows
+- [ ] Element-aware collaboration anchors and richer shared review flows
 - [ ] Asset pipeline backed by MinIO/S3
 - [ ] Handoff export bundles and async export jobs
 - [ ] Production-grade operational validation
@@ -306,7 +306,7 @@ Goal: Support the full artifact surface instead of just website-first flows.
 Goal: Make the system usable by more than one person and suitable for review.
 
 - [x] `COLLAB-001` Add share tokens for artifact/project review
-- [r] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
+- [x] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
 - [ ] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
 - [ ] `COLLAB-004` Build handoff export bundle
 - [ ] `COLLAB-005` Add export job tracking
@@ -343,13 +343,14 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Playwright E2E core Studio flow with login, scene edit, code save, snapshot, restore, and export
 - [x] Prototype flow JSON export and slides deck JSON export
 - [x] Project and artifact share tokens with public read-only review pages
+- [x] Role-based shared review links with viewer/commenter/editor permissions
 - [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `COLLAB-002` Roles: `viewer`, `commenter`, `editor`
-2. `OPS-003` Validate full Docker studio stack in real build/run mode
-3. `COLLAB-004` Handoff export bundle
-4. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3
+1. `OPS-003` Validate full Docker studio stack in real build/run mode
+2. `COLLAB-004` Handoff export bundle
+3. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3
+4. `COLLAB-003` Element-aware comment anchors

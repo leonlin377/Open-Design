@@ -97,6 +97,11 @@ export default async function ProjectsPage() {
             <div className="hero-actions">
               <form action={createProjectShareTokenAction}>
                 <input type="hidden" name="projectId" value={project.id} />
+                <select name="role" defaultValue="viewer">
+                  <option value="viewer">Viewer Link</option>
+                  <option value="commenter">Commenter Link</option>
+                  <option value="editor">Editor Link</option>
+                </select>
                 <Button variant="outline" size="sm" type="submit">
                   Share Project
                 </Button>

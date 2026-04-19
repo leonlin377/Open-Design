@@ -257,6 +257,10 @@ export async function restoreArtifactVersionAction(formData: FormData) {
 export async function createArtifactShareTokenAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const role = String(formData.get("role") ?? "viewer").trim() as
+    | "viewer"
+    | "commenter"
+    | "editor";
 
   if (!projectId || !artifactId) {
     throw new Error("Project and artifact are required.");
@@ -264,7 +268,8 @@ export async function createArtifactShareTokenAction(formData: FormData) {
 
   const shareResponse = await createArtifactShareToken({
     projectId,
-    artifactId
+    artifactId,
+    role
   });
 
   redirect(shareResponse.sharePath as Route);

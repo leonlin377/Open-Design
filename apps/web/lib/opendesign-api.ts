@@ -10,6 +10,7 @@ import type {
   SceneTemplateKind,
   ArtifactVersionSnapshot,
   DesignSystemPack,
+  ShareRole,
   ShareReviewPayload,
   ShareToken
 } from "@opendesign/contracts";
@@ -172,9 +173,18 @@ export async function createProject(input: { name: string }) {
   return (await response.json()) as ApiProject;
 }
 
-export async function createProjectShareToken(projectId: string) {
-  const response = await apiFetch(`/api/projects/${projectId}/share-tokens`, {
-    method: "POST"
+export async function createProjectShareToken(input: {
+  projectId: string;
+  role: ShareRole;
+}) {
+  const response = await apiFetch(`/api/projects/${input.projectId}/share-tokens`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      role: input.role
+    })
   });
 
   if (!response.ok) {
@@ -240,11 +250,18 @@ export async function createArtifact(input: {
 export async function createArtifactShareToken(input: {
   projectId: string;
   artifactId: string;
+  role: ShareRole;
 }) {
   const response = await apiFetch(
     `/api/projects/${input.projectId}/artifacts/${input.artifactId}/share-tokens`,
     {
-      method: "POST"
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        role: input.role
+      })
     }
   );
 
@@ -290,6 +307,118 @@ export async function getSharedReview(token: string): Promise<ApiShareReviewPayl
   }
 
   return (await response.json()) as ApiShareReviewPayload;
+}
+
+export async function createSharedArtifactComment(input: {
+  token: string;
+  body: string;
+}) {
+  const response = await apiFetch(`/api/share/${input.token}/comments`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      body: input.body
+    })
+  });
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to create shared artifact comment (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiArtifactComment;
+}
+
+export async function resolveSharedArtifactComment(input: {
+  token: string;
+  commentId: string;
+}) {
+  const response = await apiFetch(`/api/share/${input.token}/comments/${input.commentId}/resolve`, {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to resolve shared artifact comment (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiArtifactComment;
+}
+
+export async function appendSharedSceneTemplate(input: {
+  token: string;
+  template: SceneTemplateKind;
+}) {
+  const response = await apiFetch(`/api/share/${input.token}/scene/nodes`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      template: input.template
+    })
+  });
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to append shared scene template (${response.status})`
+    );
+  }
+
+  return (await response.json()) as {
+    appendedNodeId: string;
+  };
+}
+
+export async function updateSharedSceneNode(input: {
+  token: string;
+  nodeId: string;
+  name?: string;
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  title?: string;
+  items?: Array<{
+    label: string;
+    body: string;
+  }>;
+  primaryAction?: string;
+  secondaryAction?: string;
+}) {
+  const response = await apiFetch(`/api/share/${input.token}/scene/nodes/${input.nodeId}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      name: input.name,
+      eyebrow: input.eyebrow,
+      headline: input.headline,
+      body: input.body,
+      title: input.title,
+      items: input.items,
+      primaryAction: input.primaryAction,
+      secondaryAction: input.secondaryAction
+    })
+  });
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to update shared scene node (${response.status})`
+    );
+  }
+
+  return (await response.json()) as {
+    ok: true;
+  };
 }
 
 export async function createArtifactVersion(input: {
