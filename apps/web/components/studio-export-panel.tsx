@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { Surface } from "@opendesign/ui";
+import type { ApiArtifact } from "../lib/opendesign-api";
 
 type StudioExportPanelProps = {
   projectId: string;
   artifactId: string;
+  artifactKind: ApiArtifact["kind"];
   sourceBundleFiles: Record<string, string>;
 };
 
 export function StudioExportPanel({
   projectId,
   artifactId,
+  artifactKind,
   sourceBundleFiles
 }: StudioExportPanelProps) {
   return (
@@ -35,6 +38,22 @@ export function StudioExportPanel({
           >
             Download HTML
           </Link>
+          {artifactKind === "prototype" ? (
+            <Link
+              href={`/studio/${projectId}/${artifactId}/export/prototype-flow`}
+              className="button-link ghost"
+            >
+              Download Flow JSON
+            </Link>
+          ) : null}
+          {artifactKind === "slides" ? (
+            <Link
+              href={`/studio/${projectId}/${artifactId}/export/slides-deck`}
+              className="button-link ghost"
+            >
+              Download Deck JSON
+            </Link>
+          ) : null}
         </div>
       </Surface>
       <Surface className="project-card" as="section">

@@ -290,6 +290,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             <StudioExportPanel
               projectId={project.id}
               artifactId={artifact.id}
+              artifactKind={artifactKind}
               sourceBundleFiles={sourceBundle.files}
             />
           }

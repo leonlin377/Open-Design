@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import { strFromU8, unzipSync } from "fflate";
 import {
   buildArtifactHtmlExport,
+  buildPrototypeFlowExport,
+  buildSlidesDeckExport,
   buildArtifactSourceArchive,
   buildArtifactSourceBundle,
   buildHandoffManifestSummary
@@ -362,5 +364,105 @@ describe("buildArtifactSourceArchive", () => {
     expect(strFromU8(unzipped["atlas-website/App.tsx"]!)).toContain(
       "Atlas Website is ready for the first scene section."
     );
+  });
+});
+
+describe("artifact-specific structured exports", () => {
+  test("builds a prototype flow manifest with sequential screen links", () => {
+    const bundle = buildPrototypeFlowExport({
+      artifactName: "Atlas Prototype",
+      prompt: "Map a mobile checkout flow.",
+      sceneDocument: {
+        id: "scene_proto_export",
+        artifactId: "artifact_proto_export",
+        kind: "prototype",
+        version: 2,
+        nodes: [
+          {
+            id: "screen_1",
+            type: "screen",
+            name: "Welcome Screen",
+            props: {
+              template: "hero",
+              headline: "Start the checkout flow."
+            },
+            children: []
+          },
+          {
+            id: "screen_2",
+            type: "screen",
+            name: "Confirm Screen",
+            props: {
+              template: "cta",
+              headline: "Confirm the selected plan."
+            },
+            children: []
+          }
+        ],
+        metadata: {}
+      }
+    });
+
+    expect(bundle.artifactKind).toBe("prototype");
+    expect(bundle.startScreenId).toBe("screen_1");
+    expect(bundle.screens).toHaveLength(2);
+    expect(bundle.screens[0]).toMatchObject({
+      id: "screen_1",
+      nextScreenId: "screen_2",
+      previousScreenId: null
+    });
+    expect(bundle.screens[1]).toMatchObject({
+      id: "screen_2",
+      nextScreenId: null,
+      previousScreenId: "screen_1"
+    });
+  });
+
+  test("builds a slides deck manifest with numbered slides", () => {
+    const bundle = buildSlidesDeckExport({
+      artifactName: "Atlas Deck",
+      prompt: "Summarize the board update.",
+      sceneDocument: {
+        id: "scene_slides_export",
+        artifactId: "artifact_slides_export",
+        kind: "slides",
+        version: 2,
+        nodes: [
+          {
+            id: "slide_1",
+            type: "slide",
+            name: "Title Slide",
+            props: {
+              template: "hero",
+              headline: "Atlas Q2 board update."
+            },
+            children: []
+          },
+          {
+            id: "slide_2",
+            type: "slide",
+            name: "System Slide",
+            props: {
+              template: "feature-grid",
+              title: "Operating system lanes"
+            },
+            children: []
+          }
+        ],
+        metadata: {}
+      }
+    });
+
+    expect(bundle.artifactKind).toBe("slides");
+    expect(bundle.aspectRatio).toBe("16:9");
+    expect(bundle.slides).toHaveLength(2);
+    expect(bundle.slides[0]).toMatchObject({
+      id: "slide_1",
+      slideNumber: 1
+    });
+    expect(bundle.slides[1]).toMatchObject({
+      id: "slide_2",
+      slideNumber: 2
+    });
   });
 });

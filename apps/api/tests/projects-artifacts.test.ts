@@ -671,6 +671,28 @@ describe("Projects and artifacts", () => {
       expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Next Screen");
       expect(sourceExportResponse.json().files["/App.tsx"]).toContain("useState");
 
+      const flowExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/prototype-flow`
+      });
+
+      expect(flowExportResponse.statusCode).toBe(200);
+      expect(flowExportResponse.headers["content-disposition"]).toContain("-flow.json");
+      expect(flowExportResponse.json()).toMatchObject({
+        artifactKind: "prototype",
+        startScreenId: appendHeroResponse.json().appendedNode.id,
+        screens: [
+          expect.objectContaining({
+            id: appendHeroResponse.json().appendedNode.id,
+            nextScreenId: appendCtaResponse.json().appendedNode.id
+          }),
+          expect.objectContaining({
+            id: appendCtaResponse.json().appendedNode.id,
+            previousScreenId: appendHeroResponse.json().appendedNode.id
+          })
+        ]
+      });
+
       const driftResponse = await app.inject({
         method: "GET",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/diff`
@@ -812,6 +834,28 @@ describe("Projects and artifacts", () => {
       expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Deck Preview");
       expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Next Slide");
 
+      const deckExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/slides-deck`
+      });
+
+      expect(deckExportResponse.statusCode).toBe(200);
+      expect(deckExportResponse.headers["content-disposition"]).toContain("-deck.json");
+      expect(deckExportResponse.json()).toMatchObject({
+        artifactKind: "slides",
+        aspectRatio: "16:9",
+        slides: [
+          expect.objectContaining({
+            id: appendHeroResponse.json().appendedNode.id,
+            slideNumber: 1
+          }),
+          expect.objectContaining({
+            id: appendGridResponse.json().appendedNode.id,
+            slideNumber: 2
+          })
+        ]
+      });
+
       const driftResponse = await app.inject({
         method: "GET",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/diff`
@@ -920,6 +964,47 @@ describe("Projects and artifacts", () => {
       expect(workspaceResponse.json().workspace.sceneDocument.nodes).toHaveLength(3);
       expect(workspaceResponse.json().versions[0]).toMatchObject({
         source: "prompt"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects artifact-specific exports on the wrong artifact kind", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Wrong Export Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Website Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const prototypeExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/prototype-flow`
+      });
+
+      expect(prototypeExportResponse.statusCode).toBe(409);
+      expect(prototypeExportResponse.json()).toMatchObject({
+        code: "EXPORT_NOT_SUPPORTED"
+      });
+
+      const slidesExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/slides-deck`
+      });
+
+      expect(slidesExportResponse.statusCode).toBe(409);
+      expect(slidesExportResponse.json()).toMatchObject({
+        code: "EXPORT_NOT_SUPPORTED"
       });
     } finally {
       await app.close();

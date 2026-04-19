@@ -2,6 +2,12 @@
 
 OpenDesign is an artifact-first AI design workspace for websites, prototypes, and slides.
 
+Current artifact-specific export surfaces:
+
+- `website`: standalone HTML plus runnable ZIP scaffold
+- `prototype`: standalone HTML, runnable ZIP scaffold, and flow JSON manifest
+- `slides`: standalone HTML, runnable ZIP scaffold, and deck JSON manifest
+
 ## Docker Isolation
 
 Three Docker paths are checked in:

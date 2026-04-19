@@ -473,6 +473,17 @@ describe("ApiErrorSchema", () => {
     expect(error.code).toBe("INVALID_SCENE_PATCH");
     expect(error.details?.stage).toBe("apply-scene");
   });
+
+  test("accepts artifact-kind-specific export failures", () => {
+    const error = ApiErrorSchema.parse({
+      error: "Prototype flow export is only available for prototype artifacts",
+      code: "EXPORT_NOT_SUPPORTED",
+      recoverable: true
+    });
+
+    expect(error.code).toBe("EXPORT_NOT_SUPPORTED");
+    expect(error.recoverable).toBe(true);
+  });
 });
 
 describe("ArtifactVersionDiffSummarySchema", () => {

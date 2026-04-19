@@ -73,6 +73,59 @@ export type SourceArchiveBundle = {
   bytes: Uint8Array;
 };
 
+export type PrototypeFlowExport = {
+  version: 1;
+  artifactKind: "prototype";
+  artifactName: string;
+  exportedAt: string;
+  startScreenId: string | null;
+  screens: Array<{
+    id: string;
+    name: string;
+    template: string;
+    eyebrow?: string;
+    headline?: string;
+    body?: string;
+    title?: string;
+    items?: Array<{
+      label: string;
+      body: string;
+    }>;
+    primaryAction?: string;
+    secondaryAction?: string;
+    previousScreenId: string | null;
+    nextScreenId: string | null;
+  }>;
+};
+
+export type SlidesDeckExport = {
+  version: 1;
+  artifactKind: "slides";
+  artifactName: string;
+  exportedAt: string;
+  aspectRatio: "16:9";
+  theme: {
+    surface: string;
+    accent: string;
+  };
+  slides: Array<{
+    id: string;
+    name: string;
+    template: string;
+    eyebrow?: string;
+    headline?: string;
+    body?: string;
+    title?: string;
+    items?: Array<{
+      label: string;
+      body: string;
+    }>;
+    primaryAction?: string;
+    secondaryAction?: string;
+    slideNumber: number;
+  }>;
+};
+
 type RenderableSection = {
   id: string;
   template: string;
@@ -1014,6 +1067,61 @@ export const buildArtifactSourceArchive = (
     bytes: zipSync(archiveEntries, {
       level: 6
     })
+  };
+};
+
+export const buildPrototypeFlowExport = (input: {
+  artifactName: string;
+  prompt?: string;
+  sceneDocument: SceneDocument;
+}): PrototypeFlowExport => {
+  const sections = buildRenderableSections({
+    artifactKind: "prototype",
+    artifactName: input.artifactName,
+    prompt: input.prompt ?? "OpenDesign prototype artifact",
+    sceneNodes: input.sceneDocument.nodes
+  });
+
+  return {
+    version: 1,
+    artifactKind: "prototype",
+    artifactName: input.artifactName,
+    exportedAt: new Date().toISOString(),
+    startScreenId: sections[0]?.id ?? null,
+    screens: sections.map((section, index) => ({
+      ...section,
+      previousScreenId: index > 0 ? sections[index - 1]?.id ?? null : null,
+      nextScreenId: index < sections.length - 1 ? sections[index + 1]?.id ?? null : null
+    }))
+  };
+};
+
+export const buildSlidesDeckExport = (input: {
+  artifactName: string;
+  prompt?: string;
+  sceneDocument: SceneDocument;
+}): SlidesDeckExport => {
+  const sections = buildRenderableSections({
+    artifactKind: "slides",
+    artifactName: input.artifactName,
+    prompt: input.prompt ?? "OpenDesign slides artifact",
+    sceneNodes: input.sceneDocument.nodes
+  });
+
+  return {
+    version: 1,
+    artifactKind: "slides",
+    artifactName: input.artifactName,
+    exportedAt: new Date().toISOString(),
+    aspectRatio: "16:9",
+    theme: {
+      surface: "#fbf5e8",
+      accent: "#0f766e"
+    },
+    slides: sections.map((section, index) => ({
+      ...section,
+      slideNumber: index + 1
+    }))
   };
 };
 

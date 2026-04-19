@@ -24,7 +24,9 @@ import {
 } from "@opendesign/code-sync";
 import {
   buildArtifactHtmlExport,
-  buildArtifactSourceBundle
+  buildArtifactSourceBundle,
+  buildPrototypeFlowExport,
+  buildSlidesDeckExport
 } from "@opendesign/exporters";
 import {
   appendRootSceneNode,
@@ -1025,6 +1027,106 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
               files: workspace.codeWorkspace.files
             }
           : generatedBundle;
+
+        return reply.send(bundle);
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/exports/prototype-flow",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (artifact.kind !== "prototype") {
+          return sendApiError(reply, 409, {
+            error: "Prototype flow export is only available for prototype artifacts",
+            code: "EXPORT_NOT_SUPPORTED",
+            recoverable: true
+          });
+        }
+
+        const { workspace } = await ensureWorkspaceState(artifact);
+        const bundle = buildPrototypeFlowExport({
+          artifactName: artifact.name,
+          sceneDocument: workspace.sceneDocument,
+          prompt: workspace.intent
+        });
+
+        reply.header("content-type", "application/json; charset=utf-8");
+        reply.header(
+          "content-disposition",
+          `attachment; filename="${artifact.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "prototype"}-flow.json"`
+        );
+
+        return reply.send(bundle);
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/exports/slides-deck",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (artifact.kind !== "slides") {
+          return sendApiError(reply, 409, {
+            error: "Slides deck export is only available for slides artifacts",
+            code: "EXPORT_NOT_SUPPORTED",
+            recoverable: true
+          });
+        }
+
+        const { workspace } = await ensureWorkspaceState(artifact);
+        const bundle = buildSlidesDeckExport({
+          artifactName: artifact.name,
+          sceneDocument: workspace.sceneDocument,
+          prompt: workspace.intent
+        });
+
+        reply.header("content-type", "application/json; charset=utf-8");
+        reply.header(
+          "content-disposition",
+          `attachment; filename="${artifact.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "slides"}-deck.json"`
+        );
 
         return reply.send(bundle);
       }

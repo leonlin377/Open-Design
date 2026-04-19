@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `91%`
+Current estimated product completion for a serious V1: `93%`
 
 ```text
-[##################--] 91%
+[###################-] 93%
 ```
 
 ## Phase Scoreboard
@@ -46,7 +46,7 @@ Current estimated product completion for a serious V1: `91%`
 | 1 | AI generation pipeline | 90% | `[>]` |
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
-| 4 | Prototype and slides | 70% | `[>]` |
+| 4 | Prototype and slides | 90% | `[x]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
 | 6 | Assets, reliability, ops | 55% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
@@ -189,6 +189,56 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `TYPE-004 Add slides export path`
 
+### TYPE-003 Add Prototype-Specific Export Path
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `shared`, `api`, `web`
+- Depends On: `TYPE-001`
+- Blocks: `COLLAB-004`
+- Why Now:
+  Prototype preview already behaves like a flow, but the export surface still needed a stable artifact-specific payload for downstream review and tooling.
+- Definition Of Done:
+  - [x] Prototype artifacts expose a dedicated structured export payload.
+  - [x] Studio export panel exposes the prototype-specific export.
+  - [x] Exporter and API tests cover the new path.
+- Validation Commands:
+  - `pnpm --filter @opendesign/exporters test -- tests/exporters.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Expected Artifacts:
+  - `packages/exporters/src/index.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/web/components/studio-export-panel.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/export/prototype-flow/route.ts`
+- Next Slice:
+  - `TYPE-004 Add slides export path`
+
+### TYPE-004 Add Slides Export Path
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `shared`, `api`, `web`
+- Depends On: `TYPE-002`
+- Blocks: `COLLAB-004`
+- Why Now:
+  Slides preview already behaves like a deck, but the export surface still needed a stable deck-specific payload instead of only generic HTML/ZIP.
+- Definition Of Done:
+  - [x] Slides artifacts expose a dedicated structured deck export payload.
+  - [x] Studio export panel exposes the slides-specific export.
+  - [x] Exporter and API tests cover the new path.
+- Validation Commands:
+  - `pnpm --filter @opendesign/exporters test -- tests/exporters.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Expected Artifacts:
+  - `packages/exporters/src/index.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/web/components/studio-export-panel.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/export/slides-deck/route.ts`
+- Next Slice:
+  - `COLLAB-001 Add share tokens for artifact/project review`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -248,8 +298,8 @@ Goal: Support the full artifact surface instead of just website-first flows.
 
 - [x] `TYPE-001` Implement prototype-specific scene nodes and preview behavior
 - [x] `TYPE-002` Implement slides-specific scene structure
-- [ ] `TYPE-003` Add prototype-specific export path
-- [ ] `TYPE-004` Add slides export path
+- [x] `TYPE-003` Add prototype-specific export path
+- [x] `TYPE-004` Add slides export path
 - [ ] `TYPE-005` Add per-artifact editor affordances in Studio
 
 ## Phase 5: Collaboration and Handoff
@@ -292,12 +342,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Safe-subset code -> scene synchronization
 - [x] Streaming generation progress and structured generation failures
 - [x] Playwright E2E core Studio flow with login, scene edit, code save, snapshot, restore, and export
+- [x] Prototype flow JSON export and slides deck JSON export
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `TYPE-003` Prototype-specific export path
-2. `TYPE-004` Slides export path
-3. `COLLAB-001` Share tokens for artifact/project review
-4. `OPS-003` Validate full Docker studio stack in real build/run mode
+1. `COLLAB-001` Share tokens for artifact/project review
+2. `TYPE-005` Per-artifact editor affordances in Studio
+3. `OPS-003` Validate full Docker studio stack in real build/run mode
+4. `COLLAB-004` Handoff export bundle
