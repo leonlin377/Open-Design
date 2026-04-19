@@ -29,6 +29,11 @@ export interface RouteDependencies {
   assetStorage: AssetStorage;
   auth: OpenDesignAuth;
   authBaseURL: string;
+  authTrustedOrigins: string[];
+  diagnostics: {
+    persistenceMode: "memory" | "postgres";
+    assetStorageProvider: "memory" | "s3";
+  };
   siteCapture: {
     captureSite(input: { url: string }): Promise<SiteCaptureResult>;
   };
@@ -38,7 +43,11 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
   app,
   options
 ) => {
-  await app.register(registerHealthRoutes);
+  await app.register(registerHealthRoutes, {
+    diagnostics: options.diagnostics,
+    authBaseURL: options.authBaseURL,
+    authTrustedOrigins: options.authTrustedOrigins
+  });
   await app.register(registerProjectRoutes, {
     projects: options.projects,
     auth: options.auth

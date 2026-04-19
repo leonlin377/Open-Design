@@ -48,7 +48,7 @@ Current estimated product completion for a serious V1: `99.5%`
 | 3 | Design system ingest and grounding | 95% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
 | 5 | Collaboration and handoff | 75% | `[>]` |
-| 6 | Assets, reliability, ops | 80% | `[>]` |
+| 6 | Assets, reliability, ops | 88% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
 ## Current Reality
@@ -76,7 +76,7 @@ What still blocks a true Claude Design benchmark:
 
 - [ ] Asset pipeline backed by MinIO/S3 beyond design-system screenshots
 - [ ] Async export jobs for long-running or asset-backed exports
-- [ ] Asset-backed production validation and operational diagnostics
+- [ ] Asset-backed production validation beyond design-system screenshots
 - [ ] Product polish and onboarding
 
 ## Execution Rules
@@ -366,6 +366,36 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `OPS-002 Add production-grade logging and operational diagnostics`
 
+### OPS-002 Add Production-Grade Logging And Operational Diagnostics
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `ops`, `api`
+- Depends On: `OPS-001`, `OPS-003`
+- Blocks: `COLLAB-005`
+- Why Now:
+  The Docker production stack was already smoke-tested, but the API still lacked a minimal operational surface for request correlation, readiness checks, and runtime diagnostics when failures happen under real containers.
+- Definition Of Done:
+  - [x] Every API response includes a request correlation id, preserving caller-supplied `x-request-id` when present.
+  - [x] Structured validation errors include the correlation id in their payload details.
+  - [x] Readiness and diagnostics endpoints expose persistence mode, asset storage provider, and auth runtime wiring for ops triage.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test -- tests/health.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: added request-id propagation at the Fastify app layer, returned `x-request-id` on every response, and threaded that id into structured validation error details for easier log-to-client correlation.
+  - `2026-04-19`: added `/api/ready` and `/api/diagnostics` with persistence mode, asset-storage provider, auth base URL, and trusted-origin diagnostics; verified through API tests and monorepo typecheck.
+- Expected Artifacts:
+  - `apps/api/src/app.ts`
+  - `apps/api/src/routes/health.ts`
+  - `apps/api/src/lib/api-errors.ts`
+  - `apps/api/src/persistence.ts`
+  - `apps/api/tests/health.test.ts`
+  - `README.md`
+- Next Slice:
+  - `COLLAB-005 Add export job tracking`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -442,7 +472,7 @@ Goal: Make the product stable enough for serious usage.
 - [x] `OPS-001A` Add stale-write/conflict protection for code workspace saves and restores
 - [x] `OPS-001B` Add structured API error model and recovery paths
 - [x] `OPS-001` Add Playwright E2E coverage for core Studio flows
-- [ ] `OPS-002` Add production-grade logging and operational diagnostics
+- [x] `OPS-002` Add production-grade logging and operational diagnostics
 - [x] `OPS-003` Validate full Docker studio stack in real build/run mode
 
 ## Phase 7: Product Polish
@@ -471,12 +501,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
 - [x] Review-ready handoff ZIP bundles for website, prototype, and slides artifacts
 - [x] Design-system screenshot assets persisted through MinIO/S3-aware storage with Studio previews
+- [x] Request correlation ids plus readiness/diagnostics API endpoints
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `OPS-002` Production-grade logging and operational diagnostics
-2. `COLLAB-005` Export job tracking
-3. `POL-002` Improve visual hierarchy and artifact canvas fidelity
-4. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
+1. `COLLAB-005` Export job tracking
+2. `POL-002` Improve visual hierarchy and artifact canvas fidelity
+3. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
+4. `POL-003` Add onboarding and empty-state guidance

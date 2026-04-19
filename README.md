@@ -20,6 +20,8 @@ The full containerized path is the safest default for demos, shared environments
 
 When `DATABASE_URL` is present, the API now boots with Postgres-backed repositories and runs Better Auth plus application table migrations during startup. Without `DATABASE_URL`, it falls back to the in-memory repositories used by the lightweight test/dev path. The web app uses `OPENDESIGN_API_INTERNAL_URL` for server-side fetches and `NEXT_PUBLIC_API_ORIGIN` for browser-side auth calls.
 
+The API now emits an `x-request-id` header on every response, preserves caller-supplied request IDs when present, attaches that correlation ID to structured validation errors, and exposes `/api/ready` plus `/api/diagnostics` for production-style readiness and runtime diagnostics. `/api/ready` reports persistence and asset-storage mode, while `/api/diagnostics` adds request correlation plus auth/runtime wiring details that are useful during Docker smoke validation and ops triage.
+
 MinIO/S3 is now used by the API as the asset backing store when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY` are configured. Site-capture design-system imports persist screenshot bytes into object storage, store asset metadata in the application database when Postgres is enabled, and expose those persisted screenshots back through `/api/design-systems/assets/:assetId` so the Studio can render the captured evidence.
 
 ## Open-Source Stack

@@ -50,12 +50,21 @@ import {
 
 const { Pool } = pg;
 
+function readAuthTrustedOrigins(auth: OpenDesignAuth) {
+  const options = auth.options as {
+    trustedOrigins?: string[];
+  };
+
+  return options.trustedOrigins ?? [];
+}
+
 export type PersistenceMode = "memory" | "postgres";
 
 export interface AppPersistence {
   mode: PersistenceMode;
   auth: OpenDesignAuth;
   authBaseURL: string;
+  authTrustedOrigins: string[];
   projects: ProjectRepository;
   artifacts: ArtifactRepository;
   workspaces: ArtifactWorkspaceRepository;
@@ -304,6 +313,7 @@ export async function createAppPersistence(input: {
       mode: "memory",
       auth,
       authBaseURL: baseURL,
+      authTrustedOrigins: readAuthTrustedOrigins(auth),
       projects: new InMemoryProjectRepository(),
       artifacts: new InMemoryArtifactRepository(),
       workspaces: new InMemoryArtifactWorkspaceRepository(),
@@ -332,6 +342,7 @@ export async function createAppPersistence(input: {
     mode: "postgres",
     auth,
     authBaseURL: baseURL,
+    authTrustedOrigins: readAuthTrustedOrigins(auth),
     projects: new PostgresProjectRepository(pool),
     artifacts: new PostgresArtifactRepository(pool),
     workspaces: new PostgresArtifactWorkspaceRepository(pool),

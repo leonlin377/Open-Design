@@ -15,3 +15,20 @@ export function sendApiError(
 ) {
   return reply.code(statusCode).send(buildApiError(input));
 }
+
+export function appendRequestIdToApiError(
+  input: ApiErrorInput,
+  requestId: string | null | undefined
+): ApiErrorInput {
+  if (!requestId) {
+    return input;
+  }
+
+  return {
+    ...input,
+    details: {
+      ...(input.details ?? {}),
+      requestId
+    }
+  };
+}
