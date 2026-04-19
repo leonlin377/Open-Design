@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { buildArtifactSourceArchive } from "@opendesign/exporters";
-import { getBrowserApiOrigin } from "../../../../../../lib/opendesign-api";
+import { getInternalApiOrigin } from "../../../../../../lib/opendesign-api";
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +13,7 @@ export async function GET(
 ) {
   const { projectId, artifactId } = await context.params;
   const response = await fetch(
-    `${getBrowserApiOrigin()}/api/projects/${projectId}/artifacts/${artifactId}/exports/source-bundle`,
+    `${getInternalApiOrigin()}/api/projects/${projectId}/artifacts/${artifactId}/exports/source-bundle`,
     {
       headers: {
         cookie: request.headers.get("cookie") ?? ""

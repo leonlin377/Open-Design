@@ -8,6 +8,7 @@
     "build": "turbo build",
     "test": "turbo test",
     "e2e": "playwright test",
+    "e2e:docker": "playwright test -c playwright.docker.config.ts apps/web/e2e/studio-docker.smoke.spec.ts",
     "typecheck": "turbo typecheck",
     "docker:infra": "docker compose up -d postgres redis minio",
     "docker:gateway": "docker compose --profile gateway up -d litellm",

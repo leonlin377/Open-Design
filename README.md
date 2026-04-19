@@ -48,7 +48,9 @@ Useful backend command:
 
 - `pnpm --filter @opendesign/api db:migrate`
 
-Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.env`. `BETTER_AUTH_URL` and `WEB_BASE_URL` should stay browser-reachable values such as `http://127.0.0.1:4000` and `http://127.0.0.1:3000`.
+Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.env`. Compose now derives the browser-facing auth/app URLs from `OPENDESIGN_PUBLIC_HOST`, `API_PORT`, and `WEB_PORT`, so those values should match the host and published ports you expect the browser to use.
+
+If the host already uses common local ports, override `WEB_PORT`, `API_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, `MINIO_API_PORT`, and `MINIO_CONSOLE_PORT` in `.env` before starting Compose. If the browser reaches Docker on something other than `127.0.0.1`, also set `OPENDESIGN_PUBLIC_HOST` before you build the `web` image so the baked `NEXT_PUBLIC_API_ORIGIN` matches the published API origin. When you override MinIO's host port, also update the host-facing `S3_ENDPOINT` in `.env` to match.
 
 Site-capture imports now prefer a Playwright-driven browser capture path. In containers, `chromium` is installed and `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set automatically. On the host, you can set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` explicitly if your browser binary is not auto-discovered. Set `PLAYWRIGHT_SITE_CAPTURE_DISABLED=1` to force the older fetch-based capture path during debugging or deterministic test runs.
 

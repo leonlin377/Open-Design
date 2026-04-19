@@ -79,7 +79,7 @@ export function getBrowserApiOrigin() {
   return process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:4000";
 }
 
-function getInternalApiOrigin() {
+export function getInternalApiOrigin() {
   return process.env.OPENDESIGN_API_INTERNAL_URL ?? getBrowserApiOrigin();
 }
 

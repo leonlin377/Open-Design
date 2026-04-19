@@ -1,7 +1,7 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `9b2ea8e`
+Repo baseline: `38bd9fd`
 
 ## Why This Exists
 
@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `96%`
+Current estimated product completion for a serious V1: `97%`
 
 ```text
-[###################-] 96%
+[###################-] 97%
 ```
 
 ## Phase Scoreboard
@@ -48,7 +48,7 @@ Current estimated product completion for a serious V1: `96%`
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
 | 5 | Collaboration and handoff | 40% | `[>]` |
-| 6 | Assets, reliability, ops | 55% | `[>]` |
+| 6 | Assets, reliability, ops | 70% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
 ## Current Reality
@@ -76,7 +76,7 @@ What still blocks a true Claude Design benchmark:
 - [ ] Element-aware collaboration anchors and richer shared review flows
 - [ ] Asset pipeline backed by MinIO/S3
 - [ ] Handoff export bundles and async export jobs
-- [ ] Production-grade operational validation
+- [ ] Asset-backed production validation and operational diagnostics
 - [ ] Product polish and onboarding
 
 ## Execution Rules
@@ -141,6 +141,37 @@ These are the tasks that should be worked continuously next.
   - `README.md`
 - Next Slice:
   - `OPS-003 Validate full Docker studio stack in real build/run mode`
+
+### OPS-003 Validate Full Docker Studio Stack In Real Build/Run Mode
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `ops`, `docker`, `e2e`
+- Depends On: `OPS-001`
+- Blocks: `POL-004`
+- Why Now:
+  The dev-style E2E path was already covered, but the production-profile stack still needed a repeatable build/run smoke against real containers, host port overrides, and persisted auth/data.
+- Definition Of Done:
+  - [x] `docker compose --profile studio build api web` succeeds against the checked-in Dockerfiles.
+  - [x] The production-profile stack starts on overrideable host ports instead of hard-coding common local `3000/4000/5432/6379/9000/9001`.
+  - [x] A repeatable Playwright smoke runs against the live containers and verifies session/project/artifact persistence across `api/web` restarts.
+- Validation Commands:
+  - `docker compose --profile studio build api web`
+  - `docker compose -p opendesign-ops003 --profile studio up -d`
+  - `pnpm e2e:docker`
+- Validation Evidence:
+  - `2026-04-19`: rebuilt `api/web` against the checked-in Dockerfiles with host overrides `WEB_PORT=3100`, `API_PORT=4100`, `POSTGRES_PORT=15432`, `REDIS_PORT=16379`, `MINIO_API_PORT=19000`, and `MINIO_CONSOLE_PORT=19001`.
+  - `2026-04-19`: `pnpm e2e:docker` passed against the live `opendesign-ops003` production-profile stack, including Better Auth session recovery, project/artifact persistence, snapshot visibility, export downloads, and an in-test `docker compose restart api web`.
+- Expected Artifacts:
+  - `Dockerfile.api`
+  - `Dockerfile.web`
+  - `docker-compose.yml`
+  - `.env.example`
+  - `playwright.docker.config.ts`
+  - `apps/web/e2e/studio-docker.smoke.spec.ts`
+  - `README.md`
+- Next Slice:
+  - `COLLAB-004 Build handoff export bundle`
 
 ### TYPE-001 Implement Prototype-Specific Scene Nodes And Preview Behavior
 

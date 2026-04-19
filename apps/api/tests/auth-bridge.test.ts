@@ -66,6 +66,18 @@ describe("sendAuthResponse", () => {
 });
 
 describe("getAuthRuntimeConfig", () => {
+  test("includes the configured web origin in trusted origins", () => {
+    expect(
+      getAuthRuntimeConfig({
+        API_PORT: "4100",
+        WEB_BASE_URL: "http://127.0.0.1:3100"
+      })
+    ).toMatchObject({
+      baseURL: "http://127.0.0.1:4100",
+      trustedOrigins: ["http://127.0.0.1:3100"]
+    });
+  });
+
   test("throws without a secret in production", () => {
     expect(() =>
       getAuthRuntimeConfig({

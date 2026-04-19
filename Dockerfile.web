@@ -12,16 +12,22 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/exporters/package.json packages/exporters/package.json
 COPY packages/ui/package.json packages/ui/package.json
 
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 
+ARG NEXT_PUBLIC_API_ORIGIN=http://127.0.0.1:4000
+ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
+
 COPY apps/web apps/web
 COPY packages/contracts packages/contracts
+COPY packages/exporters packages/exporters
 COPY packages/ui packages/ui
 
+RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter @opendesign/web build
 
 FROM base AS runtime
@@ -36,6 +42,7 @@ COPY --from=deps /workspace/package.json ./package.json
 COPY --from=deps /workspace/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /workspace/apps/web ./apps/web
 COPY --from=build /workspace/packages/contracts ./packages/contracts
+COPY --from=build /workspace/packages/exporters ./packages/exporters
 COPY --from=build /workspace/packages/ui ./packages/ui
 
 EXPOSE 3000

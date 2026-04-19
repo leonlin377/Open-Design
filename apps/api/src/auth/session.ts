@@ -8,13 +8,28 @@ const DEVELOPMENT_SECRET = "opendesign-local-development-secret";
 type RuntimeEnv = NodeJS.ProcessEnv;
 type AuthDatabase = object | undefined;
 
+function normalizeOrigin(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 export function getAuthRuntimeConfig(env: RuntimeEnv = process.env) {
   const port = env.API_PORT ?? env.PORT ?? "4000";
   const baseURL = env.BETTER_AUTH_URL ?? `http://127.0.0.1:${port}`;
   const secret = env.BETTER_AUTH_SECRET;
+  const trustedOrigins = [normalizeOrigin(env.WEB_BASE_URL)].filter(
+    (origin): origin is string => Boolean(origin)
+  );
 
   if (secret) {
-    return { baseURL, secret };
+    return { baseURL, secret, trustedOrigins };
   }
 
   if (env.NODE_ENV === "production") {
@@ -23,7 +38,8 @@ export function getAuthRuntimeConfig(env: RuntimeEnv = process.env) {
 
   return {
     baseURL,
-    secret: DEVELOPMENT_SECRET
+    secret: DEVELOPMENT_SECRET,
+    trustedOrigins
   };
 }
 
@@ -104,10 +120,11 @@ function normalizeRequestBody(request: FastifyRequest): string | ArrayBuffer | u
 }
 
 export function createAuth(options: CreateAuthOptions = {}) {
-  const { baseURL, secret } = getAuthRuntimeConfig(options.env);
+  const { baseURL, secret, trustedOrigins } = getAuthRuntimeConfig(options.env);
   const auth = betterAuth({
     baseURL,
     secret,
+    ...(trustedOrigins.length > 0 ? { trustedOrigins } : {}),
     ...(options.database ? { database: options.database } : {}),
     emailAndPassword: {
       enabled: true
