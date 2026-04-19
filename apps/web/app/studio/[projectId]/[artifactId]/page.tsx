@@ -119,6 +119,32 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
   const editorAffordance = getArtifactEditorAffordance(artifactKind);
+  const canvasLead =
+    typeof rootNode?.props.headline === "string"
+      ? rootNode.props.headline
+      : typeof rootNode?.props.title === "string"
+        ? rootNode.props.title
+        : `${artifact.name} is ready for the next review pass.`;
+  const canvasBody =
+    typeof rootNode?.props.body === "string" ? rootNode.props.body : workspace.intent;
+  const canvasMetricValues =
+    artifactKind === "prototype"
+      ? [
+          `${sceneNodes.length} ${sceneNodes.length === 1 ? "screen" : "screens"}`,
+          rootNode?.name ?? "Start screen",
+          workspace.syncPlan.targetMode
+        ]
+      : artifactKind === "slides"
+        ? [
+            `${sceneNodes.length} ${sceneNodes.length === 1 ? "slide" : "slides"}`,
+            rootNode?.name ?? "Title slide",
+            workspace.syncPlan.targetMode
+          ]
+        : [
+            `${sceneNodes.length} ${sceneNodes.length === 1 ? "section" : "sections"}`,
+            workspace.codeWorkspace ? "Saved code workspace" : "Scene scaffold",
+            workspace.syncPlan.targetMode
+          ];
   const generatedSourceBundle = buildArtifactSourceBundle({
     artifactKind,
     artifactName: artifact.name,
@@ -239,24 +265,75 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
         </aside>
 
         <section className="canvas-panel">
-          <div className="hero-actions">
-            <Badge tone="outline">{editorAffordance.canvasTitle}</Badge>
-            <Badge>{artifactLabel}</Badge>
-          </div>
-          <div className="canvas-stage" id="artifact-canvas">
+          <div className="canvas-panel-head">
             <div>
-              <h3>{editorAffordance.canvasTitle}</h3>
-              <p>
-                {editorAffordance.canvasDescription} {frameLabel} · Scene v
-                {workspace.sceneDocument.version} ·{" "}
-                {workspace.sceneDocument.nodes.length} root{" "}
-                {artifactKind === "prototype"
-                  ? "screen"
-                  : artifactKind === "slides"
-                    ? "slide"
-                    : "node"}
-                {workspace.sceneDocument.nodes.length === 1 ? "" : "s"}
+              <div className="hero-actions">
+                <Badge tone="outline">{editorAffordance.canvasTitle}</Badge>
+                <Badge>{artifactLabel}</Badge>
+                <Badge tone={activeCommentCount > 0 ? "outline" : "accent"}>
+                  {activeCommentCount} open comments
+                </Badge>
+              </div>
+              <h3 className="canvas-panel-title">{artifact.name}</h3>
+              <p className="canvas-panel-copy">
+                {editorAffordance.canvasDescription} {editorAffordance.canvasFrameTone}.
               </p>
+            </div>
+            <div className="canvas-panel-meta">
+              <span>Scene v{workspace.sceneDocument.version}</span>
+              <span>{workspace.syncPlan.mode} sync</span>
+              <span>{versions.length} snapshots</span>
+            </div>
+          </div>
+          <div
+            className={`canvas-stage ${artifactKind}-canvas-stage`}
+            id="artifact-canvas"
+          >
+            <div className="canvas-stage-shell">
+              <div className="canvas-stage-topline">
+                <span>{editorAffordance.canvasEyebrow}</span>
+                <strong>{frameLabel}</strong>
+              </div>
+              <div className="canvas-stage-frame">
+                <div className="canvas-stage-frame-head">
+                  <span>{artifactLabel}</span>
+                  <span>{workspace.sceneDocument.metadata.themeId ?? "Default theme"}</span>
+                </div>
+                <div className="canvas-stage-feature">
+                  <p className="canvas-stage-lead">
+                    {canvasLead}
+                  </p>
+                  <p className="canvas-stage-body">
+                    {canvasBody}
+                  </p>
+                </div>
+                <div className="canvas-stage-grid">
+                  {editorAffordance.canvasMetricLabels.map((label, index) => (
+                    <Surface key={label} className="kv">
+                      <span>{label}</span>
+                      {canvasMetricValues[index]}
+                    </Surface>
+                  ))}
+                </div>
+                {sceneNodes.length > 0 ? (
+                  <div className="canvas-stage-sequence">
+                    {sceneNodes.map((node, index) => (
+                      <div key={node.id} className="canvas-stage-sequence-card">
+                        <span>{index + 1}</span>
+                        <strong>{node.name}</strong>
+                        <p>
+                          {String(node.props.headline ?? node.props.title ?? node.type)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="canvas-stage-empty">
+                    No scene nodes yet. Add the first {editorAffordance.unitLabel} to start
+                    shaping this artifact.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <StudioSceneSectionsPanel

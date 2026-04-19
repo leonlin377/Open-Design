@@ -4,6 +4,9 @@ import type { ApiArtifact } from "../lib/opendesign-api";
 type ArtifactEditorAffordance = {
   canvasTitle: string;
   canvasDescription: string;
+  canvasEyebrow: string;
+  canvasFrameTone: string;
+  canvasMetricLabels: [string, string, string];
   panelTitle: string;
   panelDescription: string;
   unitLabel: string;
@@ -28,6 +31,9 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
   website: {
     canvasTitle: "Website Canvas",
     canvasDescription: "Shape landing-page hierarchy, section pacing, and CTA sequencing.",
+    canvasEyebrow: "Live artifact surface",
+    canvasFrameTone: "Launch-ready website rhythm",
+    canvasMetricLabels: ["Sections", "Preview basis", "Primary lane"],
     panelTitle: "Scene Sections",
     panelDescription:
       "Append a root section template to the website scene, then refine copy and CTA labels.",
@@ -59,6 +65,9 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
   prototype: {
     canvasTitle: "Prototype Flow",
     canvasDescription: "Shape state-to-state flow, screen hierarchy, and interaction prompts.",
+    canvasEyebrow: "Interactive flow surface",
+    canvasFrameTone: "Stateful screen-to-screen motion",
+    canvasMetricLabels: ["Screens", "Start state", "Transition lane"],
     panelTitle: "Prototype Screens",
     panelDescription:
       "Append a root screen template to the flow, then refine screen copy and action labels.",
@@ -90,6 +99,9 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
   slides: {
     canvasTitle: "Slides Deck",
     canvasDescription: "Shape deck pacing, slide framing, and closing narrative beats.",
+    canvasEyebrow: "Narrative deck surface",
+    canvasFrameTone: "Presentation pacing and sequencing",
+    canvasMetricLabels: ["Slides", "Current beat", "Deck mode"],
     panelTitle: "Slides Deck",
     panelDescription:
       "Append a root slide template to the deck, then refine framing copy and CTA messaging.",

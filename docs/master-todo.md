@@ -33,7 +33,7 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `99.5%`
+Current estimated product completion for a serious V1: `99.7%`
 
 ```text
 [###################-] 97%
@@ -49,7 +49,7 @@ Current estimated product completion for a serious V1: `99.5%`
 | 4 | Prototype and slides | 90% | `[x]` |
 | 5 | Collaboration and handoff | 90% | `[>]` |
 | 6 | Assets, reliability, ops | 88% | `[>]` |
-| 7 | Product polish | 25% | `[>]` |
+| 7 | Product polish | 40% | `[>]` |
 
 ## Current Reality
 
@@ -428,6 +428,31 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `POL-002 Improve visual hierarchy and artifact canvas fidelity`
 
+### POL-002 Improve Visual Hierarchy And Artifact Canvas Fidelity
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `web`
+- Depends On: `TYPE-005`, `COLLAB-003`
+- Blocks: `POL-003`
+- Why Now:
+  Studio central canvas was still acting like a placeholder explainer while the live preview stayed buried in the inspector, which kept the product feeling like an internal shell instead of a primary design workspace.
+- Definition Of Done:
+  - [x] Studio central panel becomes an artifact-aware canvas with stronger hierarchy and live workspace context.
+  - [x] Website/prototype/slides canvases each present distinct framing and sequence cues.
+  - [x] The `artifact-canvas` DOM anchor remains stable so comment anchoring still targets the same surface.
+- Validation Commands:
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: replaced the central placeholder canvas with a richer artifact-aware stage that surfaces frame headline/body, scene metrics, sequence cards, and artifact-specific framing while preserving the `artifact-canvas` id.
+  - `2026-04-19`: updated Studio canvas affordance metadata and responsive CSS so website/prototype/slides get distinct visual treatment without collapsing the existing inspector and scene-edit flows.
+- Expected Artifacts:
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+  - `apps/web/components/studio-artifact-affordances.ts`
+  - `apps/web/app/globals.css`
+- Next Slice:
+  - `ASSET-001 Artifact-level asset uploads beyond design-system screenshots`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -512,7 +537,7 @@ Goal: Make the product stable enough for serious usage.
 Goal: Close the gap between a functional system and a high-quality product.
 
 - [x] `POL-001` Replace section-form sprawl in Studio page with reusable editor modules
-- [ ] `POL-002` Improve visual hierarchy and artifact canvas fidelity
+- [x] `POL-002` Improve visual hierarchy and artifact canvas fidelity
 - [ ] `POL-003` Add onboarding and empty-state guidance
 - [ ] `POL-004` Tighten README and developer docs
 
@@ -535,12 +560,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Design-system screenshot assets persisted through MinIO/S3-aware storage with Studio previews
 - [x] Request correlation ids plus readiness/diagnostics API endpoints
 - [x] Export job tracking across current sync export routes
+- [x] Artifact-aware Studio canvas with stronger visual hierarchy
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `POL-002` Improve visual hierarchy and artifact canvas fidelity
-2. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
-3. `POL-003` Add onboarding and empty-state guidance
-4. `POL-004` Tighten README and developer docs
+1. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
+2. `POL-003` Add onboarding and empty-state guidance
+3. `POL-004` Tighten README and developer docs
+4. `GEN-001` Add generation route for prompt-driven artifact creation

@@ -270,33 +270,196 @@ main {
   gap: 16px;
 }
 
+.canvas-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.canvas-panel-title {
+  margin: 10px 0 6px;
+  font-size: clamp(1.4rem, 1rem + 1vw, 2.1rem);
+  letter-spacing: -0.03em;
+}
+
+.canvas-panel-copy {
+  margin: 0;
+  color: var(--muted);
+  max-width: 720px;
+  line-height: 1.6;
+}
+
+.canvas-panel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.canvas-panel-meta span {
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(10, 12, 16, 0.45);
+}
+
 .canvas-stage {
   border-radius: var(--radius-lg);
-  border: 1px dashed var(--stroke-strong);
-  background: linear-gradient(135deg, rgba(22, 27, 38, 0.8), rgba(10, 12, 16, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(circle at top left, rgba(214, 255, 95, 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(22, 27, 38, 0.96), rgba(10, 12, 16, 0.96));
   min-height: 420px;
-  display: grid;
-  place-items: center;
   position: relative;
   overflow: hidden;
+  padding: 24px;
 }
 
 .canvas-stage::after {
   content: "";
   position: absolute;
-  inset: 24px;
-  border: 1px solid rgba(214, 255, 95, 0.2);
+  inset: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
+  pointer-events: none;
 }
 
-.canvas-stage h3 {
-  margin: 0;
-  font-size: 1.4rem;
+.canvas-stage-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+  height: 100%;
 }
 
-.canvas-stage p {
-  margin: 6px 0 0;
+.canvas-stage-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.canvas-stage-topline strong {
+  color: var(--accent);
+  font-size: 0.84rem;
+}
+
+.canvas-stage-frame {
+  display: grid;
+  gap: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 9, 13, 0.72);
+  padding: 22px;
+  min-height: 100%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.canvas-stage-frame-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.canvas-stage-feature {
+  display: grid;
+  gap: 10px;
+}
+
+.canvas-stage-lead {
+  margin: 0;
+  font-size: clamp(1.7rem, 1.1rem + 1.4vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.canvas-stage-body {
+  margin: 0;
+  color: var(--muted);
+  max-width: 58ch;
+  line-height: 1.65;
+}
+
+.canvas-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.canvas-stage-sequence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.canvas-stage-sequence-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke);
+  background: rgba(18, 21, 29, 0.86);
+}
+
+.canvas-stage-sequence-card span {
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.canvas-stage-sequence-card strong {
+  font-size: 1rem;
+}
+
+.canvas-stage-sequence-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.canvas-stage-empty {
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: var(--muted);
+  padding: 18px;
+}
+
+.website-canvas-stage .canvas-stage-frame {
+  background:
+    linear-gradient(180deg, rgba(12, 16, 24, 0.92), rgba(7, 9, 13, 0.9)),
+    radial-gradient(circle at top right, rgba(214, 255, 95, 0.12), transparent 34%);
+}
+
+.prototype-canvas-stage .canvas-stage-frame {
+  background:
+    linear-gradient(180deg, rgba(12, 16, 24, 0.92), rgba(7, 9, 13, 0.9)),
+    radial-gradient(circle at top center, rgba(96, 209, 255, 0.14), transparent 34%);
+}
+
+.prototype-canvas-stage .canvas-stage-sequence-card {
+  background: linear-gradient(180deg, rgba(14, 24, 36, 0.86), rgba(9, 13, 18, 0.9));
+}
+
+.slides-canvas-stage .canvas-stage-frame {
+  background:
+    linear-gradient(180deg, rgba(18, 16, 24, 0.92), rgba(7, 9, 13, 0.9)),
+    radial-gradient(circle at top left, rgba(255, 214, 120, 0.12), transparent 34%);
+}
+
+.slides-canvas-stage .canvas-stage-sequence-card {
+  background: linear-gradient(180deg, rgba(27, 21, 30, 0.86), rgba(12, 10, 16, 0.9));
 }
 
 .inspector {
@@ -651,6 +814,10 @@ main {
   .inspector {
     min-height: auto;
   }
+
+  .canvas-stage-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -661,5 +828,21 @@ main {
   .studio-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .canvas-panel-head {
+    flex-direction: column;
+  }
+
+  .canvas-panel-meta {
+    justify-content: flex-start;
+  }
+
+  .canvas-stage {
+    padding: 18px;
+  }
+
+  .canvas-stage-frame {
+    padding: 18px;
   }
 }
