@@ -172,6 +172,12 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             </Button>
           </form>
           <Link
+            href={`/studio/${project.id}/${artifact.id}/export/handoff-bundle`}
+            className="button-link ghost"
+          >
+            Export Handoff
+          </Link>
+          <Link
             href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
             className="button-link ghost"
           >

@@ -21,11 +21,18 @@ export function StudioExportPanel({
         <div>
           <h3>Export Surface</h3>
           <p className="footer-note">
-            Download a runnable source scaffold or a standalone HTML render. ZIP follows
-            the saved code workspace when present; HTML stays scene-based.
+            Download a handoff bundle, runnable source scaffold, or standalone HTML
+            render. ZIP follows the saved code workspace when present; HTML stays
+            scene-based.
           </p>
         </div>
         <div className="artifact-action-grid">
+          <Link
+            href={`/studio/${projectId}/${artifactId}/export/handoff-bundle`}
+            className="button-link ghost"
+          >
+            Download Handoff ZIP
+          </Link>
           <Link
             href={`/studio/${projectId}/${artifactId}/export/source-bundle`}
             className="button-link ghost"
@@ -60,7 +67,8 @@ export function StudioExportPanel({
         <div>
           <h3>Bundle Manifest</h3>
           <p className="footer-note">
-            Current scaffold is generated directly from the live scene document.
+            Handoff ZIP packages workspace metadata, comments, versions, and exports;
+            the source scaffold below is generated directly from the current workspace.
           </p>
         </div>
         <div className="stack-form">

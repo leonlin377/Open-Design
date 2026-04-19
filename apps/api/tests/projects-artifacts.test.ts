@@ -1000,6 +1000,32 @@ describe("Projects and artifacts", () => {
         ]
       });
 
+      const handoffExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/handoff-bundle`
+      });
+
+      expect(handoffExportResponse.statusCode).toBe(200);
+      expect(handoffExportResponse.json()).toMatchObject({
+        filenameBase: "prototype-artifact",
+        manifest: {
+          artifact: {
+            kind: "prototype"
+          },
+          exports: {
+            structured: {
+              path: "/exports/prototype-flow.json",
+              kind: "prototype-flow"
+            }
+          }
+        },
+        files: {
+          "/exports/prototype-flow.json": expect.stringContaining(
+            `"startScreenId": "${appendHeroResponse.json().appendedNode.id}"`
+          )
+        }
+      });
+
       const driftResponse = await app.inject({
         method: "GET",
         url: `/api/projects/${project.id}/artifacts/${artifact.id}/versions/${version.id}/diff`
@@ -2010,6 +2036,40 @@ describe("Projects and artifacts", () => {
         "Code Workspace Artifact is ready for the first scene section."
       );
       expect(htmlExportResponse.body).not.toContain("Saved scaffold");
+
+      const handoffExportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/handoff-bundle`
+      });
+
+      expect(handoffExportResponse.statusCode).toBe(200);
+      expect(handoffExportResponse.json()).toMatchObject({
+        filenameBase: "code-workspace-artifact",
+        manifest: {
+          artifact: {
+            kind: "website"
+          },
+          workspace: {
+            hasCodeWorkspace: true,
+            codeFileCount: 5
+          },
+          exports: {
+            html: {
+              path: "/exports/code-workspace-artifact.html"
+            },
+            source: {
+              rootPath: "/exports/source",
+              fileCount: 5
+            },
+            structured: null
+          }
+        },
+        files: {
+          "/exports/source/App.tsx":
+            "export default function App() { return <main>Saved scaffold</main>; }",
+          "/workspace.json": expect.stringContaining('"fileCount": 5')
+        }
+      });
     } finally {
       await app.close();
     }

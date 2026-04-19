@@ -1,7 +1,7 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `38bd9fd`
+Repo baseline: `755cf99`
 
 ## Why This Exists
 
@@ -33,7 +33,7 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `97%`
+Current estimated product completion for a serious V1: `98%`
 
 ```text
 [###################-] 97%
@@ -47,7 +47,7 @@ Current estimated product completion for a serious V1: `97%`
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
-| 5 | Collaboration and handoff | 40% | `[>]` |
+| 5 | Collaboration and handoff | 60% | `[>]` |
 | 6 | Assets, reliability, ops | 70% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
@@ -64,7 +64,7 @@ What is already working:
 - [x] Sandpack-backed preview and code panel
 - [x] Saved code workspace persistence
 - [x] Snapshot creation and version restore for scene + saved code workspace
-- [x] HTML export and runnable ZIP source export
+- [x] HTML export, runnable ZIP source export, and handoff ZIP bundle export
 - [x] GitHub, local-directory, and Playwright-first site-capture design-system import
 - [x] Design-system selection and generation grounding for artifacts
 - [x] Prototype screen flows with navigable preview and coherent scene-based exports
@@ -75,7 +75,7 @@ What still blocks a true Claude Design benchmark:
 
 - [ ] Element-aware collaboration anchors and richer shared review flows
 - [ ] Asset pipeline backed by MinIO/S3
-- [ ] Handoff export bundles and async export jobs
+- [ ] Async export jobs for long-running or asset-backed exports
 - [ ] Asset-backed production validation and operational diagnostics
 - [ ] Product polish and onboarding
 
@@ -123,7 +123,7 @@ These are the tasks that should be worked continuously next.
 - Priority: `P1`
 - Owner Lane: `e2e`, `web`, `api`
 - Depends On: `DS-004`, `DS-005`, `SYNC-003`
-- Blocks: `OPS-003`, `POL-002`
+- Blocks: `POL-002`
 - Why Now:
   Core behavior is already broad enough that manual verification is becoming the bottleneck.
 - Definition Of Done:
@@ -171,7 +171,7 @@ These are the tasks that should be worked continuously next.
   - `apps/web/e2e/studio-docker.smoke.spec.ts`
   - `README.md`
 - Next Slice:
-  - `COLLAB-004 Build handoff export bundle`
+  - `ASSET-001 Add asset upload/storage pipeline backed by MinIO/S3`
 
 ### TYPE-001 Implement Prototype-Specific Scene Nodes And Preview Behavior
 
@@ -179,7 +179,7 @@ These are the tasks that should be worked continuously next.
 - Priority: `P1`
 - Owner Lane: `shared`, `web`, `api`
 - Depends On: `DS-005`, `SYNC-003`
-- Blocks: `TYPE-003`, `COLLAB-004`
+- Blocks: `TYPE-003`
 - Why Now:
   Website-only is the biggest remaining product-surface gap.
 - Definition Of Done:
@@ -227,7 +227,7 @@ These are the tasks that should be worked continuously next.
 - Priority: `P1`
 - Owner Lane: `shared`, `api`, `web`
 - Depends On: `TYPE-001`
-- Blocks: `COLLAB-004`
+- Blocks: None
 - Why Now:
   Prototype preview already behaves like a flow, but the export surface still needed a stable artifact-specific payload for downstream review and tooling.
 - Definition Of Done:
@@ -252,7 +252,7 @@ These are the tasks that should be worked continuously next.
 - Priority: `P1`
 - Owner Lane: `shared`, `api`, `web`
 - Depends On: `TYPE-002`
-- Blocks: `COLLAB-004`
+- Blocks: None
 - Why Now:
   Slides preview already behaves like a deck, but the export surface still needed a stable deck-specific payload instead of only generic HTML/ZIP.
 - Definition Of Done:
@@ -271,14 +271,42 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `COLLAB-001 Add share tokens for artifact/project review`
 
+### COLLAB-004 Build Handoff Export Bundle
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `shared`, `api`, `web`
+- Depends On: `TYPE-001`, `TYPE-002`
+- Blocks: `COLLAB-005`
+- Why Now:
+  Share links and comments were already in place, but external handoff still required manually stitching together workspace state, export files, and review context.
+- Definition Of Done:
+  - [x] Every artifact exposes a single handoff bundle that packages workspace metadata, versions, comments, and current export payloads.
+  - [x] The handoff bundle follows the saved code workspace when present and includes artifact-specific structured exports for prototype/slides.
+  - [x] Studio exposes the handoff download path and exporter/API tests cover the payload.
+- Validation Commands:
+  - `pnpm --filter @opendesign/exporters test -- tests/exporters.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: added `buildArtifactHandoffBundle` and `buildArtifactHandoffArchive` so each artifact can export a review-ready ZIP containing `manifest.json`, workspace metadata, comments, versions, HTML export, source scaffold, and prototype/slides structured payloads where applicable.
+  - `2026-04-19`: added `/api/projects/:projectId/artifacts/:artifactId/exports/handoff-bundle` plus the Studio download route/button, and verified website saved-code handoff plus prototype structured handoff through exporter tests, API integration tests, and monorepo typecheck.
+- Expected Artifacts:
+  - `packages/exporters/src/index.ts`
+  - `packages/exporters/tests/exporters.test.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/api/tests/projects-artifacts.test.ts`
+  - `apps/web/components/studio-export-panel.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/export/handoff-bundle/route.ts`
+- Next Slice:
+  - `ASSET-001 Add asset upload/storage pipeline backed by MinIO/S3`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
 
-- `[!] COLLAB-004 Build handoff export bundle`
-  Blocked by: `TYPE-001`, `TYPE-002`, `ASSET-001`
-- `[!] OPS-003 Validate full Docker studio stack in real build/run mode`
-  Blocked by: `ASSET-001`
+- None currently. Continue with the top unblocked queue item.
 
 ## Remaining Master Task List
 
@@ -339,7 +367,7 @@ Goal: Make the system usable by more than one person and suitable for review.
 - [x] `COLLAB-001` Add share tokens for artifact/project review
 - [x] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
 - [ ] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
-- [ ] `COLLAB-004` Build handoff export bundle
+- [x] `COLLAB-004` Build handoff export bundle
 - [ ] `COLLAB-005` Add export job tracking
 
 ## Phase 6: Assets, Reliability, And Ops
@@ -351,7 +379,7 @@ Goal: Make the product stable enough for serious usage.
 - [x] `OPS-001B` Add structured API error model and recovery paths
 - [x] `OPS-001` Add Playwright E2E coverage for core Studio flows
 - [ ] `OPS-002` Add production-grade logging and operational diagnostics
-- [ ] `OPS-003` Validate full Docker studio stack in real build/run mode
+- [x] `OPS-003` Validate full Docker studio stack in real build/run mode
 
 ## Phase 7: Product Polish
 
@@ -376,12 +404,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Project and artifact share tokens with public read-only review pages
 - [x] Role-based shared review links with viewer/commenter/editor permissions
 - [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
+- [x] Review-ready handoff ZIP bundles for website, prototype, and slides artifacts
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `OPS-003` Validate full Docker studio stack in real build/run mode
-2. `COLLAB-004` Handoff export bundle
-3. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3
-4. `COLLAB-003` Element-aware comment anchors
+1. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3
+2. `COLLAB-003` Element-aware comment anchors
+3. `OPS-002` Production-grade logging and operational diagnostics
+4. `COLLAB-005` Export job tracking

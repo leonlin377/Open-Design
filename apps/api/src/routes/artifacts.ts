@@ -23,6 +23,7 @@ import {
   syncSceneToCodeWorkspace
 } from "@opendesign/code-sync";
 import {
+  buildArtifactHandoffBundle,
   buildArtifactHtmlExport,
   buildArtifactSourceBundle,
   buildPrototypeFlowExport,
@@ -1027,6 +1028,46 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
               files: workspace.codeWorkspace.files
             }
           : generatedBundle;
+
+        return reply.send(bundle);
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/exports/handoff-bundle",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+        const bundle = buildArtifactHandoffBundle({
+          project,
+          artifact,
+          workspace: buildWorkspacePayload({
+            artifactKind: artifact.kind,
+            workspace,
+            versions,
+            comments
+          }),
+          versions,
+          comments
+        });
 
         return reply.send(bundle);
       }

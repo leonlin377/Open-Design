@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import { strFromU8, unzipSync } from "fflate";
 import {
   buildArtifactHtmlExport,
+  buildArtifactHandoffArchive,
+  buildArtifactHandoffBundle,
   buildPrototypeFlowExport,
   buildSlidesDeckExport,
   buildArtifactSourceArchive,
@@ -364,6 +366,231 @@ describe("buildArtifactSourceArchive", () => {
     expect(strFromU8(unzipped["atlas-website/App.tsx"]!)).toContain(
       "Atlas Website is ready for the first scene section."
     );
+  });
+});
+
+describe("buildArtifactHandoffBundle", () => {
+  test("packages workspace metadata, review context, and saved source files", () => {
+    const bundle = buildArtifactHandoffBundle({
+      project: {
+        id: "project_1",
+        name: "Atlas Project",
+        ownerUserId: null,
+        createdAt: "2026-04-19T09:00:00.000Z",
+        updatedAt: "2026-04-19T11:00:00.000Z"
+      },
+      artifact: {
+        id: "artifact_1",
+        projectId: "project_1",
+        name: "Atlas Website",
+        kind: "website",
+        createdAt: "2026-04-19T09:10:00.000Z",
+        updatedAt: "2026-04-19T11:05:00.000Z"
+      },
+      workspace: {
+        artifactId: "artifact_1",
+        intent: "Prepare a review-ready launch page.",
+        activeVersionId: "version_2",
+        sceneDocument: {
+          id: "scene_handoff",
+          artifactId: "artifact_1",
+          kind: "website",
+          version: 3,
+          nodes: [
+            {
+              id: "hero_1",
+              type: "section",
+              name: "Hero Section",
+              props: {
+                template: "hero",
+                headline: "Atlas review handoff."
+              },
+              children: []
+            }
+          ],
+          metadata: {}
+        },
+        codeWorkspace: {
+          files: {
+            "/App.tsx": "export default function App() { return <main>Saved handoff code</main>; }"
+          },
+          baseSceneVersion: 3,
+          updatedAt: "2026-04-19T11:06:00.000Z"
+        },
+        syncPlan: {
+          mode: "constrained",
+          reason: "Scene remains the source of truth.",
+          sourceMode: "scene",
+          targetMode: "code-supported",
+          changeScope: "document"
+        },
+        versionCount: 2,
+        openCommentCount: 1,
+        updatedAt: "2026-04-19T11:06:00.000Z"
+      },
+      versions: [
+        {
+          id: "version_2",
+          artifactId: "artifact_1",
+          label: "Review 2",
+          summary: "Latest handoff checkpoint",
+          source: "manual",
+          sceneVersion: 3,
+          hasCodeWorkspaceSnapshot: true,
+          createdAt: "2026-04-19T11:06:00.000Z"
+        },
+        {
+          id: "version_1",
+          artifactId: "artifact_1",
+          label: "Seed",
+          summary: "Initial seed",
+          source: "seed",
+          sceneVersion: 1,
+          hasCodeWorkspaceSnapshot: false,
+          createdAt: "2026-04-19T09:10:00.000Z"
+        }
+      ],
+      comments: [
+        {
+          id: "comment_1",
+          artifactId: "artifact_1",
+          body: "Tighten the hero copy.",
+          status: "open",
+          anchor: {
+            selectionPath: ["root", "hero_1"]
+          },
+          createdAt: "2026-04-19T10:00:00.000Z",
+          updatedAt: "2026-04-19T10:00:00.000Z"
+        },
+        {
+          id: "comment_2",
+          artifactId: "artifact_1",
+          body: "Footer note resolved.",
+          status: "resolved",
+          anchor: {
+            viewport: {
+              x: 10,
+              y: 20,
+              width: 300,
+              height: 120
+            }
+          },
+          createdAt: "2026-04-19T10:10:00.000Z",
+          updatedAt: "2026-04-19T10:15:00.000Z"
+        }
+      ]
+    });
+
+    expect(bundle.filenameBase).toBe("atlas-website");
+    expect(bundle.manifest.comments).toEqual({
+      total: 2,
+      open: 1,
+      resolved: 1
+    });
+    expect(bundle.manifest.workspace).toMatchObject({
+      sceneVersion: 3,
+      hasCodeWorkspace: true,
+      codeFileCount: 1
+    });
+    expect(bundle.manifest.exports.structured).toBeNull();
+    expect(bundle.files["/exports/source/App.tsx"]).toContain("Saved handoff code");
+    expect(bundle.files["/exports/atlas-website.html"]).toContain("<!doctype html>");
+    expect(bundle.files["/README.md"]).toContain("saved code workspace");
+  });
+
+  test("includes artifact-specific structured exports and archive packaging", () => {
+    const bundle = buildArtifactHandoffBundle({
+      project: {
+        id: "project_proto",
+        name: "Atlas Prototype Project",
+        ownerUserId: null,
+        createdAt: "2026-04-19T09:00:00.000Z",
+        updatedAt: "2026-04-19T09:30:00.000Z"
+      },
+      artifact: {
+        id: "artifact_proto",
+        projectId: "project_proto",
+        name: "Atlas Prototype",
+        kind: "prototype",
+        createdAt: "2026-04-19T09:05:00.000Z",
+        updatedAt: "2026-04-19T09:35:00.000Z"
+      },
+      workspace: {
+        artifactId: "artifact_proto",
+        intent: "Map the mobile checkout flow.",
+        activeVersionId: "version_proto_1",
+        sceneDocument: {
+          id: "scene_proto_handoff",
+          artifactId: "artifact_proto",
+          kind: "prototype",
+          version: 2,
+          nodes: [
+            {
+              id: "screen_1",
+              type: "screen",
+              name: "Welcome Screen",
+              props: {
+                template: "hero",
+                headline: "Start the checkout flow."
+              },
+              children: []
+            },
+            {
+              id: "screen_2",
+              type: "screen",
+              name: "Confirm Screen",
+              props: {
+                template: "cta",
+                headline: "Confirm the selected plan."
+              },
+              children: []
+            }
+          ],
+          metadata: {}
+        },
+        codeWorkspace: null,
+        syncPlan: {
+          mode: "constrained",
+          reason: "Prototype scene stays canonical.",
+          sourceMode: "scene",
+          targetMode: "code-advanced",
+          changeScope: "document"
+        },
+        versionCount: 1,
+        openCommentCount: 0,
+        updatedAt: "2026-04-19T09:35:00.000Z"
+      },
+      versions: [
+        {
+          id: "version_proto_1",
+          artifactId: "artifact_proto",
+          label: "Flow Review",
+          summary: "Prototype handoff checkpoint",
+          source: "manual",
+          sceneVersion: 2,
+          hasCodeWorkspaceSnapshot: false,
+          createdAt: "2026-04-19T09:35:00.000Z"
+        }
+      ],
+      comments: []
+    });
+
+    expect(bundle.manifest.exports.structured).toMatchObject({
+      path: "/exports/prototype-flow.json",
+      kind: "prototype-flow"
+    });
+    expect(bundle.files["/exports/prototype-flow.json"]).toContain('"artifactKind": "prototype"');
+
+    const archive = buildArtifactHandoffArchive(bundle);
+    const unzipped = unzipSync(archive.bytes);
+
+    expect(archive.filename).toBe("atlas-prototype-handoff.zip");
+    expect(strFromU8(unzipped["atlas-prototype-handoff/manifest.json"]!)).toContain(
+      '"kind": "prototype"'
+    );
+    expect(
+      strFromU8(unzipped["atlas-prototype-handoff/exports/prototype-flow.json"]!)
+    ).toContain('"startScreenId": "screen_1"');
   });
 });
 

@@ -1,4 +1,13 @@
-import type { ArtifactKind, SceneDocument, SceneNode } from "@opendesign/contracts";
+import type {
+  ArtifactComment,
+  ArtifactKind,
+  ArtifactSummary,
+  ArtifactVersionSnapshot,
+  ArtifactWorkspace,
+  ProjectSummary,
+  SceneDocument,
+  SceneNode
+} from "@opendesign/contracts";
 import { strToU8, zipSync } from "fflate";
 
 export type ExportArtifact = {
@@ -69,6 +78,72 @@ export type SourceExportBundle = {
 };
 
 export type SourceArchiveBundle = {
+  filename: string;
+  bytes: Uint8Array;
+};
+
+export type HandoffBundleManifest = {
+  version: 1;
+  exportedAt: string;
+  project: {
+    id: string;
+    name: string;
+  };
+  artifact: {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: ArtifactKind;
+    createdAt: string;
+    updatedAt: string;
+  };
+  workspace: {
+    intent: string;
+    activeVersionId: string | null;
+    sceneVersion: number;
+    rootNodeCount: number;
+    hasCodeWorkspace: boolean;
+    codeFileCount: number;
+    versionCount: number;
+    openCommentCount: number;
+    updatedAt: string;
+  };
+  versions: {
+    total: number;
+    latestVersionId: string | null;
+    latestCreatedAt: string | null;
+  };
+  comments: {
+    total: number;
+    open: number;
+    resolved: number;
+  };
+  exports: {
+    html: {
+      path: string;
+      filename: string;
+    };
+    source: {
+      rootPath: string;
+      filenameBase: string;
+      fileCount: number;
+    };
+    structured: {
+      path: string;
+      filename: string;
+      kind: "prototype-flow" | "slides-deck";
+    } | null;
+  };
+  summary: HandoffManifestSummary;
+};
+
+export type HandoffExportBundle = {
+  filenameBase: string;
+  manifest: HandoffBundleManifest;
+  files: Record<string, string>;
+};
+
+export type HandoffArchiveBundle = {
   filename: string;
   bytes: Uint8Array;
 };
@@ -164,6 +239,15 @@ const DEFAULT_FEATURE_GRID_ITEMS = [
     body: "Preview, handoff, and export flows derive from one source of truth."
   }
 ];
+
+function toSafeFilenameBase(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "artifact"
+  );
+}
 
 export const ARTIFACT_SOURCE_STYLES = `:root {
   color-scheme: light;
@@ -922,11 +1006,7 @@ export const buildArtifactSourceBundle = (input: {
   prompt: string;
   sceneNodes: SceneNode[];
 }): SourceExportBundle => {
-  const safeName = input.artifactName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const filenameBase = safeName || "artifact";
+  const filenameBase = toSafeFilenameBase(input.artifactName);
   const syncPayload = buildArtifactSyncPayload(input);
   const sections = JSON.stringify(syncPayload.sections);
   const appCode =
@@ -1064,6 +1144,254 @@ export const buildArtifactSourceArchive = (
 
   return {
     filename: `${bundle.filenameBase}-source.zip`,
+    bytes: zipSync(archiveEntries, {
+      level: 6
+    })
+  };
+};
+
+function summarizeWorkspaceForHandoff(input: {
+  workspace: ArtifactWorkspace;
+  versions: ArtifactVersionSnapshot[];
+  comments: ArtifactComment[];
+}) {
+  return {
+    intent: input.workspace.intent,
+    activeVersionId: input.workspace.activeVersionId,
+    sceneVersion: input.workspace.sceneDocument.version,
+    rootNodeCount: input.workspace.sceneDocument.nodes.length,
+    hasCodeWorkspace: input.workspace.codeWorkspace !== null,
+    codeFileCount: Object.keys(input.workspace.codeWorkspace?.files ?? {}).length,
+    versionCount: input.versions.length,
+    openCommentCount: input.comments.filter((comment) => comment.status === "open").length,
+    updatedAt: input.workspace.updatedAt
+  };
+}
+
+function summarizeVersionTimeline(versions: ArtifactVersionSnapshot[]) {
+  return {
+    total: versions.length,
+    latestVersionId: versions[0]?.id ?? null,
+    latestCreatedAt: versions[0]?.createdAt ?? null
+  };
+}
+
+function summarizeCommentQueue(comments: ArtifactComment[]) {
+  const open = comments.filter((comment) => comment.status === "open").length;
+
+  return {
+    total: comments.length,
+    open,
+    resolved: comments.length - open
+  };
+}
+
+function buildStructuredHandoffExport(input: {
+  artifact: ArtifactSummary;
+  workspace: ArtifactWorkspace;
+}):
+  | {
+      filename: string;
+      path: string;
+      kind: "prototype-flow" | "slides-deck";
+      body: string;
+    }
+  | null {
+  if (input.artifact.kind === "prototype") {
+    const payload = buildPrototypeFlowExport({
+      artifactName: input.artifact.name,
+      sceneDocument: input.workspace.sceneDocument,
+      prompt: input.workspace.intent
+    });
+
+    return {
+      filename: `${toSafeFilenameBase(input.artifact.name)}-flow.json`,
+      path: "/exports/prototype-flow.json",
+      kind: "prototype-flow",
+      body: JSON.stringify(payload, null, 2)
+    };
+  }
+
+  if (input.artifact.kind === "slides") {
+    const payload = buildSlidesDeckExport({
+      artifactName: input.artifact.name,
+      sceneDocument: input.workspace.sceneDocument,
+      prompt: input.workspace.intent
+    });
+
+    return {
+      filename: `${toSafeFilenameBase(input.artifact.name)}-deck.json`,
+      path: "/exports/slides-deck.json",
+      kind: "slides-deck",
+      body: JSON.stringify(payload, null, 2)
+    };
+  }
+
+  return null;
+}
+
+export const buildArtifactHandoffBundle = (input: {
+  project: ProjectSummary;
+  artifact: ArtifactSummary;
+  workspace: ArtifactWorkspace;
+  versions: ArtifactVersionSnapshot[];
+  comments: ArtifactComment[];
+}): HandoffExportBundle => {
+  const filenameBase = toSafeFilenameBase(input.artifact.name);
+  const htmlBundle = buildArtifactHtmlExport({
+    artifactName: input.artifact.name,
+    sceneDocument: input.workspace.sceneDocument,
+    prompt: input.workspace.intent
+  });
+  const generatedSourceBundle = buildArtifactSourceBundle({
+    artifactKind: input.artifact.kind,
+    artifactName: input.artifact.name,
+    prompt: input.workspace.intent,
+    sceneNodes: input.workspace.sceneDocument.nodes
+  });
+  const sourceBundle = input.workspace.codeWorkspace
+    ? {
+        ...generatedSourceBundle,
+        files: input.workspace.codeWorkspace.files
+      }
+    : generatedSourceBundle;
+  const structuredExport = buildStructuredHandoffExport({
+    artifact: input.artifact,
+    workspace: input.workspace
+  });
+  const workspaceSummary = summarizeWorkspaceForHandoff({
+    workspace: input.workspace,
+    versions: input.versions,
+    comments: input.comments
+  });
+  const versionsSummary = summarizeVersionTimeline(input.versions);
+  const commentsSummary = summarizeCommentQueue(input.comments);
+
+  const workspaceExport = {
+    artifactId: input.workspace.artifactId,
+    intent: input.workspace.intent,
+    activeVersionId: input.workspace.activeVersionId,
+    syncPlan: input.workspace.syncPlan,
+    versionCount: input.workspace.versionCount,
+    openCommentCount: input.workspace.openCommentCount,
+    updatedAt: input.workspace.updatedAt,
+    sceneDocument: input.workspace.sceneDocument,
+    codeWorkspace: input.workspace.codeWorkspace
+      ? {
+          baseSceneVersion: input.workspace.codeWorkspace.baseSceneVersion,
+          updatedAt: input.workspace.codeWorkspace.updatedAt,
+          fileCount: Object.keys(input.workspace.codeWorkspace.files).length
+        }
+      : null
+  };
+
+  const files: Record<string, string> = {
+    "/project.json": JSON.stringify(input.project, null, 2),
+    "/artifact.json": JSON.stringify(input.artifact, null, 2),
+    "/workspace.json": JSON.stringify(workspaceExport, null, 2),
+    "/versions.json": JSON.stringify(input.versions, null, 2),
+    "/comments.json": JSON.stringify(input.comments, null, 2),
+    [`/exports/${htmlBundle.filename}`]: htmlBundle.html,
+    ...Object.fromEntries(
+      Object.entries(sourceBundle.files).map(([filePath, content]) => [
+        `/exports/source${filePath}`,
+        content
+      ])
+    )
+  };
+
+  if (structuredExport) {
+    files[structuredExport.path] = structuredExport.body;
+  }
+
+  const totalBytes = Object.values(files).reduce(
+    (sum, content) => sum + strToU8(content).byteLength,
+    0
+  );
+
+  const manifest: HandoffBundleManifest = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    project: {
+      id: input.project.id,
+      name: input.project.name
+    },
+    artifact: {
+      id: input.artifact.id,
+      projectId: input.artifact.projectId,
+      name: input.artifact.name,
+      kind: input.artifact.kind,
+      createdAt: input.artifact.createdAt,
+      updatedAt: input.artifact.updatedAt
+    },
+    workspace: workspaceSummary,
+    versions: versionsSummary,
+    comments: commentsSummary,
+    exports: {
+      html: {
+        path: `/exports/${htmlBundle.filename}`,
+        filename: htmlBundle.filename
+      },
+      source: {
+        rootPath: "/exports/source",
+        filenameBase: sourceBundle.filenameBase,
+        fileCount: Object.keys(sourceBundle.files).length
+      },
+      structured: structuredExport
+        ? {
+            path: structuredExport.path,
+            filename: structuredExport.filename,
+            kind: structuredExport.kind
+          }
+        : null
+    },
+    summary: buildHandoffManifestSummary([
+      {
+        id: input.artifact.id,
+        kind: input.artifact.kind,
+        label: input.artifact.name,
+        updatedAt: input.artifact.updatedAt,
+        sizeBytes: totalBytes
+      }
+    ])
+  };
+
+  files["/manifest.json"] = JSON.stringify(manifest, null, 2);
+  files["/README.md"] = `# ${input.artifact.name} handoff bundle
+
+Generated from OpenDesign's live workspace for ${input.project.name}.
+
+## Included
+
+- \`manifest.json\` summarizes the artifact, workspace, comments, versions, and bundled exports.
+- \`project.json\` and \`artifact.json\` capture the source records for this handoff.
+- \`workspace.json\` stores the current scene document and workspace metadata.
+- \`versions.json\` and \`comments.json\` capture review history and open issues.
+- \`exports/${htmlBundle.filename}\` is the standalone HTML render.
+- \`exports/source/*\` contains the runnable source scaffold${input.workspace.codeWorkspace ? " from the saved code workspace" : " generated from the live scene document"}.
+${structuredExport ? `- \`${structuredExport.path.slice(1)}\` contains the ${structuredExport.kind} manifest.` : ""}
+`;
+
+  return {
+    filenameBase,
+    manifest,
+    files
+  };
+};
+
+export const buildArtifactHandoffArchive = (
+  bundle: Pick<HandoffExportBundle, "filenameBase" | "files">
+): HandoffArchiveBundle => {
+  const rootFolder = `${bundle.filenameBase}-handoff`;
+  const archiveEntries = Object.fromEntries(
+    Object.entries(bundle.files).map(([filePath, content]) => [
+      `${rootFolder}${filePath}`,
+      strToU8(content)
+    ])
+  );
+
+  return {
+    filename: `${rootFolder}.zip`,
     bytes: zipSync(archiveEntries, {
       level: 6
     })

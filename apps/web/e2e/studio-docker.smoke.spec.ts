@@ -15,7 +15,7 @@ function runDockerCompose(args: string[]) {
 }
 
 async function waitForHttp(
-  fetcher: () => Promise<{ ok: boolean }>,
+  fetcher: () => Promise<{ ok(): boolean }>,
   timeoutMs = 60_000,
   intervalMs = 1_000
 ) {
@@ -23,7 +23,7 @@ async function waitForHttp(
   while (Date.now() < deadline) {
     try {
       const response = await fetcher();
-      if (response.ok) {
+      if (response.ok()) {
         return;
       }
     } catch {
