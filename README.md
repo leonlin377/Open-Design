@@ -46,6 +46,13 @@ Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.
 
 Site-capture imports now prefer a Playwright-driven browser capture path. In containers, `chromium` is installed and `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set automatically. On the host, you can set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` explicitly if your browser binary is not auto-discovered. Set `PLAYWRIGHT_SITE_CAPTURE_DISABLED=1` to force the older fetch-based capture path during debugging or deterministic test runs.
 
+## Playwright E2E
+
+- Install the browser once on the host with `pnpm exec playwright install chromium`.
+- Run the core end-to-end suite with `pnpm e2e`.
+- The checked-in config starts `apps/api` on `127.0.0.1:4100` and `apps/web` on `127.0.0.1:3100` so it does not collide with common local `3000/4000` processes.
+- The E2E path uses in-memory persistence by default, signs up a fresh browser-scoped account, and covers project creation, artifact creation, scene editing, code workspace save, snapshot/restore, and HTML/ZIP export.
+
 ## Workspace
 
 - `apps/web`: Next.js studio UI

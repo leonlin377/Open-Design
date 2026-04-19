@@ -7,6 +7,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
+    "e2e": "playwright test",
     "typecheck": "turbo typecheck",
     "docker:infra": "docker compose up -d postgres redis minio",
     "docker:gateway": "docker compose --profile gateway up -d litellm",
@@ -16,6 +17,7 @@
     "docker:down": "docker compose --profile studio --profile gateway down"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^24.5.2",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2",

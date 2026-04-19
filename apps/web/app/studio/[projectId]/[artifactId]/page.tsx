@@ -38,10 +38,10 @@ const artifactLabels: Record<string, string> = {
 };
 
 type StudioPageProps = {
-  params: {
+  params: Promise<{
     projectId: string;
     artifactId: string;
-  };
+  }>;
   searchParams: Promise<{
     tab?: string | string[];
   }>;
@@ -63,11 +63,12 @@ function readInspectorTab(value: string | string[] | undefined): StudioInspector
 }
 
 export default async function StudioPage({ params, searchParams }: StudioPageProps) {
+  const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const [session, project, workspacePayload, designSystems] = await Promise.all([
     getSession(),
-    getProject(params.projectId),
-    getArtifactWorkspace(params.projectId, params.artifactId),
+    getProject(resolvedParams.projectId),
+    getArtifactWorkspace(resolvedParams.projectId, resolvedParams.artifactId),
     listDesignSystems()
   ]);
   const artifacts = project ? await listArtifacts(project.id) : [];

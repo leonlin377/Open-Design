@@ -1,7 +1,7 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `0cfd3fb`
+Repo baseline: `cb231bb`
 
 ## Why This Exists
 
@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `89%`
+Current estimated product completion for a serious V1: `91%`
 
 ```text
-[##################--] 89%
+[##################--] 91%
 ```
 
 ## Phase Scoreboard
@@ -48,7 +48,7 @@ Current estimated product completion for a serious V1: `89%`
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 70% | `[>]` |
 | 5 | Collaboration and handoff | 0% | `[ ]` |
-| 6 | Assets, reliability, ops | 35% | `[>]` |
+| 6 | Assets, reliability, ops | 55% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
 ## Current Reality
@@ -75,7 +75,7 @@ What still blocks a true Claude Design benchmark:
 - [ ] Sharing, roles, and collaboration flows
 - [ ] Asset pipeline backed by MinIO/S3
 - [ ] Handoff export bundles and async export jobs
-- [ ] Playwright E2E and production-grade operational validation
+- [ ] Production-grade operational validation
 - [ ] Product polish and onboarding
 
 ## Execution Rules
@@ -118,7 +118,7 @@ These are the tasks that should be worked continuously next.
 
 ### OPS-001 Add Playwright E2E Coverage For Core Studio Flows
 
-- Status: `[r]`
+- Status: `[x]`
 - Priority: `P1`
 - Owner Lane: `e2e`, `web`, `api`
 - Depends On: `DS-004`, `DS-005`, `SYNC-003`
@@ -126,12 +126,14 @@ These are the tasks that should be worked continuously next.
 - Why Now:
   Core behavior is already broad enough that manual verification is becoming the bottleneck.
 - Definition Of Done:
-  - Login, create project, create artifact, edit scene, save code, snapshot, restore, and export are covered.
-  - Tests run in Docker-compatible local workflow.
+  - [x] Login, create project, create artifact, edit scene, save code, snapshot, restore, and export are covered.
+  - [x] Tests run in Docker-compatible local workflow.
 - Validation Commands:
+  - `pnpm exec playwright install chromium`
+  - `pnpm exec playwright test apps/web/e2e/studio-core.spec.ts`
+  - `pnpm e2e`
   - `pnpm test`
   - `pnpm build`
-  - `pnpm exec playwright test`
 - Expected Artifacts:
   - `apps/web/e2e/*`
   - `playwright.config.*`
@@ -191,14 +193,12 @@ These are the tasks that should be worked continuously next.
 
 These tasks are known to depend on unfinished upstream work.
 
-- `[!] COLLAB-001 Add share tokens for artifact/project review`
-  Blocked by: `OPS-001`
 - `[!] COLLAB-002 Add roles: viewer/commenter/editor`
   Blocked by: `COLLAB-001`
 - `[!] COLLAB-004 Build handoff export bundle`
   Blocked by: `TYPE-001`, `TYPE-002`, `ASSET-001`
 - `[!] OPS-003 Validate full Docker studio stack in real build/run mode`
-  Blocked by: `OPS-001`, `ASSET-001`
+  Blocked by: `ASSET-001`
 
 ## Remaining Master Task List
 
@@ -246,8 +246,8 @@ Goal: Ground artifact generation in real tokens, components, and visual evidence
 
 Goal: Support the full artifact surface instead of just website-first flows.
 
-- [ ] `TYPE-001` Implement prototype-specific scene nodes and preview behavior
-- [ ] `TYPE-002` Implement slides-specific scene structure
+- [x] `TYPE-001` Implement prototype-specific scene nodes and preview behavior
+- [x] `TYPE-002` Implement slides-specific scene structure
 - [ ] `TYPE-003` Add prototype-specific export path
 - [ ] `TYPE-004` Add slides export path
 - [ ] `TYPE-005` Add per-artifact editor affordances in Studio
@@ -269,7 +269,7 @@ Goal: Make the product stable enough for serious usage.
 - [ ] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
 - [x] `OPS-001A` Add stale-write/conflict protection for code workspace saves and restores
 - [x] `OPS-001B` Add structured API error model and recovery paths
-- [r] `OPS-001` Add Playwright E2E coverage for core Studio flows
+- [x] `OPS-001` Add Playwright E2E coverage for core Studio flows
 - [ ] `OPS-002` Add production-grade logging and operational diagnostics
 - [ ] `OPS-003` Validate full Docker studio stack in real build/run mode
 
@@ -291,12 +291,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Scene -> code synchronization for generated website artifacts
 - [x] Safe-subset code -> scene synchronization
 - [x] Streaming generation progress and structured generation failures
+- [x] Playwright E2E core Studio flow with login, scene edit, code save, snapshot, restore, and export
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `SYNC-003` Broaden supported code -> scene sync safely
-2. `OPS-001` Add Playwright E2E coverage for core Studio flows
-3. `TYPE-001` Prototype-specific scene and preview
-4. `TYPE-002` Slides-specific scene structure
+1. `TYPE-003` Prototype-specific export path
+2. `TYPE-004` Slides export path
+3. `COLLAB-001` Share tokens for artifact/project review
+4. `OPS-003` Validate full Docker studio stack in real build/run mode
