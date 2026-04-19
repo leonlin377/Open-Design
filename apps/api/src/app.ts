@@ -2,17 +2,26 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { ZodError } from "zod";
+import type { AssetStorage } from "./asset-storage";
 import { sendApiError } from "./lib/api-errors";
 import { createAppPersistence } from "./persistence";
 import { registerRoutes } from "./routes/index";
+import { captureSite, type SiteCaptureResult } from "./site-capture";
 
 export interface AppOptions {
   logger?: boolean;
+  assetStorage?: AssetStorage;
+  siteCapture?: {
+    captureSite(input: { url: string }): Promise<SiteCaptureResult>;
+  };
 }
 
 export async function buildApp(options: AppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? false, trustProxy: true });
-  const persistence = await createAppPersistence();
+  const persistence = await createAppPersistence({
+    env: process.env,
+    assetStorage: options.assetStorage
+  });
 
   await app.register(cors, { origin: true, credentials: true });
   await app.register(cookie);
@@ -54,8 +63,13 @@ export async function buildApp(options: AppOptions = {}) {
     comments: persistence.comments,
     designSystems: persistence.designSystems,
     shares: persistence.shares,
+    assets: persistence.assets,
+    assetStorage: persistence.assetStorage,
     auth: persistence.auth,
-    authBaseURL: persistence.authBaseURL
+    authBaseURL: persistence.authBaseURL,
+    siteCapture: options.siteCapture ?? {
+      captureSite
+    }
   });
 
   app.addHook("onClose", async () => {

@@ -14,6 +14,8 @@ export type SiteCaptureDomNode = {
 export type SiteCaptureScreenshot = {
   label: string;
   sourceRef: string;
+  contentType?: string;
+  bytes?: Uint8Array;
 };
 
 export type SiteCaptureSuccess = {

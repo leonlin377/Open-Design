@@ -8,7 +8,10 @@ import { z } from "zod";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import { sendApiError } from "../lib/api-errors";
 import type { DesignSystemRepository } from "../repositories/design-systems";
-import { captureSite } from "../site-capture";
+import type { AssetRepository } from "../repositories/assets";
+import type { AssetStorage } from "../asset-storage";
+import { buildAssetObjectKey } from "../asset-storage";
+import type { SiteCaptureResult } from "../site-capture";
 
 const githubImportBodySchema = z.object({
   owner: z.string().min(1),
@@ -193,7 +196,12 @@ async function fetchGithubRepositoryFiles(input: {
 
 export interface DesignSystemRouteOptions {
   designSystems: DesignSystemRepository;
+  assets: AssetRepository;
+  assetStorage: AssetStorage;
   auth: OpenDesignAuth;
+  siteCapture: {
+    captureSite(input: { url: string }): Promise<SiteCaptureResult>;
+  };
 }
 
 export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOptions> =
@@ -299,7 +307,7 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
     app.post("/design-systems/import/site-capture", async (request, reply) => {
       const body = siteCaptureImportBodySchema.parse(request.body);
       const session = await getRequestSession(options.auth, request);
-      const siteCapture = await captureSite({
+      const siteCapture = await options.siteCapture.captureSite({
         url: body.url
       });
 
@@ -309,6 +317,34 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
           code: "DESIGN_SYSTEM_IMPORT_FAILED",
           recoverable: true
         });
+      }
+
+      const screenshotAssets = new Map<string, string>();
+
+      for (const screenshot of siteCapture.screenshots) {
+        if (!screenshot.bytes || !screenshot.contentType) {
+          continue;
+        }
+
+        const uploaded = await options.assetStorage.uploadObject({
+          objectKey: buildAssetObjectKey({
+            scope: "design-systems",
+            sourceRef: screenshot.sourceRef,
+            contentType: screenshot.contentType
+          }),
+          bytes: screenshot.bytes,
+          contentType: screenshot.contentType
+        });
+        const asset = await options.assets.create({
+          ownerUserId: session?.user.id ?? null,
+          kind: "design-system-screenshot",
+          storageProvider: options.assetStorage.provider,
+          objectKey: uploaded.objectKey,
+          contentType: uploaded.contentType,
+          sizeBytes: uploaded.sizeBytes
+        });
+
+        screenshotAssets.set(screenshot.sourceRef, asset.id);
       }
 
       const extraction = extractDesignSystemPackFromSiteCapture({
@@ -321,6 +357,14 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
         domNodes: siteCapture.domNodes,
         screenshots: siteCapture.screenshots
       });
+      extraction.pack.provenance = extraction.pack.provenance.map((entry) =>
+        entry.type === "screenshot" && screenshotAssets.has(entry.sourceRef)
+          ? {
+              ...entry,
+              assetId: screenshotAssets.get(entry.sourceRef)
+            }
+          : entry
+      );
       const record = await options.designSystems.create({
         ownerUserId: session?.user.id ?? null,
         pack: extraction.pack
@@ -332,5 +376,36 @@ export const registerDesignSystemRoutes: FastifyPluginAsync<DesignSystemRouteOpt
         summary: summarizePackEvidence(extraction),
         captureMode: siteCapture.mode
       });
+    });
+
+    app.get("/design-systems/assets/:assetId", async (request, reply) => {
+      const session = await getRequestSession(options.auth, request);
+      const params = z.object({ assetId: z.string().min(1) }).parse(request.params);
+      const asset = await options.assets.getById(params.assetId, {
+        ownerUserId: session?.user.id ?? undefined
+      });
+
+      if (!asset) {
+        return sendApiError(reply, 404, {
+          error: "Asset not found",
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      const stored = await options.assetStorage.readObject({
+        objectKey: asset.objectKey
+      });
+
+      if (!stored) {
+        return sendApiError(reply, 404, {
+          error: "Asset content not found",
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      reply.header("content-type", stored.contentType);
+      return reply.send(Buffer.from(stored.bytes));
     });
   };

@@ -7,12 +7,15 @@ import type { ArtifactRepository } from "../repositories/artifacts";
 import type { DesignSystemRepository } from "../repositories/design-systems";
 import type { ProjectRepository } from "../repositories/projects";
 import type { ShareTokenRepository } from "../repositories/share-tokens";
+import type { AssetRepository } from "../repositories/assets";
 import { registerAuthRoutes } from "./auth";
 import { registerArtifactRoutes } from "./artifacts";
 import { registerDesignSystemRoutes } from "./design-systems";
 import { registerHealthRoutes } from "./health";
 import { registerProjectRoutes } from "./projects";
 import { registerShareRoutes } from "./shares";
+import type { AssetStorage } from "../asset-storage";
+import type { SiteCaptureResult } from "../site-capture";
 
 export interface RouteDependencies {
   projects: ProjectRepository;
@@ -22,8 +25,13 @@ export interface RouteDependencies {
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
   shares: ShareTokenRepository;
+  assets: AssetRepository;
+  assetStorage: AssetStorage;
   auth: OpenDesignAuth;
   authBaseURL: string;
+  siteCapture: {
+    captureSite(input: { url: string }): Promise<SiteCaptureResult>;
+  };
 }
 
 export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
@@ -46,7 +54,10 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
   });
   await app.register(registerDesignSystemRoutes, {
     designSystems: options.designSystems,
-    auth: options.auth
+    assets: options.assets,
+    assetStorage: options.assetStorage,
+    auth: options.auth,
+    siteCapture: options.siteCapture
   });
   await app.register(registerShareRoutes, {
     projects: options.projects,

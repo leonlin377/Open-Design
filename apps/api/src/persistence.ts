@@ -1,6 +1,11 @@
 import { ArtifactKindSchema } from "@opendesign/contracts";
 import { getMigrations } from "better-auth/db/migration";
 import pg from "pg";
+import {
+  createS3AssetStorage,
+  InMemoryAssetStorage,
+  type AssetStorage
+} from "./asset-storage";
 import { createAuth, type OpenDesignAuth } from "./auth/session";
 import {
   InMemoryArtifactCommentRepository,
@@ -37,6 +42,11 @@ import {
   PostgresShareTokenRepository,
   type ShareTokenRepository
 } from "./repositories/share-tokens";
+import {
+  InMemoryAssetRepository,
+  PostgresAssetRepository,
+  type AssetRepository
+} from "./repositories/assets";
 
 const { Pool } = pg;
 
@@ -53,6 +63,8 @@ export interface AppPersistence {
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
   shares: ShareTokenRepository;
+  assets: AssetRepository;
+  assetStorage: AssetStorage;
   close(): Promise<void>;
 }
 
@@ -76,12 +88,22 @@ function buildShareRoleConstraint() {
   return ["viewer", "commenter", "editor"].map((role) => `'${role}'`).join(", ");
 }
 
+function buildAssetKindConstraint() {
+  return ["design-system-screenshot"].map((kind) => `'${kind}'`).join(", ");
+}
+
+function buildAssetStorageProviderConstraint() {
+  return ["memory", "s3"].map((provider) => `'${provider}'`).join(", ");
+}
+
 async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   const validArtifactKinds = buildArtifactKindConstraint();
   const validVersionSources = buildArtifactVersionSourceConstraint();
   const validCommentStatuses = buildArtifactCommentStatusConstraint();
   const validShareResourceTypes = buildShareResourceTypeConstraint();
   const validShareRoles = buildShareRoleConstraint();
+  const validAssetKinds = buildAssetKindConstraint();
+  const validAssetStorageProviders = buildAssetStorageProviderConstraint();
 
   await pool.query(
     `create table if not exists projects (
@@ -237,6 +259,25 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
     `alter table share_tokens
      add column if not exists role text not null default 'viewer'`
   );
+
+  await pool.query(
+    `create table if not exists assets (
+      id text primary key,
+      owner_user_id text references "user"(id) on delete set null,
+      kind text not null check (kind in (${validAssetKinds})),
+      storage_provider text not null check (storage_provider in (${validAssetStorageProviders})),
+      object_key text not null,
+      content_type text not null,
+      size_bytes integer not null check (size_bytes >= 0),
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )`
+  );
+
+  await pool.query(
+    `create index if not exists assets_owner_user_id_idx
+     on assets(owner_user_id, created_at desc)`
+  );
 }
 
 async function ensurePostgresPersistence(pool: InstanceType<typeof Pool>, auth: OpenDesignAuth) {
@@ -249,9 +290,13 @@ async function ensurePostgresPersistence(pool: InstanceType<typeof Pool>, auth: 
   await ensureApplicationTables(pool);
 }
 
-export async function createAppPersistence(
-  env: NodeJS.ProcessEnv = process.env
-): Promise<AppPersistence> {
+export async function createAppPersistence(input: {
+  env?: NodeJS.ProcessEnv;
+  assetStorage?: AssetStorage;
+} = {}): Promise<AppPersistence> {
+  const env = input.env ?? process.env;
+  const assetStorage = input.assetStorage ?? createS3AssetStorage(env) ?? new InMemoryAssetStorage();
+
   if (!env.DATABASE_URL) {
     const { auth, baseURL } = createAuth({ env });
 
@@ -266,6 +311,8 @@ export async function createAppPersistence(
       comments: new InMemoryArtifactCommentRepository(),
       designSystems: new InMemoryDesignSystemRepository(),
       shares: new InMemoryShareTokenRepository(),
+      assets: new InMemoryAssetRepository(),
+      assetStorage,
       close: async () => {}
     };
   }
@@ -292,6 +339,8 @@ export async function createAppPersistence(
     comments: new PostgresArtifactCommentRepository(pool),
     designSystems: new PostgresDesignSystemRepository(pool),
     shares: new PostgresShareTokenRepository(pool),
+    assets: new PostgresAssetRepository(pool),
+    assetStorage,
     close: async () => {
       await pool.end();
     }

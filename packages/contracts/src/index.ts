@@ -335,6 +335,7 @@ export const DesignSystemProvenanceSchema = z.object({
   id: z.string().min(1),
   type: z.enum(["screenshot", "dom", "token", "repository-file"]),
   sourceRef: z.string().min(1),
+  assetId: z.string().min(1).optional(),
   targets: z.array(z.string().min(1)).min(1)
 });
 

@@ -33,7 +33,7 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `98%`
+Current estimated product completion for a serious V1: `99%`
 
 ```text
 [###################-] 97%
@@ -45,10 +45,10 @@ Current estimated product completion for a serious V1: `98%`
 | --- | --- | --- | --- |
 | 1 | AI generation pipeline | 90% | `[>]` |
 | 2 | Scene/code synchronization | 90% | `[x]` |
-| 3 | Design system ingest and grounding | 90% | `[>]` |
+| 3 | Design system ingest and grounding | 95% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
 | 5 | Collaboration and handoff | 60% | `[>]` |
-| 6 | Assets, reliability, ops | 70% | `[>]` |
+| 6 | Assets, reliability, ops | 80% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
 ## Current Reality
@@ -66,6 +66,7 @@ What is already working:
 - [x] Snapshot creation and version restore for scene + saved code workspace
 - [x] HTML export, runnable ZIP source export, and handoff ZIP bundle export
 - [x] GitHub, local-directory, and Playwright-first site-capture design-system import
+- [x] Site-capture screenshots persisted as retrievable assets through MinIO/S3 or in-memory fallback
 - [x] Design-system selection and generation grounding for artifacts
 - [x] Prototype screen flows with navigable preview and coherent scene-based exports
 - [x] Slides decks with sequential preview and coherent scene-based exports
@@ -74,7 +75,7 @@ What is already working:
 What still blocks a true Claude Design benchmark:
 
 - [ ] Element-aware collaboration anchors and richer shared review flows
-- [ ] Asset pipeline backed by MinIO/S3
+- [ ] Asset pipeline backed by MinIO/S3 beyond design-system screenshots
 - [ ] Async export jobs for long-running or asset-backed exports
 - [ ] Asset-backed production validation and operational diagnostics
 - [ ] Product polish and onboarding
@@ -302,6 +303,38 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `ASSET-001 Add asset upload/storage pipeline backed by MinIO/S3`
 
+### ASSET-001 Add Asset Upload/Storage Pipeline Backed By MinIO/S3
+
+- Status: `[>]`
+- Priority: `P1`
+- Owner Lane: `ops`, `api`, `web`
+- Depends On: `OPS-003`
+- Blocks: `COLLAB-005`, `OPS-002`
+- Why Now:
+  MinIO was already running in the Docker stack, but the product still treated screenshots and other asset-like evidence as metadata-only references instead of durable binary assets.
+- Definition Of Done:
+  - [x] The API can persist design-system screenshot bytes into an asset storage backend with in-memory fallback and S3/MinIO support.
+  - [x] Persisted asset metadata is stored separately from design-system packs and can be resolved back into binary content.
+  - [x] Studio can render persisted screenshot evidence from imported packs.
+  - [ ] Artifact-level uploads and asset references are available beyond design-system screenshot capture.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test -- tests/assets.test.ts tests/design-systems.test.ts`
+  - `pnpm --filter @opendesign/contracts test -- tests/domain-schemas.test.ts`
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: added asset metadata repositories plus in-memory/S3 object storage adapters, wired site-capture imports to upload screenshot bytes, and exposed `/api/design-systems/assets/:assetId` for binary reads.
+  - `2026-04-19`: Studio design-system panel now renders persisted screenshot evidence from the selected pack, and API/contracts tests plus monorepo typecheck passed.
+- Expected Artifacts:
+  - `apps/api/src/asset-storage.ts`
+  - `apps/api/src/repositories/assets.ts`
+  - `apps/api/src/routes/design-systems.ts`
+  - `apps/api/tests/assets.test.ts`
+  - `apps/api/tests/design-systems.test.ts`
+  - `apps/web/components/studio-design-system-panel.tsx`
+  - `apps/web/lib/opendesign-api.ts`
+- Next Slice:
+  - `COLLAB-003 Upgrade comment anchors from canvas-level fallback to element-aware anchors`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -374,7 +407,7 @@ Goal: Make the system usable by more than one person and suitable for review.
 
 Goal: Make the product stable enough for serious usage.
 
-- [ ] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
+- [>] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
 - [x] `OPS-001A` Add stale-write/conflict protection for code workspace saves and restores
 - [x] `OPS-001B` Add structured API error model and recovery paths
 - [x] `OPS-001` Add Playwright E2E coverage for core Studio flows
@@ -405,12 +438,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Role-based shared review links with viewer/commenter/editor permissions
 - [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
 - [x] Review-ready handoff ZIP bundles for website, prototype, and slides artifacts
+- [x] Design-system screenshot assets persisted through MinIO/S3-aware storage with Studio previews
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3
-2. `COLLAB-003` Element-aware comment anchors
-3. `OPS-002` Production-grade logging and operational diagnostics
-4. `COLLAB-005` Export job tracking
+1. `COLLAB-003` Element-aware comment anchors
+2. `OPS-002` Production-grade logging and operational diagnostics
+3. `COLLAB-005` Export job tracking
+4. `POL-002` Improve visual hierarchy and artifact canvas fidelity

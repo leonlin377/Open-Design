@@ -359,6 +359,147 @@ describe("Design systems", () => {
     }
   });
 
+  it("stores captured screenshots as assets and returns persisted asset references", async () => {
+    const screenshotBytes = Buffer.from("captured-png");
+    const app = await buildApp({
+      assetStorage: {
+        provider: "memory",
+        uploadObject: vi.fn(async () => ({
+          objectKey: "design-systems/atlas-example-com/primary-viewport.png",
+          sizeBytes: screenshotBytes.byteLength,
+          contentType: "image/png"
+        })),
+        readObject: vi.fn(async () => null)
+      },
+      siteCapture: {
+        captureSite: vi.fn(async () => ({
+          status: "ok" as const,
+          mode: "playwright" as const,
+          html: `
+            <html>
+              <body>
+                <button class="cta-button">Launch</button>
+              </body>
+            </html>
+          `,
+          stylesheets: [],
+          domNodes: [
+            {
+              tag: "button",
+              className: "cta-button",
+              text: "Launch"
+            }
+          ],
+          screenshots: [
+            {
+              label: "Primary viewport capture",
+              sourceRef: "https://atlas.example.com#primary-viewport",
+              contentType: "image/png",
+              bytes: screenshotBytes
+            }
+          ],
+          warnings: []
+        }))
+      }
+    });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/site-capture",
+        payload: {
+          url: "https://atlas.example.com"
+        }
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({
+        pack: {
+          source: "site-capture",
+          provenance: expect.arrayContaining([
+            expect.objectContaining({
+              type: "screenshot",
+              assetId: expect.any(String),
+              sourceRef: "https://atlas.example.com#primary-viewport"
+            })
+          ])
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("serves persisted design system asset content through the asset route", async () => {
+    const screenshotBytes = Buffer.from("asset-png");
+    const app = await buildApp({
+      assetStorage: {
+        provider: "memory",
+        uploadObject: vi.fn(async () => ({
+          objectKey: "design-systems/atlas-example-com/primary-viewport.png",
+          sizeBytes: screenshotBytes.byteLength,
+          contentType: "image/png"
+        })),
+        readObject: vi.fn(async () => ({
+          bytes: screenshotBytes,
+          contentType: "image/png"
+        }))
+      },
+      siteCapture: {
+        captureSite: vi.fn(async () => ({
+          status: "ok" as const,
+          mode: "playwright" as const,
+          html: "<html><body><button>Launch</button></body></html>",
+          stylesheets: [],
+          domNodes: [
+            {
+              tag: "button",
+              className: null,
+              text: "Launch"
+            }
+          ],
+          screenshots: [
+            {
+              label: "Primary viewport capture",
+              sourceRef: "https://atlas.example.com#primary-viewport",
+              contentType: "image/png",
+              bytes: screenshotBytes
+            }
+          ],
+          warnings: []
+        }))
+      }
+    });
+
+    try {
+      const importResponse = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/site-capture",
+        payload: {
+          url: "https://atlas.example.com"
+        }
+      });
+
+      expect(importResponse.statusCode).toBe(201);
+      const screenshotAssetId = importResponse
+        .json()
+        .pack.provenance.find((entry: { type: string }) => entry.type === "screenshot")?.assetId;
+
+      expect(screenshotAssetId).toEqual(expect.any(String));
+
+      const assetResponse = await app.inject({
+        method: "GET",
+        url: `/api/design-systems/assets/${screenshotAssetId}`
+      });
+
+      expect(assetResponse.statusCode).toBe(200);
+      expect(assetResponse.headers["content-type"]).toContain("image/png");
+      expect(assetResponse.body).toBe("asset-png");
+    } finally {
+      await app.close();
+    }
+  });
+
   it("returns a structured error when site capture cannot fetch the page", async () => {
     process.env.PLAYWRIGHT_SITE_CAPTURE_DISABLED = "1";
     globalThis.fetch = vi.fn(async () =>
