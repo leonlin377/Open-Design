@@ -49,6 +49,7 @@ import type { ArtifactVersionRepository } from "../repositories/artifact-version
 import type { ArtifactWorkspaceRepository } from "../repositories/artifact-workspaces";
 import type { ArtifactRepository } from "../repositories/artifacts";
 import type { DesignSystemRepository } from "../repositories/design-systems";
+import type { ExportJobRepository } from "../repositories/export-jobs";
 import type { ProjectRepository } from "../repositories/projects";
 
 const artifactParamsSchema = z.object({
@@ -148,11 +149,60 @@ export interface ArtifactRouteOptions {
   versions: ArtifactVersionRepository;
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
+  exportJobs: ExportJobRepository;
   auth: OpenDesignAuth;
 }
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
+    const exportKindToResult = {
+      html: {
+        filename: "artifact.html",
+        contentType: "text/html; charset=utf-8"
+      },
+      "source-bundle": {
+        filename: "artifact-source.zip",
+        contentType: "application/zip"
+      },
+      "handoff-bundle": {
+        filename: "artifact-handoff.zip",
+        contentType: "application/zip"
+      },
+      "prototype-flow": {
+        filename: "prototype-flow.json",
+        contentType: "application/json; charset=utf-8"
+      },
+      "slides-deck": {
+        filename: "slides-deck.json",
+        contentType: "application/json; charset=utf-8"
+      }
+    } as const;
+
+    async function createExportJob(input: {
+      artifactId: string;
+      exportKind: keyof typeof exportKindToResult;
+      requestId?: string | null;
+    }) {
+      const created = await options.exportJobs.create({
+        artifactId: input.artifactId,
+        exportKind: input.exportKind,
+        requestId: input.requestId ?? null
+      });
+      await options.exportJobs.markRunning(created.id);
+      return created.id;
+    }
+
+    async function markExportJobCompleted(
+      jobId: string,
+      exportKind: keyof typeof exportKindToResult
+    ) {
+      await options.exportJobs.markCompleted(jobId, exportKindToResult[exportKind]);
+    }
+
+    async function markExportJobFailed(jobId: string, error: Parameters<typeof buildApiError>[0]) {
+      await options.exportJobs.markFailed(jobId, buildApiError(error));
+    }
+
     type EnsuredWorkspace = NonNullable<
       Awaited<ReturnType<typeof ensureWorkspaceState>>["workspace"]
     >;
@@ -976,12 +1026,18 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const exportJobId = await createExportJob({
+          artifactId: artifact.id,
+          exportKind: "html",
+          requestId: request.requestId
+        });
         const { workspace } = await ensureWorkspaceState(artifact);
         const bundle = buildArtifactHtmlExport({
           artifactName: artifact.name,
           sceneDocument: workspace.sceneDocument,
           prompt: workspace.intent
         });
+        await markExportJobCompleted(exportJobId, "html");
 
         reply.header("content-type", "text/html; charset=utf-8");
         reply.header(
@@ -1015,6 +1071,11 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const exportJobId = await createExportJob({
+          artifactId: artifact.id,
+          exportKind: "source-bundle",
+          requestId: request.requestId
+        });
         const { workspace } = await ensureWorkspaceState(artifact);
         const generatedBundle = buildArtifactSourceBundle({
           artifactKind: artifact.kind,
@@ -1028,6 +1089,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
               files: workspace.codeWorkspace.files
             }
           : generatedBundle;
+        await markExportJobCompleted(exportJobId, "source-bundle");
 
         return reply.send(bundle);
       }
@@ -1055,6 +1117,11 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const exportJobId = await createExportJob({
+          artifactId: artifact.id,
+          exportKind: "handoff-bundle",
+          requestId: request.requestId
+        });
         const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
         const bundle = buildArtifactHandoffBundle({
           project,
@@ -1068,6 +1135,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           versions,
           comments
         });
+        await markExportJobCompleted(exportJobId, "handoff-bundle");
 
         return reply.send(bundle);
       }
@@ -1095,7 +1163,17 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const exportJobId = await createExportJob({
+          artifactId: artifact.id,
+          exportKind: "prototype-flow",
+          requestId: request.requestId
+        });
         if (artifact.kind !== "prototype") {
+          await markExportJobFailed(exportJobId, {
+            error: "Prototype flow export is only available for prototype artifacts",
+            code: "EXPORT_NOT_SUPPORTED",
+            recoverable: true
+          });
           return sendApiError(reply, 409, {
             error: "Prototype flow export is only available for prototype artifacts",
             code: "EXPORT_NOT_SUPPORTED",
@@ -1109,6 +1187,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           sceneDocument: workspace.sceneDocument,
           prompt: workspace.intent
         });
+        await markExportJobCompleted(exportJobId, "prototype-flow");
 
         reply.header("content-type", "application/json; charset=utf-8");
         reply.header(
@@ -1145,7 +1224,17 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           });
         }
 
+        const exportJobId = await createExportJob({
+          artifactId: artifact.id,
+          exportKind: "slides-deck",
+          requestId: request.requestId
+        });
         if (artifact.kind !== "slides") {
+          await markExportJobFailed(exportJobId, {
+            error: "Slides deck export is only available for slides artifacts",
+            code: "EXPORT_NOT_SUPPORTED",
+            recoverable: true
+          });
           return sendApiError(reply, 409, {
             error: "Slides deck export is only available for slides artifacts",
             code: "EXPORT_NOT_SUPPORTED",
@@ -1159,6 +1248,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           sceneDocument: workspace.sceneDocument,
           prompt: workspace.intent
         });
+        await markExportJobCompleted(exportJobId, "slides-deck");
 
         reply.header("content-type", "application/json; charset=utf-8");
         reply.header(
@@ -1170,6 +1260,33 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         );
 
         return reply.send(bundle);
+      }
+    );
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/export-jobs",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        const jobs = await options.exportJobs.listByArtifactId(artifact.id);
+        return reply.send({ jobs });
       }
     );
 

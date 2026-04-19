@@ -1980,6 +1980,104 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("tracks export jobs for completed sync exports", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Export Jobs Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Tracked Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/source-bundle`
+      });
+
+      expect(exportResponse.statusCode).toBe(200);
+      expect(exportResponse.json()).toMatchObject({
+        files: expect.any(Object)
+      });
+
+      const jobsResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/export-jobs`
+      });
+
+      expect(jobsResponse.statusCode).toBe(200);
+      expect(jobsResponse.json()).toEqual({
+        jobs: [
+          expect.objectContaining({
+            artifactId: artifact.id,
+            exportKind: "source-bundle",
+            status: "completed",
+            result: expect.objectContaining({
+              filename: expect.stringMatching(/\.zip$/),
+              contentType: "application/zip"
+            })
+          })
+        ]
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("tracks failed export jobs when artifact-specific export is unsupported", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Failed Export Jobs Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Tracked Website", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const exportResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/exports/prototype-flow`
+      });
+
+      expect(exportResponse.statusCode).toBe(409);
+
+      const jobsResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/export-jobs`
+      });
+
+      expect(jobsResponse.statusCode).toBe(200);
+      expect(jobsResponse.json()).toEqual({
+        jobs: [
+          expect.objectContaining({
+            artifactId: artifact.id,
+            exportKind: "prototype-flow",
+            status: "failed",
+            error: expect.objectContaining({
+              code: "EXPORT_NOT_SUPPORTED"
+            })
+          })
+        ]
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("persists code workspaces and exports the saved scaffold", async () => {
     const app = await buildApp();
     try {

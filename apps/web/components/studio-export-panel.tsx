@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { Surface } from "@opendesign/ui";
-import type { ApiArtifact } from "../lib/opendesign-api";
+import type { ApiArtifact, ApiExportJob } from "../lib/opendesign-api";
 
 type StudioExportPanelProps = {
   projectId: string;
   artifactId: string;
   artifactKind: ApiArtifact["kind"];
   sourceBundleFiles: Record<string, string>;
+  exportJobs: ApiExportJob[];
 };
 
 export function StudioExportPanel({
   projectId,
   artifactId,
   artifactKind,
-  sourceBundleFiles
+  sourceBundleFiles,
+  exportJobs
 }: StudioExportPanelProps) {
   return (
     <>
@@ -61,6 +63,30 @@ export function StudioExportPanel({
               Download Deck JSON
             </Link>
           ) : null}
+        </div>
+      </Surface>
+      <Surface className="project-card" as="section">
+        <div>
+          <h3>Recent Export Jobs</h3>
+          <p className="footer-note">
+            Export jobs are tracked on the API side even when downloads still run through
+            the current synchronous routes. Refresh the Studio to see the latest status.
+          </p>
+        </div>
+        <div className="stack-form">
+          {exportJobs.length === 0 ? (
+            <div className="footer-note">No export jobs yet.</div>
+          ) : null}
+          {exportJobs.map((job) => (
+            <Surface key={job.id} className="kv">
+              <span>{job.exportKind} · {job.status}</span>
+              {job.result
+                ? `${job.result.filename} · ${new Date(job.requestedAt).toLocaleString("zh-CN")}`
+                : job.error
+                  ? `${job.error.code} · ${job.error.error}`
+                  : `Requested ${new Date(job.requestedAt).toLocaleString("zh-CN")}`}
+            </Surface>
+          ))}
         </div>
       </Surface>
       <Surface className="project-card" as="section">

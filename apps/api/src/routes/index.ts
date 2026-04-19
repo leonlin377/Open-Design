@@ -8,6 +8,7 @@ import type { DesignSystemRepository } from "../repositories/design-systems";
 import type { ProjectRepository } from "../repositories/projects";
 import type { ShareTokenRepository } from "../repositories/share-tokens";
 import type { AssetRepository } from "../repositories/assets";
+import type { ExportJobRepository } from "../repositories/export-jobs";
 import { registerAuthRoutes } from "./auth";
 import { registerArtifactRoutes } from "./artifacts";
 import { registerDesignSystemRoutes } from "./design-systems";
@@ -26,6 +27,7 @@ export interface RouteDependencies {
   designSystems: DesignSystemRepository;
   shares: ShareTokenRepository;
   assets: AssetRepository;
+  exportJobs: ExportJobRepository;
   assetStorage: AssetStorage;
   auth: OpenDesignAuth;
   authBaseURL: string;
@@ -59,6 +61,7 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
     versions: options.versions,
     comments: options.comments,
     designSystems: options.designSystems,
+    exportJobs: options.exportJobs,
     auth: options.auth
   });
   await app.register(registerDesignSystemRoutes, {

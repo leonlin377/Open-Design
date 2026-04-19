@@ -89,6 +89,7 @@ export async function buildApp(options: AppOptions = {}) {
     designSystems: persistence.designSystems,
     shares: persistence.shares,
     assets: persistence.assets,
+    exportJobs: persistence.exportJobs,
     assetStorage: persistence.assetStorage,
     auth: persistence.auth,
     authBaseURL: persistence.authBaseURL,

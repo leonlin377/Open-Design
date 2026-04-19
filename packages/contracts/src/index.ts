@@ -231,6 +231,39 @@ export const ArtifactVersionDiffSummarySchema = z.object({
   })
 });
 
+export const ExportJobStatusSchema = z.enum([
+  "queued",
+  "running",
+  "completed",
+  "failed"
+]);
+
+export const ExportKindSchema = z.enum([
+  "html",
+  "source-bundle",
+  "handoff-bundle",
+  "prototype-flow",
+  "slides-deck"
+]);
+
+export const ExportJobResultSchema = z.object({
+  filename: z.string().min(1),
+  contentType: z.string().min(1)
+});
+
+export const ExportJobSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  exportKind: ExportKindSchema,
+  status: ExportJobStatusSchema,
+  requestedAt: z.string().min(1),
+  startedAt: z.string().min(1).nullable(),
+  completedAt: z.string().min(1).nullable(),
+  requestId: z.string().min(1).nullable(),
+  result: ExportJobResultSchema.nullable(),
+  error: ApiErrorSchema.nullable()
+});
+
 export const ShareResourceTypeSchema = z.enum(["project", "artifact"]);
 export const ShareRoleSchema = z.enum(["viewer", "commenter", "editor"]);
 
@@ -382,6 +415,10 @@ export type ArtifactGenerateStreamEvent = z.infer<
   typeof ArtifactGenerateStreamEventSchema
 >;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
+export type ExportJobStatus = z.infer<typeof ExportJobStatusSchema>;
+export type ExportKind = z.infer<typeof ExportKindSchema>;
+export type ExportJobResult = z.infer<typeof ExportJobResultSchema>;
+export type ExportJob = z.infer<typeof ExportJobSchema>;
 export type ShareResourceType = z.infer<typeof ShareResourceTypeSchema>;
 export type ShareRole = z.infer<typeof ShareRoleSchema>;
 export type ShareToken = z.infer<typeof ShareTokenSchema>;

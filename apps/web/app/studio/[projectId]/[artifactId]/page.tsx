@@ -16,6 +16,7 @@ import {
   type ApiArtifactVersionDiff,
   getArtifactWorkspace,
   getArtifactVersionDiff,
+  listArtifactExportJobs,
   getProject,
   getSession,
   listArtifacts,
@@ -73,6 +74,9 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
     getArtifactWorkspace(resolvedParams.projectId, resolvedParams.artifactId),
     listDesignSystems()
   ]);
+  const exportJobsPayload = workspacePayload
+    ? await listArtifactExportJobs(resolvedParams.projectId, resolvedParams.artifactId)
+    : null;
   const artifacts = project ? await listArtifacts(project.id) : [];
 
   if (!project || !workspacePayload) {
@@ -317,6 +321,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               artifactId={artifact.id}
               artifactKind={artifactKind}
               sourceBundleFiles={sourceBundle.files}
+              exportJobs={exportJobsPayload?.jobs ?? []}
             />
           }
           artifactSwitcher={artifacts.map((entry) => (

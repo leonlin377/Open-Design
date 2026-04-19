@@ -6,6 +6,7 @@ import type {
   ArtifactGenerateResponse,
   ArtifactComment,
   CommentAnchor,
+  ExportJob,
   ArtifactVersionDiffSummary,
   ArtifactWorkspace,
   SceneTemplateKind,
@@ -53,6 +54,7 @@ export type ApiArtifactWorkspace = ArtifactWorkspace;
 export type ApiArtifactVersion = ArtifactVersionSnapshot;
 export type ApiArtifactComment = ArtifactComment;
 export type ApiArtifactGenerateResponse = ArtifactGenerateResponse;
+export type ApiExportJob = ExportJob;
 export type ApiErrorPayload = ApiError;
 export type ApiDesignSystemPack = DesignSystemPack & {
   ownerUserId: string | null;
@@ -72,6 +74,10 @@ export type ApiArtifactWorkspacePayload = {
   workspace: ApiArtifactWorkspace;
   versions: ApiArtifactVersion[];
   comments: ApiArtifactComment[];
+};
+
+export type ApiArtifactExportJobsPayload = {
+  jobs: ApiExportJob[];
 };
 
 export type ApiArtifactVersionDiff = ArtifactVersionDiffSummary;
@@ -227,6 +233,28 @@ export async function getArtifact(
   }
 
   return (await response.json()) as ApiArtifact;
+}
+
+export async function listArtifactExportJobs(
+  projectId: string,
+  artifactId: string
+): Promise<ApiArtifactExportJobsPayload | null> {
+  const response = await apiFetch(
+    `/api/projects/${projectId}/artifacts/${artifactId}/export-jobs`
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to load export jobs (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiArtifactExportJobsPayload;
 }
 
 export async function createArtifact(input: {

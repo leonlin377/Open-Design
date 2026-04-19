@@ -47,6 +47,11 @@ import {
   PostgresAssetRepository,
   type AssetRepository
 } from "./repositories/assets";
+import {
+  InMemoryExportJobRepository,
+  PostgresExportJobRepository,
+  type ExportJobRepository
+} from "./repositories/export-jobs";
 
 const { Pool } = pg;
 
@@ -73,6 +78,7 @@ export interface AppPersistence {
   designSystems: DesignSystemRepository;
   shares: ShareTokenRepository;
   assets: AssetRepository;
+  exportJobs: ExportJobRepository;
   assetStorage: AssetStorage;
   close(): Promise<void>;
 }
@@ -105,6 +111,18 @@ function buildAssetStorageProviderConstraint() {
   return ["memory", "s3"].map((provider) => `'${provider}'`).join(", ");
 }
 
+function buildExportJobStatusConstraint() {
+  return ["queued", "running", "completed", "failed"]
+    .map((status) => `'${status}'`)
+    .join(", ");
+}
+
+function buildExportKindConstraint() {
+  return ["html", "source-bundle", "handoff-bundle", "prototype-flow", "slides-deck"]
+    .map((kind) => `'${kind}'`)
+    .join(", ");
+}
+
 async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   const validArtifactKinds = buildArtifactKindConstraint();
   const validVersionSources = buildArtifactVersionSourceConstraint();
@@ -113,6 +131,8 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   const validShareRoles = buildShareRoleConstraint();
   const validAssetKinds = buildAssetKindConstraint();
   const validAssetStorageProviders = buildAssetStorageProviderConstraint();
+  const validExportJobStatuses = buildExportJobStatusConstraint();
+  const validExportKinds = buildExportKindConstraint();
 
   await pool.query(
     `create table if not exists projects (
@@ -287,6 +307,26 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
     `create index if not exists assets_owner_user_id_idx
      on assets(owner_user_id, created_at desc)`
   );
+
+  await pool.query(
+    `create table if not exists export_jobs (
+      id text primary key,
+      artifact_id text not null references artifacts(id) on delete cascade,
+      export_kind text not null check (export_kind in (${validExportKinds})),
+      status text not null check (status in (${validExportJobStatuses})),
+      request_id text,
+      result jsonb,
+      error jsonb,
+      requested_at timestamptz not null default now(),
+      started_at timestamptz,
+      completed_at timestamptz
+    )`
+  );
+
+  await pool.query(
+    `create index if not exists export_jobs_artifact_id_idx
+     on export_jobs(artifact_id, requested_at desc)`
+  );
 }
 
 async function ensurePostgresPersistence(pool: InstanceType<typeof Pool>, auth: OpenDesignAuth) {
@@ -322,6 +362,7 @@ export async function createAppPersistence(input: {
       designSystems: new InMemoryDesignSystemRepository(),
       shares: new InMemoryShareTokenRepository(),
       assets: new InMemoryAssetRepository(),
+      exportJobs: new InMemoryExportJobRepository(),
       assetStorage,
       close: async () => {}
     };
@@ -351,6 +392,7 @@ export async function createAppPersistence(input: {
     designSystems: new PostgresDesignSystemRepository(pool),
     shares: new PostgresShareTokenRepository(pool),
     assets: new PostgresAssetRepository(pool),
+    exportJobs: new PostgresExportJobRepository(pool),
     assetStorage,
     close: async () => {
       await pool.end();

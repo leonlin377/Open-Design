@@ -47,7 +47,7 @@ Current estimated product completion for a serious V1: `99.5%`
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 95% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
-| 5 | Collaboration and handoff | 75% | `[>]` |
+| 5 | Collaboration and handoff | 90% | `[>]` |
 | 6 | Assets, reliability, ops | 88% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
@@ -75,7 +75,7 @@ What is already working:
 What still blocks a true Claude Design benchmark:
 
 - [ ] Asset pipeline backed by MinIO/S3 beyond design-system screenshots
-- [ ] Async export jobs for long-running or asset-backed exports
+- [ ] Async/background export execution for long-running or asset-backed exports
 - [ ] Asset-backed production validation beyond design-system screenshots
 - [ ] Product polish and onboarding
 
@@ -396,6 +396,38 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `COLLAB-005 Add export job tracking`
 
+### COLLAB-005 Add Export Job Tracking
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `api`, `web`, `shared`
+- Depends On: `COLLAB-004`, `OPS-002`
+- Blocks: None
+- Why Now:
+  Handoff and structured exports already worked, but the product had no durable record of which export was requested, whether it succeeded, or why an artifact-specific export failed.
+- Definition Of Done:
+  - [x] Existing export routes create and update export job records with `queued/running/completed/failed` state.
+  - [x] Export jobs preserve request correlation id and expose success metadata or structured API failure payloads.
+  - [x] Studio export panel can show recent export jobs without replacing the current synchronous download flow.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: added export-job persistence and wired the current sync export routes to record `html`, `source-bundle`, `handoff-bundle`, `prototype-flow`, and `slides-deck` job lifecycle state plus result/error metadata.
+  - `2026-04-19`: Studio export tab now reads `/api/projects/:projectId/artifacts/:artifactId/export-jobs` and shows recent completed/failed jobs while preserving the existing direct-download interaction model.
+- Expected Artifacts:
+  - `packages/contracts/src/index.ts`
+  - `apps/api/src/repositories/export-jobs.ts`
+  - `apps/api/src/persistence.ts`
+  - `apps/api/src/routes/artifacts.ts`
+  - `apps/api/tests/projects-artifacts.test.ts`
+  - `apps/web/lib/opendesign-api.ts`
+  - `apps/web/components/studio-export-panel.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+  - `README.md`
+- Next Slice:
+  - `POL-002 Improve visual hierarchy and artifact canvas fidelity`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -462,7 +494,7 @@ Goal: Make the system usable by more than one person and suitable for review.
 - [x] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
 - [x] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
 - [x] `COLLAB-004` Build handoff export bundle
-- [ ] `COLLAB-005` Add export job tracking
+- [x] `COLLAB-005` Add export job tracking
 
 ## Phase 6: Assets, Reliability, And Ops
 
@@ -502,12 +534,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Review-ready handoff ZIP bundles for website, prototype, and slides artifacts
 - [x] Design-system screenshot assets persisted through MinIO/S3-aware storage with Studio previews
 - [x] Request correlation ids plus readiness/diagnostics API endpoints
+- [x] Export job tracking across current sync export routes
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `COLLAB-005` Export job tracking
-2. `POL-002` Improve visual hierarchy and artifact canvas fidelity
-3. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
-4. `POL-003` Add onboarding and empty-state guidance
+1. `POL-002` Improve visual hierarchy and artifact canvas fidelity
+2. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
+3. `POL-003` Add onboarding and empty-state guidance
+4. `POL-004` Tighten README and developer docs
