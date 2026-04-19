@@ -1,7 +1,7 @@
 # OpenDesign Master TODO
 
 Last updated: 2026-04-19
-Repo baseline: `cb231bb`
+Repo baseline: `9b2ea8e`
 
 ## Why This Exists
 
@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `93%`
+Current estimated product completion for a serious V1: `94%`
 
 ```text
-[###################-] 93%
+[###################-] 94%
 ```
 
 ## Phase Scoreboard
@@ -47,7 +47,7 @@ Current estimated product completion for a serious V1: `93%`
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 90% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
-| 5 | Collaboration and handoff | 0% | `[ ]` |
+| 5 | Collaboration and handoff | 20% | `[>]` |
 | 6 | Assets, reliability, ops | 55% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
@@ -72,7 +72,7 @@ What is already working:
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Sharing, roles, and collaboration flows
+- [ ] Roles and richer collaboration flows
 - [ ] Asset pipeline backed by MinIO/S3
 - [ ] Handoff export bundles and async export jobs
 - [ ] Production-grade operational validation
@@ -243,8 +243,6 @@ These are the tasks that should be worked continuously next.
 
 These tasks are known to depend on unfinished upstream work.
 
-- `[!] COLLAB-002 Add roles: viewer/commenter/editor`
-  Blocked by: `COLLAB-001`
 - `[!] COLLAB-004 Build handoff export bundle`
   Blocked by: `TYPE-001`, `TYPE-002`, `ASSET-001`
 - `[!] OPS-003 Validate full Docker studio stack in real build/run mode`
@@ -306,8 +304,8 @@ Goal: Support the full artifact surface instead of just website-first flows.
 
 Goal: Make the system usable by more than one person and suitable for review.
 
-- [ ] `COLLAB-001` Add share tokens for artifact/project review
-- [ ] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
+- [x] `COLLAB-001` Add share tokens for artifact/project review
+- [r] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
 - [ ] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
 - [ ] `COLLAB-004` Build handoff export bundle
 - [ ] `COLLAB-005` Add export job tracking
@@ -343,12 +341,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Streaming generation progress and structured generation failures
 - [x] Playwright E2E core Studio flow with login, scene edit, code save, snapshot, restore, and export
 - [x] Prototype flow JSON export and slides deck JSON export
+- [x] Project and artifact share tokens with public read-only review pages
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `COLLAB-001` Share tokens for artifact/project review
-2. `TYPE-005` Per-artifact editor affordances in Studio
+1. `TYPE-005` Per-artifact editor affordances in Studio
+2. `COLLAB-002` Roles: `viewer`, `commenter`, `editor`
 3. `OPS-003` Validate full Docker studio stack in real build/run mode
 4. `COLLAB-004` Handoff export bundle

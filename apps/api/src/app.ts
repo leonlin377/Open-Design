@@ -53,6 +53,7 @@ export async function buildApp(options: AppOptions = {}) {
     versions: persistence.versions,
     comments: persistence.comments,
     designSystems: persistence.designSystems,
+    shares: persistence.shares,
     auth: persistence.auth,
     authBaseURL: persistence.authBaseURL
   });

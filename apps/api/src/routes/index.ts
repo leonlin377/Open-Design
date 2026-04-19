@@ -6,11 +6,13 @@ import type { ArtifactWorkspaceRepository } from "../repositories/artifact-works
 import type { ArtifactRepository } from "../repositories/artifacts";
 import type { DesignSystemRepository } from "../repositories/design-systems";
 import type { ProjectRepository } from "../repositories/projects";
+import type { ShareTokenRepository } from "../repositories/share-tokens";
 import { registerAuthRoutes } from "./auth";
 import { registerArtifactRoutes } from "./artifacts";
 import { registerDesignSystemRoutes } from "./design-systems";
 import { registerHealthRoutes } from "./health";
 import { registerProjectRoutes } from "./projects";
+import { registerShareRoutes } from "./shares";
 
 export interface RouteDependencies {
   projects: ProjectRepository;
@@ -19,6 +21,7 @@ export interface RouteDependencies {
   versions: ArtifactVersionRepository;
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
+  shares: ShareTokenRepository;
   auth: OpenDesignAuth;
   authBaseURL: string;
 }
@@ -43,6 +46,15 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
   });
   await app.register(registerDesignSystemRoutes, {
     designSystems: options.designSystems,
+    auth: options.auth
+  });
+  await app.register(registerShareRoutes, {
+    projects: options.projects,
+    artifacts: options.artifacts,
+    workspaces: options.workspaces,
+    versions: options.versions,
+    comments: options.comments,
+    shares: options.shares,
     auth: options.auth
   });
   await app.register(registerAuthRoutes, {

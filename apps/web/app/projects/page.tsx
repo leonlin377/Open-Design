@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Badge, Button, Surface } from "@opendesign/ui";
 import { AuthPanel } from "../../components/auth-panel";
 import { getSession, listArtifacts, listProjects } from "../../lib/opendesign-api";
-import { createArtifactAction, createProjectAction } from "./actions";
+import {
+  createArtifactAction,
+  createProjectAction,
+  createProjectShareTokenAction
+} from "./actions";
 
 const artifactKinds = ["website", "prototype", "slides"] as const;
 
@@ -91,6 +95,12 @@ export default async function ProjectsPage() {
               {artifacts.length === 0 ? <span>No artifacts yet</span> : null}
             </div>
             <div className="hero-actions">
+              <form action={createProjectShareTokenAction}>
+                <input type="hidden" name="projectId" value={project.id} />
+                <Button variant="outline" size="sm" type="submit">
+                  Share Project
+                </Button>
+              </form>
               {artifacts.map((artifact) => (
                 <Link
                   key={artifact.id}

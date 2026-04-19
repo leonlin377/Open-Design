@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Surface } from "@opendesign/ui";
+import { Badge, Button, Surface } from "@opendesign/ui";
 import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { StudioCommentsPanel } from "../../../../components/studio-comments-panel";
 import { StudioExportPanel } from "../../../../components/studio-export-panel";
@@ -25,6 +25,7 @@ import {
   appendSceneTemplateAction,
   createArtifactCommentAction,
   createArtifactVersionAction,
+  createArtifactShareTokenAction,
   resolveArtifactCommentAction,
   restoreArtifactVersionAction,
   saveCodeWorkspaceAction,
@@ -156,6 +157,13 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <Link href="/projects" className="button-link ghost">
             All Projects
           </Link>
+          <form action={createArtifactShareTokenAction}>
+            <input type="hidden" name="projectId" value={project.id} />
+            <input type="hidden" name="artifactId" value={artifact.id} />
+            <Button variant="outline" size="sm" type="submit">
+              Share Artifact
+            </Button>
+          </form>
           <Link
             href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
             className="button-link ghost"

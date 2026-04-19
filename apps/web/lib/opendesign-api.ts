@@ -9,7 +9,9 @@ import type {
   ArtifactWorkspace,
   SceneTemplateKind,
   ArtifactVersionSnapshot,
-  DesignSystemPack
+  DesignSystemPack,
+  ShareReviewPayload,
+  ShareToken
 } from "@opendesign/contracts";
 import {
   buildApiRequestError,
@@ -54,6 +56,13 @@ export type ApiDesignSystemPack = DesignSystemPack & {
   ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ApiShareToken = ShareToken;
+export type ApiShareReviewPayload = ShareReviewPayload;
+export type ApiShareTokenCreateResponse = {
+  share: ApiShareToken;
+  sharePath: string;
 };
 
 export type ApiArtifactWorkspacePayload = {
@@ -163,6 +172,21 @@ export async function createProject(input: { name: string }) {
   return (await response.json()) as ApiProject;
 }
 
+export async function createProjectShareToken(projectId: string) {
+  const response = await apiFetch(`/api/projects/${projectId}/share-tokens`, {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to create project share token (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiShareTokenCreateResponse;
+}
+
 export async function listArtifacts(projectId: string): Promise<ApiArtifact[]> {
   const response = await apiFetch(`/api/projects/${projectId}/artifacts`);
 
@@ -213,6 +237,27 @@ export async function createArtifact(input: {
   return (await response.json()) as ApiArtifact;
 }
 
+export async function createArtifactShareToken(input: {
+  projectId: string;
+  artifactId: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/share-tokens`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to create artifact share token (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiShareTokenCreateResponse;
+}
+
 export async function getArtifactWorkspace(
   projectId: string,
   artifactId: string
@@ -231,6 +276,20 @@ export async function getArtifactWorkspace(
   }
 
   return (await response.json()) as ApiArtifactWorkspacePayload;
+}
+
+export async function getSharedReview(token: string): Promise<ApiShareReviewPayload | null> {
+  const response = await apiFetch(`/api/share/${token}`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    await throwApiResponseError(response, `Failed to load shared review (${response.status})`);
+  }
+
+  return (await response.json()) as ApiShareReviewPayload;
 }
 
 export async function createArtifactVersion(input: {

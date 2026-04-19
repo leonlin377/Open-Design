@@ -1,8 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { createArtifact, createProject } from "../../lib/opendesign-api";
+import {
+  createArtifact,
+  createProject,
+  createProjectShareToken
+} from "../../lib/opendesign-api";
 
 export async function createProjectAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -35,4 +40,15 @@ export async function createArtifactAction(formData: FormData) {
 
   revalidatePath("/projects");
   redirect(`/studio/${projectId}/${artifact.id}`);
+}
+
+export async function createProjectShareTokenAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+
+  if (!projectId) {
+    throw new Error("Project is required.");
+  }
+
+  const shareResponse = await createProjectShareToken(projectId);
+  redirect(shareResponse.sharePath as Route);
 }

@@ -13,6 +13,8 @@ import {
   ArtifactWorkspaceSchema,
   CommentAnchorSchema,
   DesignSystemPackSchema,
+  ShareReviewPayloadSchema,
+  ShareTokenSchema,
   SceneTemplateKindSchema,
   SceneDocumentSchema
 } from "../src/index";
@@ -181,6 +183,83 @@ describe("ArtifactCommentSchema", () => {
 
     expect(comment.anchor.elementId).toBe("hero");
     expect(comment.status).toBe("open");
+  });
+});
+
+describe("ShareTokenSchema", () => {
+  test("accepts persisted share tokens", () => {
+    const share = ShareTokenSchema.parse({
+      id: "share_1",
+      token: "opaque123",
+      resourceType: "artifact",
+      resourceId: "artifact_1",
+      projectId: "project_1",
+      createdByUserId: "user_1",
+      createdAt: "2026-04-19T10:00:00.000Z",
+      expiresAt: null
+    });
+
+    expect(share.resourceType).toBe("artifact");
+    expect(share.projectId).toBe("project_1");
+  });
+});
+
+describe("ShareReviewPayloadSchema", () => {
+  test("accepts a shared artifact review payload", () => {
+    const payload = ShareReviewPayloadSchema.parse({
+      resourceType: "artifact",
+      share: {
+        id: "share_1",
+        token: "opaque123",
+        resourceType: "artifact",
+        resourceId: "artifact_1",
+        projectId: "project_1",
+        createdByUserId: null,
+        createdAt: "2026-04-19T10:00:00.000Z",
+        expiresAt: null
+      },
+      project: {
+        id: "project_1",
+        name: "Atlas Commerce",
+        ownerUserId: null,
+        createdAt: "2026-04-19T09:00:00.000Z",
+        updatedAt: "2026-04-19T09:05:00.000Z"
+      },
+      artifact: {
+        id: "artifact_1",
+        projectId: "project_1",
+        name: "Launch Site",
+        kind: "website",
+        createdAt: "2026-04-19T09:10:00.000Z",
+        updatedAt: "2026-04-19T09:15:00.000Z"
+      },
+      workspace: {
+        intent: "Build a cinematic launch surface.",
+        sceneVersion: 3,
+        rootNodeCount: 2,
+        activeVersionId: "version_2",
+        openCommentCount: 1,
+        versionCount: 2,
+        updatedAt: "2026-04-19T09:20:00.000Z"
+      },
+      latestVersion: {
+        id: "version_2",
+        artifactId: "artifact_1",
+        label: "Review",
+        summary: "Ready for review",
+        source: "manual",
+        sceneVersion: 3,
+        hasCodeWorkspaceSnapshot: true,
+        createdAt: "2026-04-19T09:25:00.000Z"
+      }
+    });
+
+    expect(payload.resourceType).toBe("artifact");
+    if (payload.resourceType !== "artifact") {
+      throw new Error("Expected artifact payload");
+    }
+    expect(payload.workspace.versionCount).toBe(2);
+    expect(payload.latestVersion?.label).toBe("Review");
   });
 });
 

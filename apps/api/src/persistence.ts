@@ -32,6 +32,11 @@ import {
   PostgresProjectRepository,
   type ProjectRepository
 } from "./repositories/projects";
+import {
+  InMemoryShareTokenRepository,
+  PostgresShareTokenRepository,
+  type ShareTokenRepository
+} from "./repositories/share-tokens";
 
 const { Pool } = pg;
 
@@ -47,6 +52,7 @@ export interface AppPersistence {
   versions: ArtifactVersionRepository;
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
+  shares: ShareTokenRepository;
   close(): Promise<void>;
 }
 
@@ -62,10 +68,15 @@ function buildArtifactCommentStatusConstraint() {
   return ["open", "resolved"].map((status) => `'${status}'`).join(", ");
 }
 
+function buildShareResourceTypeConstraint() {
+  return ["project", "artifact"].map((kind) => `'${kind}'`).join(", ");
+}
+
 async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   const validArtifactKinds = buildArtifactKindConstraint();
   const validVersionSources = buildArtifactVersionSourceConstraint();
   const validCommentStatuses = buildArtifactCommentStatusConstraint();
+  const validShareResourceTypes = buildShareResourceTypeConstraint();
 
   await pool.query(
     `create table if not exists projects (
@@ -197,6 +208,24 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
     `create index if not exists design_system_packs_owner_user_id_idx
      on design_system_packs(owner_user_id, updated_at desc, created_at desc)`
   );
+
+  await pool.query(
+    `create table if not exists share_tokens (
+      id text primary key,
+      token text not null unique,
+      resource_type text not null check (resource_type in (${validShareResourceTypes})),
+      resource_id text not null,
+      project_id text not null references projects(id) on delete cascade,
+      created_by_user_id text references "user"(id) on delete set null,
+      expires_at timestamptz,
+      created_at timestamptz not null default now()
+    )`
+  );
+
+  await pool.query(
+    `create index if not exists share_tokens_project_id_idx
+     on share_tokens(project_id, created_at desc)`
+  );
 }
 
 async function ensurePostgresPersistence(pool: InstanceType<typeof Pool>, auth: OpenDesignAuth) {
@@ -225,6 +254,7 @@ export async function createAppPersistence(
       versions: new InMemoryArtifactVersionRepository(),
       comments: new InMemoryArtifactCommentRepository(),
       designSystems: new InMemoryDesignSystemRepository(),
+      shares: new InMemoryShareTokenRepository(),
       close: async () => {}
     };
   }
@@ -250,6 +280,7 @@ export async function createAppPersistence(
     versions: new PostgresArtifactVersionRepository(pool),
     comments: new PostgresArtifactCommentRepository(pool),
     designSystems: new PostgresDesignSystemRepository(pool),
+    shares: new PostgresShareTokenRepository(pool),
     close: async () => {
       await pool.end();
     }

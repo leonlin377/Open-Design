@@ -102,6 +102,23 @@ export const ArtifactCommentSchema = z.object({
   updatedAt: z.string().min(1)
 });
 
+export const ProjectSummarySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  ownerUserId: z.string().min(1).nullable(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1)
+});
+
+export const ArtifactSummarySchema = z.object({
+  id: z.string().min(1),
+  projectId: z.string().min(1),
+  name: z.string().min(1),
+  kind: ArtifactKindSchema,
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1)
+});
+
 export const ArtifactCodeWorkspaceSchema = z.object({
   files: z.record(z.string(), z.string()).default({}),
   baseSceneVersion: z.number().int().positive(),
@@ -174,6 +191,7 @@ export const ApiErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
   "PROJECT_NOT_FOUND",
   "ARTIFACT_NOT_FOUND",
+  "SHARE_TOKEN_NOT_FOUND",
   "VERSION_NOT_FOUND",
   "COMMENT_NOT_FOUND",
   "SCENE_NODE_NOT_FOUND",
@@ -211,6 +229,46 @@ export const ArtifactVersionDiffSummarySchema = z.object({
     currentHasCodeWorkspace: z.boolean()
   })
 });
+
+export const ShareResourceTypeSchema = z.enum(["project", "artifact"]);
+
+export const ShareTokenSchema = z.object({
+  id: z.string().min(1),
+  token: z.string().min(1),
+  resourceType: ShareResourceTypeSchema,
+  resourceId: z.string().min(1),
+  projectId: z.string().min(1),
+  createdByUserId: z.string().min(1).nullable(),
+  createdAt: z.string().min(1),
+  expiresAt: z.string().min(1).nullable()
+});
+
+export const ShareReviewArtifactWorkspaceSchema = z.object({
+  intent: z.string().min(1),
+  sceneVersion: z.number().int().positive(),
+  rootNodeCount: z.number().int().nonnegative(),
+  activeVersionId: z.string().min(1).nullable(),
+  openCommentCount: z.number().int().nonnegative(),
+  versionCount: z.number().int().nonnegative(),
+  updatedAt: z.string().min(1)
+});
+
+export const ShareReviewPayloadSchema = z.discriminatedUnion("resourceType", [
+  z.object({
+    resourceType: z.literal("project"),
+    share: ShareTokenSchema,
+    project: ProjectSummarySchema,
+    artifacts: z.array(ArtifactSummarySchema)
+  }),
+  z.object({
+    resourceType: z.literal("artifact"),
+    share: ShareTokenSchema,
+    project: ProjectSummarySchema,
+    artifact: ArtifactSummarySchema,
+    workspace: ShareReviewArtifactWorkspaceSchema,
+    latestVersion: ArtifactVersionSnapshotSchema.nullable()
+  })
+]);
 
 export const ArtifactWorkspaceSchema = z.object({
   artifactId: z.string().min(1),
@@ -295,6 +353,8 @@ export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSourceSchema>;
 export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
 export type ArtifactVersionSnapshot = z.infer<typeof ArtifactVersionSnapshotSchema>;
 export type ArtifactComment = z.infer<typeof ArtifactCommentSchema>;
+export type ProjectSummary = z.infer<typeof ProjectSummarySchema>;
+export type ArtifactSummary = z.infer<typeof ArtifactSummarySchema>;
 export type ArtifactCodeWorkspace = z.infer<typeof ArtifactCodeWorkspaceSchema>;
 export type ArtifactGenerationProvider = z.infer<typeof ArtifactGenerationProviderSchema>;
 export type ArtifactGenerationTransport = z.infer<typeof ArtifactGenerationTransportSchema>;
@@ -316,6 +376,12 @@ export type ArtifactGenerateStreamEvent = z.infer<
   typeof ArtifactGenerateStreamEventSchema
 >;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
+export type ShareResourceType = z.infer<typeof ShareResourceTypeSchema>;
+export type ShareToken = z.infer<typeof ShareTokenSchema>;
+export type ShareReviewArtifactWorkspace = z.infer<
+  typeof ShareReviewArtifactWorkspaceSchema
+>;
+export type ShareReviewPayload = z.infer<typeof ShareReviewPayloadSchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;

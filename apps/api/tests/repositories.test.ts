@@ -22,6 +22,10 @@ import {
   PostgresProjectRepository,
   type Project
 } from "../src/repositories/projects";
+import {
+  PostgresShareTokenRepository,
+  type ShareTokenRecord
+} from "../src/repositories/share-tokens";
 
 function createQueryMock<Row extends Record<string, unknown>>(rows: Row[]) {
   return vi.fn().mockResolvedValue({ rows });
@@ -535,5 +539,70 @@ describe("PostgresDesignSystemRepository", () => {
       "pack-1",
       "user-1"
     ]);
+  });
+});
+
+describe("PostgresShareTokenRepository", () => {
+  it("maps and returns a created share token", async () => {
+    const query = createQueryMock([
+      {
+        id: "share-1",
+        token: "opaque123",
+        resource_type: "artifact",
+        resource_id: "artifact-1",
+        project_id: "project-1",
+        created_by_user_id: "user-1",
+        created_at: new Date("2026-04-19T10:00:00.000Z"),
+        expires_at: null
+      }
+    ]);
+
+    const repository = new PostgresShareTokenRepository({ query });
+    const share = await repository.create({
+      resourceType: "artifact",
+      resourceId: "artifact-1",
+      projectId: "project-1",
+      createdByUserId: "user-1"
+    });
+
+    expect(share).toEqual<ShareTokenRecord>({
+      id: "share-1",
+      token: "opaque123",
+      resourceType: "artifact",
+      resourceId: "artifact-1",
+      projectId: "project-1",
+      createdByUserId: "user-1",
+      createdAt: "2026-04-19T10:00:00.000Z",
+      expiresAt: null
+    });
+  });
+
+  it("returns a resolved share token by opaque token", async () => {
+    const query = createQueryMock([
+      {
+        id: "share-1",
+        token: "opaque123",
+        resource_type: "project",
+        resource_id: "project-1",
+        project_id: "project-1",
+        created_by_user_id: null,
+        created_at: new Date("2026-04-19T10:00:00.000Z"),
+        expires_at: null
+      }
+    ]);
+
+    const repository = new PostgresShareTokenRepository({ query });
+    const share = await repository.getByToken("opaque123");
+
+    expect(share).toEqual<ShareTokenRecord>({
+      id: "share-1",
+      token: "opaque123",
+      resourceType: "project",
+      resourceId: "project-1",
+      projectId: "project-1",
+      createdByUserId: null,
+      createdAt: "2026-04-19T10:00:00.000Z",
+      expiresAt: null
+    });
   });
 });

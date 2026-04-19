@@ -170,6 +170,132 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("creates and resolves a project share token", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Review Hub" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Review Site", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const shareCreateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/share-tokens`
+      });
+
+      expect(shareCreateResponse.statusCode).toBe(201);
+      const shareCreatePayload = shareCreateResponse.json();
+      expect(shareCreatePayload.share.resourceType).toBe("project");
+      expect(shareCreatePayload.sharePath).toMatch(/^\/share\//);
+
+      const sharedReviewResponse = await app.inject({
+        method: "GET",
+        url: `/api/share/${shareCreatePayload.share.token}`
+      });
+
+      expect(sharedReviewResponse.statusCode).toBe(200);
+      expect(sharedReviewResponse.json()).toMatchObject({
+        resourceType: "project",
+        project: {
+          id: project.id,
+          name: "Review Hub"
+        },
+        artifacts: [
+          expect.objectContaining({
+            id: artifact.id,
+            kind: "website"
+          })
+        ]
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("creates and resolves an artifact share token with workspace review data", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Artifact Review" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Launch Deck", kind: "slides" }
+      });
+      const artifact = artifactResponse.json();
+
+      await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      const shareCreateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/share-tokens`
+      });
+
+      expect(shareCreateResponse.statusCode).toBe(201);
+      const shareCreatePayload = shareCreateResponse.json();
+      expect(shareCreatePayload.share.resourceType).toBe("artifact");
+
+      const sharedReviewResponse = await app.inject({
+        method: "GET",
+        url: `/api/share/${shareCreatePayload.share.token}`
+      });
+
+      expect(sharedReviewResponse.statusCode).toBe(200);
+      expect(sharedReviewResponse.json()).toMatchObject({
+        resourceType: "artifact",
+        project: {
+          id: project.id
+        },
+        artifact: {
+          id: artifact.id,
+          kind: "slides"
+        },
+        workspace: {
+          sceneVersion: 1,
+          versionCount: 1
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns 404 for a missing share token", async () => {
+    const app = await buildApp();
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/share/missing-token"
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: "Share token not found",
+        code: "SHARE_TOKEN_NOT_FOUND",
+        recoverable: false
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("seeds workspace state, creates snapshots, and resolves comments", async () => {
     const app = await buildApp();
     try {

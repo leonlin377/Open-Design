@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 import {
   attachArtifactDesignSystem,
   appendSceneTemplate,
+  createArtifactShareToken,
   createArtifactComment,
   generateArtifact,
   createArtifactVersion,
@@ -249,4 +252,20 @@ export async function restoreArtifactVersionAction(formData: FormData) {
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function createArtifactShareTokenAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+
+  if (!projectId || !artifactId) {
+    throw new Error("Project and artifact are required.");
+  }
+
+  const shareResponse = await createArtifactShareToken({
+    projectId,
+    artifactId
+  });
+
+  redirect(shareResponse.sharePath as Route);
 }
