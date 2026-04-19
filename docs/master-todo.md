@@ -33,7 +33,7 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `99%`
+Current estimated product completion for a serious V1: `99.5%`
 
 ```text
 [###################-] 97%
@@ -47,7 +47,7 @@ Current estimated product completion for a serious V1: `99%`
 | 2 | Scene/code synchronization | 90% | `[x]` |
 | 3 | Design system ingest and grounding | 95% | `[>]` |
 | 4 | Prototype and slides | 90% | `[x]` |
-| 5 | Collaboration and handoff | 60% | `[>]` |
+| 5 | Collaboration and handoff | 75% | `[>]` |
 | 6 | Assets, reliability, ops | 80% | `[>]` |
 | 7 | Product polish | 25% | `[>]` |
 
@@ -74,7 +74,6 @@ What is already working:
 
 What still blocks a true Claude Design benchmark:
 
-- [ ] Element-aware collaboration anchors and richer shared review flows
 - [ ] Asset pipeline backed by MinIO/S3 beyond design-system screenshots
 - [ ] Async export jobs for long-running or asset-backed exports
 - [ ] Asset-backed production validation and operational diagnostics
@@ -335,6 +334,38 @@ These are the tasks that should be worked continuously next.
 - Next Slice:
   - `COLLAB-003 Upgrade comment anchors from canvas-level fallback to element-aware anchors`
 
+### COLLAB-003 Upgrade Comment Anchors From Canvas-Level Fallback To Element-Aware Anchors
+
+- Status: `[x]`
+- Priority: `P1`
+- Owner Lane: `web`, `api`, `shared`
+- Depends On: `COLLAB-001`, `COLLAB-002`, `SYNC-003`
+- Blocks: None
+- Why Now:
+  Shared review and Studio comments were already usable, but every new thread still collapsed onto a generic canvas anchor instead of staying attached to a concrete scene target.
+- Definition Of Done:
+  - [x] Studio comment creation can target the artifact canvas or a specific root scene node.
+  - [x] Shared review comment creation can target the shared canvas or a specific root scene node.
+  - [x] Comment APIs preserve explicit anchors instead of silently rewriting them to canvas fallback anchors.
+- Validation Commands:
+  - `pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts`
+  - `pnpm typecheck`
+- Validation Evidence:
+  - `2026-04-19`: added explicit anchor-target selectors to Studio and shared review comment forms, backed by encoded `elementId + selectionPath` payloads for artifact canvas and root scene nodes.
+  - `2026-04-19`: updated shared-review comment creation to accept explicit anchors end-to-end, and verified commenter/editor anchor persistence through `projects-artifacts` integration tests plus monorepo typecheck.
+- Expected Artifacts:
+  - `apps/web/components/comment-anchor-options.ts`
+  - `apps/web/components/studio-comments-panel.tsx`
+  - `apps/web/app/studio/[projectId]/[artifactId]/actions.ts`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
+  - `apps/web/app/share/[token]/actions.ts`
+  - `apps/web/app/share/[token]/page.tsx`
+  - `apps/web/lib/opendesign-api.ts`
+  - `apps/api/src/routes/shares.ts`
+  - `apps/api/tests/projects-artifacts.test.ts`
+- Next Slice:
+  - `OPS-002 Add production-grade logging and operational diagnostics`
+
 ## Blocked Registry
 
 These tasks are known to depend on unfinished upstream work.
@@ -399,7 +430,7 @@ Goal: Make the system usable by more than one person and suitable for review.
 
 - [x] `COLLAB-001` Add share tokens for artifact/project review
 - [x] `COLLAB-002` Add roles: `viewer`, `commenter`, `editor`
-- [ ] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
+- [x] `COLLAB-003` Upgrade comment anchors from canvas-level fallback to element-aware anchors
 - [x] `COLLAB-004` Build handoff export bundle
 - [ ] `COLLAB-005` Add export job tracking
 
@@ -436,6 +467,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Prototype flow JSON export and slides deck JSON export
 - [x] Project and artifact share tokens with public read-only review pages
 - [x] Role-based shared review links with viewer/commenter/editor permissions
+- [x] Element-aware comment anchors across Studio and shared review
 - [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
 - [x] Review-ready handoff ZIP bundles for website, prototype, and slides artifacts
 - [x] Design-system screenshot assets persisted through MinIO/S3-aware storage with Studio previews
@@ -444,7 +476,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 If no blocker appears, continue in this exact order:
 
-1. `COLLAB-003` Element-aware comment anchors
-2. `OPS-002` Production-grade logging and operational diagnostics
-3. `COLLAB-005` Export job tracking
-4. `POL-002` Improve visual hierarchy and artifact canvas fidelity
+1. `OPS-002` Production-grade logging and operational diagnostics
+2. `COLLAB-005` Export job tracking
+3. `POL-002` Improve visual hierarchy and artifact canvas fidelity
+4. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots

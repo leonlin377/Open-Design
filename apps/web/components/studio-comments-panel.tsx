@@ -1,5 +1,7 @@
 import { Button, Surface } from "@opendesign/ui";
+import type { SceneNode } from "@opendesign/contracts";
 import type { ApiArtifactComment } from "../lib/opendesign-api";
+import { buildCommentAnchorOptions } from "./comment-anchor-options";
 
 type StudioCommentsPanelProps = {
   projectId: string;
@@ -7,6 +9,7 @@ type StudioCommentsPanelProps = {
   workspaceIntent: string;
   frameLabel: string;
   syncStrategy: string;
+  sceneNodes: SceneNode[];
   comments: ApiArtifactComment[];
   createArtifactCommentAction: (formData: FormData) => Promise<void>;
   resolveArtifactCommentAction: (formData: FormData) => Promise<void>;
@@ -18,10 +21,13 @@ export function StudioCommentsPanel({
   workspaceIntent,
   frameLabel,
   syncStrategy,
+  sceneNodes,
   comments,
   createArtifactCommentAction,
   resolveArtifactCommentAction
 }: StudioCommentsPanelProps) {
+  const anchorOptions = buildCommentAnchorOptions(sceneNodes);
+
   return (
     <>
       <Surface className="kv">
@@ -40,13 +46,22 @@ export function StudioCommentsPanel({
         <div>
           <h3>Add Comment</h3>
           <p className="footer-note">
-            Comments are anchored to the current canvas until direct element selection
-            lands.
+            Choose the exact canvas or scene node this feedback should stay attached to.
           </p>
         </div>
         <form action={createArtifactCommentAction} className="stack-form">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="artifactId" value={artifactId} />
+          <label className="field">
+            <span>Anchor Target</span>
+            <select name="anchorTarget" defaultValue={anchorOptions[0]?.value} required>
+              {anchorOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="field">
             <span>Comment</span>
             <textarea

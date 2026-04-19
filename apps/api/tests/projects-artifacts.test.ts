@@ -333,7 +333,11 @@ describe("Projects and artifacts", () => {
         method: "POST",
         url: `/api/share/${viewerShare.token}/comments`,
         payload: {
-          body: "Viewer should not be allowed to comment."
+          body: "Viewer should not be allowed to comment.",
+          anchor: {
+            elementId: "artifact-canvas",
+            selectionPath: ["artifact-canvas"]
+          }
         }
       });
 
@@ -355,7 +359,11 @@ describe("Projects and artifacts", () => {
         method: "POST",
         url: `/api/share/${commenterShare.token}/comments`,
         payload: {
-          body: "Commenter feedback lands on the shared artifact."
+          body: "Commenter feedback lands on the shared artifact.",
+          anchor: {
+            elementId: "hero_section",
+            selectionPath: ["scene", "hero_section"]
+          }
         }
       });
 
@@ -363,7 +371,11 @@ describe("Projects and artifacts", () => {
       expect(allowedCommentResponse.json()).toMatchObject({
         artifactId: artifact.id,
         body: "Commenter feedback lands on the shared artifact.",
-        status: "open"
+        status: "open",
+        anchor: {
+          elementId: "hero_section",
+          selectionPath: ["scene", "hero_section"]
+        }
       });
     } finally {
       await app.close();
@@ -433,10 +445,20 @@ describe("Projects and artifacts", () => {
         method: "POST",
         url: `/api/share/${editorShare.token}/comments`,
         payload: {
-          body: "Resolve me from the editor link."
+          body: "Resolve me from the editor link.",
+          anchor: {
+            elementId: appendedNodeId,
+            selectionPath: ["scene", appendedNodeId]
+          }
         }
       });
       const comment = commentResponse.json();
+      expect(comment).toMatchObject({
+        anchor: {
+          elementId: appendedNodeId,
+          selectionPath: ["scene", appendedNodeId]
+        }
+      });
 
       const resolveResponse = await app.inject({
         method: "POST",

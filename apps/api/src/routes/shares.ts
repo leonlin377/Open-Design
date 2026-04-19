@@ -1,4 +1,9 @@
-import { ShareRoleSchema, ShareReviewPayloadSchema, type SceneNode } from "@opendesign/contracts";
+import {
+  CommentAnchorSchema,
+  ShareRoleSchema,
+  ShareReviewPayloadSchema,
+  type SceneNode
+} from "@opendesign/contracts";
 import { syncSceneToCodeWorkspace } from "@opendesign/code-sync";
 import {
   appendRootSceneNode,
@@ -43,7 +48,8 @@ const appendSceneTemplateBodySchema = z.object({
 });
 
 const createSharedCommentBodySchema = z.object({
-  body: z.string().min(1)
+  body: z.string().min(1),
+  anchor: CommentAnchorSchema
 });
 
 const updateSceneNodeBodySchema = z
@@ -507,10 +513,7 @@ export const registerShareRoutes: FastifyPluginAsync<ShareRouteOptions> = async 
     const comment = await options.comments.create({
       artifactId: state.artifact.id,
       body: body.body,
-      anchor: {
-        elementId: "artifact-canvas",
-        selectionPath: ["shared-review", state.share.token]
-      }
+      anchor: body.anchor
     });
 
     return reply.code(201).send(comment);

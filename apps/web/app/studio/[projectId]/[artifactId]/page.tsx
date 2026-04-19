@@ -294,6 +294,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
               workspaceIntent={workspace.intent}
               frameLabel={frameLabel}
               syncStrategy={`${workspace.syncPlan.mode} · ${workspace.syncPlan.targetMode}`}
+              sceneNodes={sceneNodes}
               comments={comments}
               createArtifactCommentAction={createArtifactCommentAction}
               resolveArtifactCommentAction={resolveArtifactCommentAction}

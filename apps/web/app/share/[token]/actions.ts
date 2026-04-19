@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { parseCommentAnchorTarget } from "../../../components/comment-anchor-options";
 import {
   appendSharedSceneTemplate,
   createSharedArtifactComment,
@@ -15,14 +16,22 @@ function getSharedPath(token: string) {
 export async function createSharedArtifactCommentAction(formData: FormData) {
   const shareToken = String(formData.get("shareToken") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  const anchorTarget = String(formData.get("anchorTarget") ?? "").trim();
 
   if (!shareToken || !body) {
     throw new Error("Share token and comment body are required.");
   }
 
+  const anchor = parseCommentAnchorTarget(anchorTarget);
+
+  if (!anchor) {
+    throw new Error("Share comment anchor target is required.");
+  }
+
   await createSharedArtifactComment({
     token: shareToken,
-    body
+    body,
+    anchor
   });
 
   revalidatePath(getSharedPath(shareToken));

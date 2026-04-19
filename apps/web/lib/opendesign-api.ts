@@ -5,6 +5,7 @@ import type {
   ApiError,
   ArtifactGenerateResponse,
   ArtifactComment,
+  CommentAnchor,
   ArtifactVersionDiffSummary,
   ArtifactWorkspace,
   SceneTemplateKind,
@@ -316,6 +317,7 @@ export async function getSharedReview(token: string): Promise<ApiShareReviewPayl
 export async function createSharedArtifactComment(input: {
   token: string;
   body: string;
+  anchor: CommentAnchor;
 }) {
   const response = await apiFetch(`/api/share/${input.token}/comments`, {
     method: "POST",
@@ -323,7 +325,8 @@ export async function createSharedArtifactComment(input: {
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      body: input.body
+      body: input.body,
+      anchor: input.anchor
     })
   });
 
@@ -555,7 +558,7 @@ export async function createArtifactComment(input: {
   projectId: string;
   artifactId: string;
   body: string;
-  anchor?: ArtifactComment["anchor"];
+  anchor: ArtifactComment["anchor"];
 }) {
   const response = await apiFetch(
     `/api/projects/${input.projectId}/artifacts/${input.artifactId}/comments`,
@@ -566,11 +569,7 @@ export async function createArtifactComment(input: {
       },
       body: JSON.stringify({
         body: input.body,
-        anchor:
-          input.anchor ?? {
-            elementId: "artifact-canvas",
-            selectionPath: ["artifact-canvas"]
-          }
+        anchor: input.anchor
       })
     }
   );

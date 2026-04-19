@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
+import { parseCommentAnchorTarget } from "../../../../components/comment-anchor-options";
 import {
   attachArtifactDesignSystem,
   appendSceneTemplate,
@@ -80,15 +81,23 @@ export async function createArtifactCommentAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const artifactId = String(formData.get("artifactId") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  const anchorTarget = String(formData.get("anchorTarget") ?? "").trim();
 
   if (!projectId || !artifactId || !body) {
     throw new Error("Project, artifact, and comment body are required.");
   }
 
+  const anchor = parseCommentAnchorTarget(anchorTarget);
+
+  if (!anchor) {
+    throw new Error("Comment anchor target is required.");
+  }
+
   await createArtifactComment({
     projectId,
     artifactId,
-    body
+    body,
+    anchor
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

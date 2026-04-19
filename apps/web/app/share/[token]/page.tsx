@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge, Button, Surface } from "@opendesign/ui";
+import { buildCommentAnchorOptions } from "../../../components/comment-anchor-options";
 import { getArtifactEditorAffordance } from "../../../components/studio-artifact-affordances";
 import { StudioSceneSectionsPanel } from "../../../components/studio-scene-sections-panel";
 import { getSharedReview } from "../../../lib/opendesign-api";
@@ -123,6 +124,10 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
               const canComment =
                 payload.share.role === "commenter" || payload.share.role === "editor";
               const canEdit = payload.share.role === "editor";
+              const anchorOptions = buildCommentAnchorOptions(
+                payload.sceneNodes,
+                "Shared Artifact Canvas"
+              );
 
               return (
                 <>
@@ -172,12 +177,21 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
                 <div>
                   <h3>Add Comment</h3>
                   <p className="footer-note">
-                    Comments from shared review links are anchored to the shared artifact
-                    canvas until element-aware anchors land.
+                    Shared review comments can target the canvas or a specific scene node.
                   </p>
                 </div>
                 <form action={createSharedArtifactCommentAction} className="stack-form">
                   <input type="hidden" name="shareToken" value={payload.share.token} />
+                  <label className="field">
+                    <span>Anchor Target</span>
+                    <select name="anchorTarget" defaultValue={anchorOptions[0]?.value} required>
+                      {anchorOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="field">
                     <span>Comment</span>
                     <textarea
