@@ -153,6 +153,67 @@ main {
   line-height: 1.5;
 }
 
+.onboarding-card {
+  background:
+    linear-gradient(160deg, rgba(255, 184, 77, 0.08), rgba(91, 201, 255, 0.05)),
+    var(--bg-panel);
+}
+
+.onboarding-card-head {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-card-head strong {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.onboarding-steps {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.onboarding-steps.compact {
+  grid-template-columns: 1fr;
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.onboarding-step span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 184, 77, 0.16);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.onboarding-step p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.starter-grid {
+  display: grid;
+  gap: 12px;
+}
+
 .section-title {
   margin: 56px 0 20px;
   font-size: 1.6rem;
@@ -436,6 +497,16 @@ main {
   padding: 18px;
 }
 
+.canvas-stage-guidance {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 244, 214, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .website-canvas-stage .canvas-stage-frame {
   background:
     linear-gradient(180deg, rgba(12, 16, 24, 0.92), rgba(7, 9, 13, 0.9)),
@@ -700,6 +771,10 @@ main {
 .scene-node-list {
   display: grid;
   gap: 10px;
+}
+
+.starter-checklist {
+  padding: 14px;
 }
 
 .source-bundle-stack {

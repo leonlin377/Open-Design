@@ -1,6 +1,56 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("studio core flow", () => {
+  test("shows onboarding cues across landing, projects, and empty studio states", async ({
+    page
+  }) => {
+    const runId = Date.now();
+    const projectName = `Onboarding ${runId}`;
+
+    await page.goto("/");
+    await expect(page.getByText("Three-step launch path")).toBeVisible();
+    await expect(page.getByText("1. Create or open a project.")).toBeVisible();
+
+    await page.goto("/projects");
+    await expect(page.getByText("First-run path")).toBeVisible();
+    await expect(page.getByText("Create a project, choose an artifact type")).toBeVisible();
+    await expect(page.getByText("No projects yet")).toBeVisible();
+
+    const createProjectCard = page.locator(".project-card").filter({
+      has: page.getByRole("heading", { name: "Create Project" })
+    });
+    await createProjectCard.getByLabel("Project Name").fill(projectName);
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/projects") &&
+          response.request().method() === "POST" &&
+          response.status() === 200
+      ),
+      createProjectCard.getByRole("button", { name: "Create Project" }).click()
+    ]);
+
+    const projectCard = page.locator(".project-card").filter({
+      has: page.getByRole("heading", { name: projectName })
+    });
+    await expect(projectCard.getByText("Choose the first artifact")).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/projects") &&
+          response.request().method() === "POST" &&
+          response.status() === 303
+      ),
+      projectCard.getByRole("button", { name: "Create website" }).click()
+    ]);
+
+    await page.waitForURL(/\/studio\//);
+    await expect(page.getByText("Recommended first pass")).toBeVisible();
+    await expect(page.getByText("No scene nodes yet. Add the first section")).toBeVisible();
+    await expect(page.getByText("No export jobs yet.")).toBeVisible();
+  });
+
   test("signs up and completes the core studio workflow", async ({ page }) => {
     const runId = Date.now();
     const accountName = `E2E ${runId}`;

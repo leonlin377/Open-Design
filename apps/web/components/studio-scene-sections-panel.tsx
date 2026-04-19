@@ -1,4 +1,4 @@
-import { Button, Surface } from "@opendesign/ui";
+import { Badge, Button, Surface } from "@opendesign/ui";
 import type { SceneNode } from "@opendesign/contracts";
 import {
   getArtifactAssetUrl,
@@ -89,7 +89,20 @@ export function StudioSceneSectionsPanel({
       </div>
       <div className="scene-node-list">
         {sceneNodes.length === 0 ? (
-          <div className="footer-note">{affordance.emptyStateLabel}</div>
+          <Surface className="onboarding-card starter-checklist" as="section">
+            <div className="onboarding-card-head">
+              <Badge tone="outline">Starter checklist</Badge>
+              <strong>{affordance.emptyStateLabel}</strong>
+            </div>
+            <div className="onboarding-steps compact">
+              {affordance.onboardingSteps.map((step, index) => (
+                <div key={step} className="onboarding-step">
+                  <span>{index + 1}</span>
+                  <p>{step}</p>
+                </div>
+              ))}
+            </div>
+          </Surface>
         ) : null}
         {sceneNodes.map((node) => {
           const featureItems = readFeatureGridItems(node.props.items);

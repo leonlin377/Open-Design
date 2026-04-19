@@ -2,6 +2,25 @@ import Link from "next/link";
 import { Badge, Surface } from "@opendesign/ui";
 
 const artifacts = ["Website", "Prototype", "Slides"];
+const launchSteps = [
+  "Create or open a project.",
+  "Choose the artifact type that fits the outcome.",
+  "Generate a first pass or shape the scene manually."
+] as const;
+const starterTracks = [
+  {
+    title: "Website",
+    body: "Best when you need a launch-ready marketing surface, hierarchy, proof, and exportable HTML."
+  },
+  {
+    title: "Prototype",
+    body: "Best when you need a stateful flow, branching screens, or reviewable interaction structure."
+  },
+  {
+    title: "Slides",
+    body: "Best when you need a narrative deck with paced beats and a handoff-ready structure."
+  }
+] as const;
 
 export default function HomePage() {
   return (
@@ -29,31 +48,30 @@ export default function HomePage() {
             </Badge>
           ))}
         </div>
+        <Surface className="onboarding-card" as="section">
+          <div className="onboarding-card-head">
+            <Badge tone="outline">Three-step launch path</Badge>
+            <strong>OpenDesign gets useful once the artifact starts moving.</strong>
+          </div>
+          <div className="onboarding-steps">
+            {launchSteps.map((step, index) => (
+              <div key={step} className="onboarding-step">
+                <span>{index + 1}</span>
+                <p>{step}</p>
+              </div>
+            ))}
+          </div>
+        </Surface>
       </section>
 
-      <h2 className="section-title">Why OpenDesign</h2>
+      <h2 className="section-title">Choose The First Artifact</h2>
       <div className="feature-grid">
-        <Surface as="article" className="feature-card">
-          <h3>Artifact-First</h3>
-          <p>
-            Every interaction resolves into a tangible artifact. The canvas is
-            the source of truth, not the chat log.
-          </p>
-        </Surface>
-        <Surface as="article" className="feature-card">
-          <h3>Triple Focus</h3>
-          <p>
-            Navigate fluidly between intent, structure, and delivery. Chat,
-            canvas, and inspector stay visible at all times.
-          </p>
-        </Surface>
-        <Surface as="article" className="feature-card">
-          <h3>Versioned Output</h3>
-          <p>
-            Track every iteration with version lanes that tie design decisions
-            to deployable assets.
-          </p>
-        </Surface>
+        {starterTracks.map((track) => (
+          <Surface key={track.title} as="article" className="feature-card">
+            <h3>{track.title}</h3>
+            <p>{track.body}</p>
+          </Surface>
+        ))}
       </div>
     </main>
   );

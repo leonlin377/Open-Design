@@ -197,6 +197,12 @@ export function StudioGeneratePanel({
             : `A completed pass appends new ${unitPluralLabel} and creates a prompt snapshot.`}
         </span>
       </div>
+      {!pending ? (
+        <Surface className="kv" as="section">
+          <span>Suggested starting prompts</span>
+          {affordance.starterPrompts.join(" / ")}
+        </Surface>
+      ) : null}
       {feedback ? (
         <div className={`studio-feedback ${feedback.tone}`}>{feedback.message}</div>
       ) : null}

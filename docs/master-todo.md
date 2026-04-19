@@ -545,7 +545,7 @@ Goal: Close the gap between a functional system and a high-quality product.
 
 - [x] `POL-001` Replace section-form sprawl in Studio page with reusable editor modules
 - [x] `POL-002` Improve visual hierarchy and artifact canvas fidelity
-- [ ] `POL-003` Add onboarding and empty-state guidance
+- [x] `POL-003` Add onboarding and empty-state guidance
 - [ ] `POL-004` Tighten README and developer docs
 
 ## Recently Completed
@@ -569,12 +569,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Export job tracking across current sync export routes
 - [x] Artifact-aware Studio canvas with stronger visual hierarchy
 - [x] Artifact-level asset uploads with persisted Studio hero-image references
+- [x] Landing/projects/studio onboarding and empty-state guidance
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `POL-003` Add onboarding and empty-state guidance
-2. `POL-004` Tighten README and developer docs
-3. `GEN-001` Add generation route for prompt-driven artifact creation
-4. `GEN-002` Add grounded generation heuristics and recovery loops
+1. `POL-004` Tighten README and developer docs
+2. `GEN-001` Add generation route for prompt-driven artifact creation
+3. `GEN-002` Add grounded generation heuristics and recovery loops
+4. `GEN-003` Improve generation control and operator guidance

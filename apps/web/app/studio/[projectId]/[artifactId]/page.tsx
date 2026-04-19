@@ -110,6 +110,12 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const artifactLabel = artifactLabels[artifactKind] ?? "Artifact";
   const latestVersion = versions[0] ?? null;
   const activeCommentCount = comments.filter((comment) => comment.status === "open").length;
+  const sceneNodes = workspace.sceneDocument.nodes;
+  const showFirstRunChecklist =
+    sceneNodes.length === 0 &&
+    versions.length <= 1 &&
+    workspace.sceneDocument.metadata.designSystemPackId == null &&
+    workspace.codeWorkspace == null;
   const rootNode = workspace.sceneDocument.nodes[0];
   const rootImageAssetId =
     typeof rootNode?.props.imageAssetId === "string" ? rootNode.props.imageAssetId : null;
@@ -126,7 +132,6 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
       : artifactKind === "slides"
         ? "Title slide"
         : "Empty canvas");
-  const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
   const editorAffordance = getArtifactEditorAffordance(artifactKind);
   const canvasLead =
@@ -257,6 +262,22 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             <span>Comment Queue</span>
             {activeCommentCount} open comment{activeCommentCount === 1 ? "" : "s"}
           </Surface>
+          {showFirstRunChecklist ? (
+            <Surface className="onboarding-card" as="section">
+              <div className="onboarding-card-head">
+                <Badge tone="outline">{editorAffordance.onboardingTitle}</Badge>
+                <strong>{editorAffordance.onboardingDescription}</strong>
+              </div>
+              <div className="onboarding-steps compact">
+                {editorAffordance.onboardingSteps.map((step, index) => (
+                  <div key={step} className="onboarding-step">
+                    <span>{index + 1}</span>
+                    <p>{step}</p>
+                  </div>
+                ))}
+              </div>
+            </Surface>
+          ) : null}
           <StudioDesignSystemPanel
             projectId={project.id}
             artifactId={artifact.id}
@@ -352,6 +373,16 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                     shaping this artifact.
                   </div>
                 )}
+                {showFirstRunChecklist ? (
+                  <div className="canvas-stage-guidance">
+                    <Badge tone="outline">Recommended first pass</Badge>
+                    <div className="project-meta">
+                      <span>Generate a first pass</span>
+                      <span>or add the first {editorAffordance.unitLabel}</span>
+                      <span>then save a snapshot before export</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

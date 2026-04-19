@@ -7,6 +7,10 @@ type ArtifactEditorAffordance = {
   canvasEyebrow: string;
   canvasFrameTone: string;
   canvasMetricLabels: [string, string, string];
+  onboardingTitle: string;
+  onboardingDescription: string;
+  onboardingSteps: [string, string, string];
+  starterPrompts: [string, string];
   panelTitle: string;
   panelDescription: string;
   unitLabel: string;
@@ -34,6 +38,18 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
     canvasEyebrow: "Live artifact surface",
     canvasFrameTone: "Launch-ready website rhythm",
     canvasMetricLabels: ["Sections", "Preview basis", "Primary lane"],
+    onboardingTitle: "Recommended first pass",
+    onboardingDescription:
+      "Start with a hero, then layer proof and CTA structure before you snapshot or export.",
+    onboardingSteps: [
+      "Generate a first website pass or add a hero section manually.",
+      "Attach a design system if this artifact should inherit an existing brand language.",
+      "Save the first snapshot before exporting HTML or ZIP."
+    ],
+    starterPrompts: [
+      "Design a launch page with a cinematic hero, trust signals, and one decisive CTA.",
+      "Build a product marketing page with a clear proof section and a conversion close."
+    ],
     panelTitle: "Scene Sections",
     panelDescription:
       "Append a root section template to the website scene, then refine copy and CTA labels.",
@@ -68,6 +84,18 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
     canvasEyebrow: "Interactive flow surface",
     canvasFrameTone: "Stateful screen-to-screen motion",
     canvasMetricLabels: ["Screens", "Start state", "Transition lane"],
+    onboardingTitle: "Recommended first pass",
+    onboardingDescription:
+      "Start with an entry screen, add a comparison/state screen, then close with the action state.",
+    onboardingSteps: [
+      "Generate a first flow or add the hero screen to define the opening state.",
+      "Add one supporting screen that shows options, proof, or a state transition.",
+      "Save a snapshot before sharing or exporting the structured flow."
+    ],
+    starterPrompts: [
+      "Design a product onboarding flow with a landing screen, choice screen, and confirm screen.",
+      "Build a stateful prototype for comparing options and committing to one action."
+    ],
     panelTitle: "Prototype Screens",
     panelDescription:
       "Append a root screen template to the flow, then refine screen copy and action labels.",
@@ -102,6 +130,18 @@ const artifactEditorAffordances: Record<ApiArtifact["kind"], ArtifactEditorAffor
     canvasEyebrow: "Narrative deck surface",
     canvasFrameTone: "Presentation pacing and sequencing",
     canvasMetricLabels: ["Slides", "Current beat", "Deck mode"],
+    onboardingTitle: "Recommended first pass",
+    onboardingDescription:
+      "Open with the thesis, add one systems/evidence slide, then close with the ask.",
+    onboardingSteps: [
+      "Generate a first deck shape or add the title slide manually.",
+      "Add one supporting slide that carries systems, evidence, or structured points.",
+      "Save a snapshot before exporting the narrative deck payload."
+    ],
+    starterPrompts: [
+      "Design a three-slide launch narrative with thesis, system proof, and closing ask.",
+      "Build a concise investor update deck with one opening frame, one evidence slide, and one close."
+    ],
     panelTitle: "Slides Deck",
     panelDescription:
       "Append a root slide template to the deck, then refine framing copy and CTA messaging.",
