@@ -55,6 +55,26 @@ export const SceneDocumentSchema = z.object({
   })
 });
 
+export const ArtifactAssetKindSchema = z.enum([
+  "design-system-screenshot",
+  "artifact-upload"
+]);
+
+export const AssetStorageProviderSchema = z.enum(["memory", "s3"]);
+
+export const ArtifactAssetSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1).nullable(),
+  ownerUserId: z.string().min(1).nullable(),
+  kind: ArtifactAssetKindSchema,
+  filename: z.string().min(1).nullable(),
+  storageProvider: AssetStorageProviderSchema,
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1)
+});
+
 export const ArtifactCommentStatusSchema = z.enum(["open", "resolved"]);
 
 export const ArtifactVersionSourceSchema = z.enum([
@@ -326,6 +346,14 @@ export const ArtifactGenerateResponseSchema = z.object({
   workspace: ArtifactWorkspaceSchema
 });
 
+export const ArtifactWorkspacePayloadSchema = z.object({
+  artifact: ArtifactSummarySchema,
+  workspace: ArtifactWorkspaceSchema,
+  versions: z.array(ArtifactVersionSnapshotSchema),
+  comments: z.array(ArtifactCommentSchema),
+  assets: z.array(ArtifactAssetSchema)
+});
+
 export const ArtifactGenerateStreamEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("started"),
@@ -415,6 +443,9 @@ export type ArtifactGenerateStreamEvent = z.infer<
   typeof ArtifactGenerateStreamEventSchema
 >;
 export type ArtifactVersionDiffSummary = z.infer<typeof ArtifactVersionDiffSummarySchema>;
+export type ArtifactAssetKind = z.infer<typeof ArtifactAssetKindSchema>;
+export type AssetStorageProvider = z.infer<typeof AssetStorageProviderSchema>;
+export type ArtifactAsset = z.infer<typeof ArtifactAssetSchema>;
 export type ExportJobStatus = z.infer<typeof ExportJobStatusSchema>;
 export type ExportKind = z.infer<typeof ExportKindSchema>;
 export type ExportJobResult = z.infer<typeof ExportJobResultSchema>;
@@ -427,6 +458,7 @@ export type ShareReviewArtifactWorkspace = z.infer<
 >;
 export type ShareReviewPayload = z.infer<typeof ShareReviewPayloadSchema>;
 export type ArtifactWorkspace = z.infer<typeof ArtifactWorkspaceSchema>;
+export type ArtifactWorkspacePayload = z.infer<typeof ArtifactWorkspacePayloadSchema>;
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;

@@ -14,6 +14,7 @@ import {
   resolveArtifactComment,
   restoreArtifactVersion,
   saveArtifactCodeWorkspace,
+  uploadArtifactAsset,
   updateSceneNode
 } from "../../../../lib/opendesign-api";
 
@@ -195,7 +196,44 @@ export async function updateSceneNodeAction(formData: FormData) {
     title: String(formData.get("title") ?? "").trim() || undefined,
     items: items.length > 0 || itemsTail.length > 0 ? [...items, ...itemsTail] : undefined,
     primaryAction: String(formData.get("primaryAction") ?? "").trim() || undefined,
-    secondaryAction: String(formData.get("secondaryAction") ?? "").trim() || undefined
+    secondaryAction: String(formData.get("secondaryAction") ?? "").trim() || undefined,
+    imageAssetId: String(formData.get("imageAssetId") ?? "").trim() || undefined,
+    imageAlt: String(formData.get("imageAlt") ?? "").trim() || undefined
+  });
+
+  revalidatePath(getStudioPath(projectId, artifactId));
+}
+
+export async function uploadArtifactAssetAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const artifactId = String(formData.get("artifactId") ?? "").trim();
+  const nodeId = String(formData.get("nodeId") ?? "").trim();
+  const imageAlt = String(formData.get("imageAlt") ?? "").trim();
+  const file = formData.get("asset");
+
+  if (!projectId || !artifactId || !nodeId) {
+    throw new Error("Project, artifact, and node are required.");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("An asset file is required.");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const uploaded = await uploadArtifactAsset({
+    projectId,
+    artifactId,
+    filename: file.name,
+    contentType: file.type || "application/octet-stream",
+    bytesBase64: bytes.toString("base64")
+  });
+
+  await updateSceneNode({
+    projectId,
+    artifactId,
+    nodeId,
+    imageAssetId: uploaded.id,
+    imageAlt: imageAlt || file.name
   });
 
   revalidatePath(getStudioPath(projectId, artifactId));

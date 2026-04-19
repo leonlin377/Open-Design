@@ -245,9 +245,13 @@ export default async function SharedReviewPage({ params }: SharedReviewPageProps
                 artifactId={payload.artifact.id}
                 shareToken={payload.share.token}
                 artifactKind={payload.artifact.kind}
+                assets={[]}
                 sceneNodes={payload.sceneNodes}
                 appendSceneTemplateAction={appendSharedSceneTemplateAction}
                 updateSceneNodeAction={updateSharedSceneNodeAction}
+                uploadArtifactAssetAction={async () => {
+                  throw new Error("Shared artifact uploads are not supported.");
+                }}
               />
             ) : (
               <Surface className="project-card" as="section">

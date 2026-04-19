@@ -1,9 +1,11 @@
 import {
+  ArtifactAssetSchema,
   ArtifactCommentResolutionSchema,
   ArtifactCodePatchSchema,
   ArtifactGenerateResponseSchema,
   ArtifactGenerateStreamEventSchema,
   ArtifactGenerationRunSchema,
+  ArtifactWorkspacePayloadSchema,
   ArtifactVersionDiffSummarySchema,
   ArtifactKindSchema,
   ArtifactGenerationPlanSchema,
@@ -42,12 +44,14 @@ import {
   generateArtifactPlan,
   summarizeDesignSystemForGeneration
 } from "../generation";
+import { buildAssetObjectKey, type AssetStorage } from "../asset-storage";
 import { buildApiError, sendApiError } from "../lib/api-errors";
 import { getRequestSession, type OpenDesignAuth } from "../auth/session";
 import type { ArtifactCommentRepository } from "../repositories/artifact-comments";
 import type { ArtifactVersionRepository } from "../repositories/artifact-versions";
 import type { ArtifactWorkspaceRepository } from "../repositories/artifact-workspaces";
 import type { ArtifactRepository } from "../repositories/artifacts";
+import type { AssetRepository } from "../repositories/assets";
 import type { DesignSystemRepository } from "../repositories/design-systems";
 import type { ExportJobRepository } from "../repositories/export-jobs";
 import type { ProjectRepository } from "../repositories/projects";
@@ -107,7 +111,9 @@ const updateSceneNodeBodySchema = z
       )
       .optional(),
     primaryAction: z.string().min(1).optional(),
-    secondaryAction: z.string().min(1).optional()
+    secondaryAction: z.string().min(1).optional(),
+    imageAssetId: z.string().min(1).optional(),
+    imageAlt: z.string().min(1).optional()
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one field must be provided."
@@ -142,6 +148,20 @@ const artifactVersionParamsSchema = z.object({
   versionId: z.string().min(1)
 });
 
+const artifactAssetParamsSchema = z.object({
+  projectId: z.string().min(1),
+  artifactId: z.string().min(1),
+  assetId: z.string().min(1)
+});
+
+const createArtifactAssetBodySchema = z.object({
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+  bytesBase64: z.string().min(1),
+  nodeId: z.string().min(1).optional(),
+  alt: z.string().min(1).optional()
+});
+
 export interface ArtifactRouteOptions {
   artifacts: ArtifactRepository;
   projects: ProjectRepository;
@@ -150,6 +170,8 @@ export interface ArtifactRouteOptions {
   comments: ArtifactCommentRepository;
   designSystems: DesignSystemRepository;
   exportJobs: ExportJobRepository;
+  assets: AssetRepository;
+  assetStorage: AssetStorage;
   auth: OpenDesignAuth;
 }
 
@@ -201,6 +223,45 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
     async function markExportJobFailed(jobId: string, error: Parameters<typeof buildApiError>[0]) {
       await options.exportJobs.markFailed(jobId, buildApiError(error));
+    }
+
+    function mapArtifactAsset(record: Awaited<ReturnType<typeof options.assets.getById>>) {
+      return ArtifactAssetSchema.parse({
+        id: record!.id,
+        artifactId: record!.artifactId,
+        ownerUserId: record!.ownerUserId,
+        kind: record!.kind,
+        filename: record!.filename,
+        storageProvider: record!.storageProvider,
+        contentType: record!.contentType,
+        sizeBytes: record!.sizeBytes,
+        createdAt: record!.createdAt,
+        updatedAt: record!.updatedAt
+      });
+    }
+
+    async function listArtifactAssets(input: {
+      artifactId: string;
+      ownerUserId?: string | null;
+    }) {
+      const records = await options.assets.listByArtifactId(input.artifactId, {
+        ownerUserId: input.ownerUserId ?? undefined
+      });
+
+      return records.map((record) =>
+        ArtifactAssetSchema.parse({
+          id: record.id,
+          artifactId: record.artifactId,
+          ownerUserId: record.ownerUserId,
+          kind: record.kind,
+          filename: record.filename,
+          storageProvider: record.storageProvider,
+          contentType: record.contentType,
+          sizeBytes: record.sizeBytes,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt
+        })
+      );
     }
 
     type EnsuredWorkspace = NonNullable<
@@ -898,7 +959,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
 
     app.get("/projects/:projectId/artifacts/:artifactId/workspace", async (request, reply) => {
       const params = artifactDetailParamsSchema.parse(request.params);
-      const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+      const { artifact, project, session } = await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
         return sendApiError(reply, 404, {
@@ -917,8 +978,12 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       }
 
       const { workspace, versions, comments } = await ensureWorkspaceState(artifact);
+      const assets = await listArtifactAssets({
+        artifactId: artifact.id,
+        ownerUserId: session?.user.id ?? undefined
+      });
 
-      return {
+      return ArtifactWorkspacePayloadSchema.parse({
         artifact,
         workspace: buildWorkspacePayload({
           artifactKind: artifact.kind,
@@ -927,9 +992,134 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
           comments
         }),
         versions,
-        comments
-      };
+        comments,
+        assets
+      });
     });
+
+    app.get("/projects/:projectId/artifacts/:artifactId/assets", async (request, reply) => {
+      const params = artifactDetailParamsSchema.parse(request.params);
+      const { artifact, project, session } = await resolveAuthorizedArtifact(request, params);
+
+      if (!project) {
+        return sendApiError(reply, 404, {
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      if (!artifact) {
+        return sendApiError(reply, 404, {
+          error: "Artifact not found",
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      return listArtifactAssets({
+        artifactId: artifact.id,
+        ownerUserId: session?.user.id ?? undefined
+      });
+    });
+
+    app.post("/projects/:projectId/artifacts/:artifactId/assets", async (request, reply) => {
+      const params = artifactDetailParamsSchema.parse(request.params);
+      const body = createArtifactAssetBodySchema.parse(request.body);
+      const { artifact, project, session } = await resolveAuthorizedArtifact(request, params);
+
+      if (!project) {
+        return sendApiError(reply, 404, {
+          error: "Project not found",
+          code: "PROJECT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      if (!artifact) {
+        return sendApiError(reply, 404, {
+          error: "Artifact not found",
+          code: "ARTIFACT_NOT_FOUND",
+          recoverable: false
+        });
+      }
+
+      const bytes = Buffer.from(body.bytesBase64, "base64");
+      const objectKey = buildAssetObjectKey({
+        scope: "artifacts",
+        artifactId: artifact.id,
+        sourceRef: body.filename,
+        contentType: body.contentType
+      });
+      const uploaded = await options.assetStorage.uploadObject({
+        objectKey,
+        bytes,
+        contentType: body.contentType
+      });
+      const created = await options.assets.create({
+        ownerUserId: session?.user.id ?? null,
+        artifactId: artifact.id,
+        kind: "artifact-upload",
+        filename: body.filename,
+        storageProvider: options.assetStorage.provider,
+        objectKey: uploaded.objectKey,
+        contentType: uploaded.contentType,
+        sizeBytes: uploaded.sizeBytes
+      });
+
+      return reply.status(201).send(mapArtifactAsset(created));
+    });
+
+    app.get(
+      "/projects/:projectId/artifacts/:artifactId/assets/:assetId",
+      async (request, reply) => {
+        const params = artifactAssetParamsSchema.parse(request.params);
+        const { artifact, project, session } = await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        const asset = await options.assets.getById(params.assetId, {
+          ownerUserId: session?.user.id ?? undefined
+        });
+
+        if (!asset || asset.artifactId !== artifact.id) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        const stored = await options.assetStorage.readObject({
+          objectKey: asset.objectKey
+        });
+
+        if (!stored) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        reply.header("content-type", stored.contentType);
+        return reply.send(Buffer.from(stored.bytes));
+      }
+    );
 
     app.post(
       "/projects/:projectId/artifacts/:artifactId/design-system",
@@ -1769,12 +1959,14 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
               Object.entries({
                 eyebrow: body.eyebrow,
                 headline: body.headline,
-                body: body.body,
-                title: body.title,
-                primaryAction: body.primaryAction,
-                secondaryAction: body.secondaryAction
-              }).filter(([, value]) => typeof value === "string" && value.length > 0)
-            ),
+              body: body.body,
+              title: body.title,
+              primaryAction: body.primaryAction,
+              secondaryAction: body.secondaryAction,
+              imageAssetId: body.imageAssetId,
+              imageAlt: body.imageAlt
+            }).filter(([, value]) => typeof value === "string" && value.length > 0)
+          ),
             ...(body.items ? { items: body.items } : {})
           };
 

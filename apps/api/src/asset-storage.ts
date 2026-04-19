@@ -142,7 +142,8 @@ function trimTrailingSlash(value: string) {
 }
 
 export function buildAssetObjectKey(input: {
-  scope: "design-systems";
+  scope: "design-systems" | "artifacts";
+  artifactId?: string;
   sourceRef: string;
   contentType: string;
 }) {
@@ -153,6 +154,14 @@ export function buildAssetObjectKey(input: {
       : input.contentType === "image/jpeg"
         ? "jpg"
         : "bin";
+
+  if (input.scope === "artifacts") {
+    if (!input.artifactId) {
+      throw new Error("artifactId is required for artifact asset keys.");
+    }
+
+    return `${input.scope}/${input.artifactId}/${digest}.${extension}`;
+  }
 
   return `${input.scope}/${digest}.${extension}`;
 }

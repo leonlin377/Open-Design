@@ -315,24 +315,31 @@ These are the tasks that should be worked continuously next.
   - [x] The API can persist design-system screenshot bytes into an asset storage backend with in-memory fallback and S3/MinIO support.
   - [x] Persisted asset metadata is stored separately from design-system packs and can be resolved back into binary content.
   - [x] Studio can render persisted screenshot evidence from imported packs.
-  - [ ] Artifact-level uploads and asset references are available beyond design-system screenshot capture.
+  - [x] Artifact-level uploads and asset references are available beyond design-system screenshot capture.
 - Validation Commands:
   - `pnpm --filter @opendesign/api test -- tests/assets.test.ts tests/design-systems.test.ts`
+  - `pnpm --filter @opendesign/api test -- tests/assets.test.ts tests/projects-artifacts.test.ts`
   - `pnpm --filter @opendesign/contracts test -- tests/domain-schemas.test.ts`
   - `pnpm typecheck`
 - Validation Evidence:
   - `2026-04-19`: added asset metadata repositories plus in-memory/S3 object storage adapters, wired site-capture imports to upload screenshot bytes, and exposed `/api/design-systems/assets/:assetId` for binary reads.
   - `2026-04-19`: Studio design-system panel now renders persisted screenshot evidence from the selected pack, and API/contracts tests plus monorepo typecheck passed.
+  - `2026-04-19`: extended the shared asset model with artifact-scoped metadata, added `/api/projects/:projectId/artifacts/:artifactId/assets` upload/list/read routes, and included artifact assets in workspace payloads.
+  - `2026-04-19`: Studio scene editing now supports hero image uploads backed by persisted asset records, with immediate canvas rendering from artifact asset URLs.
 - Expected Artifacts:
   - `apps/api/src/asset-storage.ts`
   - `apps/api/src/repositories/assets.ts`
   - `apps/api/src/routes/design-systems.ts`
+  - `apps/api/src/routes/artifacts.ts`
   - `apps/api/tests/assets.test.ts`
   - `apps/api/tests/design-systems.test.ts`
+  - `apps/api/tests/projects-artifacts.test.ts`
   - `apps/web/components/studio-design-system-panel.tsx`
+  - `apps/web/components/studio-scene-sections-panel.tsx`
   - `apps/web/lib/opendesign-api.ts`
+  - `apps/web/app/studio/[projectId]/[artifactId]/page.tsx`
 - Next Slice:
-  - `COLLAB-003 Upgrade comment anchors from canvas-level fallback to element-aware anchors`
+  - `POL-003 Add onboarding, empty states, and guided first-run cues`
 
 ### COLLAB-003 Upgrade Comment Anchors From Canvas-Level Fallback To Element-Aware Anchors
 
@@ -525,7 +532,7 @@ Goal: Make the system usable by more than one person and suitable for review.
 
 Goal: Make the product stable enough for serious usage.
 
-- [>] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
+- [x] `ASSET-001` Add asset upload/storage pipeline backed by MinIO/S3
 - [x] `OPS-001A` Add stale-write/conflict protection for code workspace saves and restores
 - [x] `OPS-001B` Add structured API error model and recovery paths
 - [x] `OPS-001` Add Playwright E2E coverage for core Studio flows
@@ -561,12 +568,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Request correlation ids plus readiness/diagnostics API endpoints
 - [x] Export job tracking across current sync export routes
 - [x] Artifact-aware Studio canvas with stronger visual hierarchy
+- [x] Artifact-level asset uploads with persisted Studio hero-image references
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `ASSET-001` Artifact-level asset uploads beyond design-system screenshots
-2. `POL-003` Add onboarding and empty-state guidance
-3. `POL-004` Tighten README and developer docs
-4. `GEN-001` Add generation route for prompt-driven artifact creation
+1. `POL-003` Add onboarding and empty-state guidance
+2. `POL-004` Tighten README and developer docs
+3. `GEN-001` Add generation route for prompt-driven artifact creation
+4. `GEN-002` Add grounded generation heuristics and recovery loops

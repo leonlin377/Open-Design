@@ -1,6 +1,10 @@
 import { Button, Surface } from "@opendesign/ui";
 import type { SceneNode } from "@opendesign/contracts";
-import type { ApiArtifact } from "../lib/opendesign-api";
+import {
+  getArtifactAssetUrl,
+  type ApiArtifact,
+  type ApiArtifactAsset
+} from "../lib/opendesign-api";
 import { getArtifactEditorAffordance } from "./studio-artifact-affordances";
 
 const sceneTemplates = ["hero", "feature-grid", "cta"] as const;
@@ -44,9 +48,11 @@ type StudioSceneSectionsPanelProps = {
   artifactId: string;
   shareToken?: string;
   artifactKind: ApiArtifact["kind"];
+  assets: ApiArtifactAsset[];
   sceneNodes: SceneNode[];
   appendSceneTemplateAction: (formData: FormData) => Promise<void>;
   updateSceneNodeAction: (formData: FormData) => Promise<void>;
+  uploadArtifactAssetAction: (formData: FormData) => Promise<void>;
 };
 
 export function StudioSceneSectionsPanel({
@@ -54,9 +60,11 @@ export function StudioSceneSectionsPanel({
   artifactId,
   shareToken,
   artifactKind,
+  assets,
   sceneNodes,
   appendSceneTemplateAction,
-  updateSceneNodeAction
+  updateSceneNodeAction,
+  uploadArtifactAssetAction
 }: StudioSceneSectionsPanelProps) {
   const affordance = getArtifactEditorAffordance(artifactKind);
 
@@ -86,6 +94,12 @@ export function StudioSceneSectionsPanel({
         {sceneNodes.map((node) => {
           const featureItems = readFeatureGridItems(node.props.items);
           const template = String(node.props.template ?? node.type);
+          const imageAssetId =
+            typeof node.props.imageAssetId === "string" ? node.props.imageAssetId : null;
+          const imageAlt =
+            typeof node.props.imageAlt === "string" ? node.props.imageAlt : "";
+          const imageAsset =
+            imageAssetId ? assets.find((asset) => asset.id === imageAssetId) ?? null : null;
           const featureItemsTail =
             template === "feature-grid" && featureItems.length > 3
               ? featureItems.slice(3)
@@ -197,10 +211,73 @@ export function StudioSceneSectionsPanel({
                     <input name="secondaryAction" defaultValue={node.props.secondaryAction} />
                   </label>
                 ) : null}
+                {template === "hero" ? (
+                  <div className="asset-reference-panel">
+                    <div>
+                      <span className="asset-reference-title">Hero Asset</span>
+                      <p className="footer-note">
+                        Attach one persisted image to ground the lead section inside the
+                        Studio canvas.
+                      </p>
+                    </div>
+                    {imageAsset ? (
+                      <a
+                        href={getArtifactAssetUrl(projectId, artifactId, imageAsset.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="asset-preview-card"
+                      >
+                        <img
+                          src={getArtifactAssetUrl(projectId, artifactId, imageAsset.id)}
+                          alt={imageAlt || imageAsset.filename || node.name}
+                          className="asset-preview-image"
+                        />
+                        <span>{imageAsset.filename ?? imageAsset.id}</span>
+                      </a>
+                    ) : (
+                      <p className="footer-note">
+                        No persisted hero asset is attached to this section yet.
+                      </p>
+                    )}
+                    <label className="field">
+                      <span>Alt Text</span>
+                      <input
+                        name="imageAlt"
+                        defaultValue={imageAlt}
+                        placeholder="Describe the attached hero asset"
+                      />
+                    </label>
+                    {imageAsset ? (
+                      <input type="hidden" name="imageAssetId" value={imageAsset.id} />
+                    ) : null}
+                  </div>
+                ) : null}
                 <Button variant="ghost" size="sm" type="submit">
                   {affordance.updateButtonLabel}
                 </Button>
               </form>
+              {template === "hero" ? (
+                <form action={uploadArtifactAssetAction} className="stack-form">
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <input type="hidden" name="artifactId" value={artifactId} />
+                  <input type="hidden" name="nodeId" value={node.id} />
+                  <label className="field">
+                    <span>Upload Asset</span>
+                    <input type="file" name="asset" accept="image/png,image/jpeg,image/webp" />
+                  </label>
+                  <label className="field">
+                    <span>Initial Alt Text</span>
+                    <input
+                      name="imageAlt"
+                      defaultValue={imageAlt}
+                      placeholder="Hero screenshot, product mock, or illustration"
+                    />
+                  </label>
+                  <Button variant="outline" size="sm" type="submit">
+                    Upload Hero Asset
+                  </Button>
+                </form>
+              ) : null}
             </Surface>
           );
         })}

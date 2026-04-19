@@ -303,6 +303,166 @@ describe("Projects and artifacts", () => {
     }
   });
 
+  it("uploads artifact assets, exposes them in workspace payloads, and serves bytes", async () => {
+    const app = await buildApp({
+      assetStorage: {
+        provider: "memory",
+        uploadObject: vi.fn(async ({ objectKey, bytes, contentType }) => ({
+          objectKey,
+          sizeBytes: bytes.byteLength,
+          contentType
+        })),
+        readObject: vi.fn(async ({ objectKey }) => ({
+          bytes: Buffer.from(`stored:${objectKey}`),
+          contentType: "image/png"
+        }))
+      }
+    });
+
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Asset Workspace" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Launch Site", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const uploadResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/assets`,
+        payload: {
+          filename: "hero-shot.png",
+          contentType: "image/png",
+          bytesBase64: Buffer.from("hero-image").toString("base64")
+        }
+      });
+
+      expect(uploadResponse.statusCode).toBe(201);
+      expect(uploadResponse.json()).toMatchObject({
+        artifactId: artifact.id,
+        kind: "artifact-upload",
+        filename: "hero-shot.png",
+        contentType: "image/png",
+        sizeBytes: 10
+      });
+
+      const uploadedAsset = uploadResponse.json();
+
+      const workspaceResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+
+      expect(workspaceResponse.statusCode).toBe(200);
+      expect(workspaceResponse.json()).toMatchObject({
+        assets: [
+          expect.objectContaining({
+            id: uploadedAsset.id,
+            artifactId: artifact.id,
+            filename: "hero-shot.png"
+          })
+        ]
+      });
+
+      const listResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/assets`
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json()).toEqual([
+        expect.objectContaining({
+          id: uploadedAsset.id,
+          artifactId: artifact.id,
+          filename: "hero-shot.png"
+        })
+      ]);
+
+      const readResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/assets/${uploadedAsset.id}`
+      });
+
+      expect(readResponse.statusCode).toBe(200);
+      expect(readResponse.headers["content-type"]).toContain("image/png");
+      expect(readResponse.body).toContain("stored:artifacts/");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns 404 when reading an asset through the wrong artifact scope", async () => {
+    const app = await buildApp({
+      assetStorage: {
+        provider: "memory",
+        uploadObject: vi.fn(async ({ objectKey, bytes, contentType }) => ({
+          objectKey,
+          sizeBytes: bytes.byteLength,
+          contentType
+        })),
+        readObject: vi.fn(async () => ({
+          bytes: Buffer.from("hero-image"),
+          contentType: "image/png"
+        }))
+      }
+    });
+
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Scoped Assets" }
+      });
+      const project = projectResponse.json();
+
+      const [firstArtifactResponse, secondArtifactResponse] = await Promise.all([
+        app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Artifact A", kind: "website" }
+        }),
+        app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Artifact B", kind: "website" }
+        })
+      ]);
+
+      const firstArtifact = firstArtifactResponse.json();
+      const secondArtifact = secondArtifactResponse.json();
+
+      const uploadResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${firstArtifact.id}/assets`,
+        payload: {
+          filename: "hero-shot.png",
+          contentType: "image/png",
+          bytesBase64: Buffer.from("hero-image").toString("base64")
+        }
+      });
+
+      const uploadedAsset = uploadResponse.json();
+      const readResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${secondArtifact.id}/assets/${uploadedAsset.id}`
+      });
+
+      expect(readResponse.statusCode).toBe(404);
+      expect(readResponse.json()).toMatchObject({
+        code: "ARTIFACT_NOT_FOUND"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("blocks viewer links from commenting but allows commenter links", async () => {
     const app = await buildApp();
     try {

@@ -104,7 +104,9 @@ function buildShareRoleConstraint() {
 }
 
 function buildAssetKindConstraint() {
-  return ["design-system-screenshot"].map((kind) => `'${kind}'`).join(", ");
+  return ["design-system-screenshot", "artifact-upload"]
+    .map((kind) => `'${kind}'`)
+    .join(", ");
 }
 
 function buildAssetStorageProviderConstraint() {
@@ -293,7 +295,9 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
     `create table if not exists assets (
       id text primary key,
       owner_user_id text references "user"(id) on delete set null,
+      artifact_id text references artifacts(id) on delete cascade,
       kind text not null check (kind in (${validAssetKinds})),
+      filename text,
       storage_provider text not null check (storage_provider in (${validAssetStorageProviders})),
       object_key text not null,
       content_type text not null,
@@ -306,6 +310,21 @@ async function ensureApplicationTables(pool: InstanceType<typeof Pool>) {
   await pool.query(
     `create index if not exists assets_owner_user_id_idx
      on assets(owner_user_id, created_at desc)`
+  );
+
+  await pool.query(
+    `alter table assets
+     add column if not exists artifact_id text references artifacts(id) on delete cascade`
+  );
+
+  await pool.query(
+    `alter table assets
+     add column if not exists filename text`
+  );
+
+  await pool.query(
+    `create index if not exists assets_artifact_id_idx
+     on assets(artifact_id, created_at desc)`
   );
 
   await pool.query(

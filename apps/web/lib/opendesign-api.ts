@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type {
   ApiError,
+  ArtifactAsset,
   ArtifactGenerateResponse,
   ArtifactComment,
   CommentAnchor,
@@ -54,6 +55,7 @@ export type ApiArtifactWorkspace = ArtifactWorkspace;
 export type ApiArtifactVersion = ArtifactVersionSnapshot;
 export type ApiArtifactComment = ArtifactComment;
 export type ApiArtifactGenerateResponse = ArtifactGenerateResponse;
+export type ApiArtifactAsset = ArtifactAsset;
 export type ApiExportJob = ExportJob;
 export type ApiErrorPayload = ApiError;
 export type ApiDesignSystemPack = DesignSystemPack & {
@@ -74,6 +76,7 @@ export type ApiArtifactWorkspacePayload = {
   workspace: ApiArtifactWorkspace;
   versions: ApiArtifactVersion[];
   comments: ApiArtifactComment[];
+  assets: ApiArtifactAsset[];
 };
 
 export type ApiArtifactExportJobsPayload = {
@@ -84,6 +87,10 @@ export type ApiArtifactVersionDiff = ArtifactVersionDiffSummary;
 
 export function getDesignSystemAssetUrl(assetId: string) {
   return `/api/design-systems/assets/${assetId}`;
+}
+
+export function getArtifactAssetUrl(projectId: string, artifactId: string, assetId: string) {
+  return `/api/projects/${projectId}/artifacts/${artifactId}/assets/${assetId}`;
 }
 
 export function getBrowserApiOrigin() {
@@ -326,6 +333,55 @@ export async function getArtifactWorkspace(
   }
 
   return (await response.json()) as ApiArtifactWorkspacePayload;
+}
+
+export async function listArtifactAssets(projectId: string, artifactId: string) {
+  const response = await apiFetch(`/api/projects/${projectId}/artifacts/${artifactId}/assets`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to load artifact assets (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiArtifactAsset[];
+}
+
+export async function uploadArtifactAsset(input: {
+  projectId: string;
+  artifactId: string;
+  filename: string;
+  contentType: string;
+  bytesBase64: string;
+}) {
+  const response = await apiFetch(
+    `/api/projects/${input.projectId}/artifacts/${input.artifactId}/assets`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        filename: input.filename,
+        contentType: input.contentType,
+        bytesBase64: input.bytesBase64
+      })
+    }
+  );
+
+  if (!response.ok) {
+    await throwApiResponseError(
+      response,
+      `Failed to upload artifact asset (${response.status})`
+    );
+  }
+
+  return (await response.json()) as ApiArtifactAsset;
 }
 
 export async function getSharedReview(token: string): Promise<ApiShareReviewPayload | null> {
@@ -678,6 +734,8 @@ export async function updateSceneNode(input: {
   }>;
   primaryAction?: string;
   secondaryAction?: string;
+  imageAssetId?: string;
+  imageAlt?: string;
 }) {
   const response = await apiFetch(
     `/api/projects/${input.projectId}/artifacts/${input.artifactId}/scene/nodes/${input.nodeId}`,
@@ -696,7 +754,9 @@ export async function updateSceneNode(input: {
             title: input.title,
             items: input.items,
             primaryAction: input.primaryAction,
-            secondaryAction: input.secondaryAction
+            secondaryAction: input.secondaryAction,
+            imageAssetId: input.imageAssetId,
+            imageAlt: input.imageAlt
           }).filter(([, value]) => {
             if (typeof value === "string") {
               return value.trim().length > 0;

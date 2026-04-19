@@ -1,7 +1,9 @@
 export interface AssetRecord {
   id: string;
   ownerUserId: string | null;
-  kind: "design-system-screenshot";
+  artifactId: string | null;
+  kind: "design-system-screenshot" | "artifact-upload";
+  filename: string | null;
   storageProvider: "memory" | "s3";
   objectKey: string;
   contentType: string;
@@ -20,13 +22,19 @@ interface Queryable {
 export interface AssetRepository {
   create(input: {
     ownerUserId?: string | null;
+    artifactId?: string | null;
     kind: AssetRecord["kind"];
+    filename?: string | null;
     storageProvider: AssetRecord["storageProvider"];
     objectKey: string;
     contentType: string;
     sizeBytes: number;
   }): Promise<AssetRecord>;
   getById(id: string, input?: { ownerUserId?: string | null }): Promise<AssetRecord | null>;
+  listByArtifactId(
+    artifactId: string,
+    input?: { ownerUserId?: string | null }
+  ): Promise<AssetRecord[]>;
 }
 
 function toIsoTimestamp(value: string | Date) {
@@ -36,7 +44,9 @@ function toIsoTimestamp(value: string | Date) {
 function mapAssetRecord(record: {
   id: string;
   owner_user_id: string | null;
+  artifact_id: string | null;
   kind: AssetRecord["kind"];
+  filename: string | null;
   storage_provider: AssetRecord["storageProvider"];
   object_key: string;
   content_type: string;
@@ -47,7 +57,9 @@ function mapAssetRecord(record: {
   return {
     id: record.id,
     ownerUserId: record.owner_user_id,
+    artifactId: record.artifact_id,
     kind: record.kind,
+    filename: record.filename,
     storageProvider: record.storage_provider,
     objectKey: record.object_key,
     contentType: record.content_type,
@@ -62,7 +74,9 @@ export class InMemoryAssetRepository implements AssetRepository {
 
   async create(input: {
     ownerUserId?: string | null;
+    artifactId?: string | null;
     kind: AssetRecord["kind"];
+    filename?: string | null;
     storageProvider: AssetRecord["storageProvider"];
     objectKey: string;
     contentType: string;
@@ -72,7 +86,9 @@ export class InMemoryAssetRepository implements AssetRepository {
     const record: AssetRecord = {
       id: crypto.randomUUID(),
       ownerUserId: input.ownerUserId ?? null,
+      artifactId: input.artifactId ?? null,
       kind: input.kind,
+      filename: input.filename ?? null,
       storageProvider: input.storageProvider,
       objectKey: input.objectKey,
       contentType: input.contentType,
@@ -98,6 +114,21 @@ export class InMemoryAssetRepository implements AssetRepository {
 
     return record;
   }
+
+  async listByArtifactId(
+    artifactId: string,
+    input?: { ownerUserId?: string | null }
+  ): Promise<AssetRecord[]> {
+    return [...this.assets.values()]
+      .filter((record) => record.artifactId === artifactId)
+      .filter((record) =>
+        input?.ownerUserId ? record.ownerUserId === input.ownerUserId : true
+      )
+      .sort((left, right) => {
+        const byCreatedAt = right.createdAt.localeCompare(left.createdAt);
+        return byCreatedAt !== 0 ? byCreatedAt : right.id.localeCompare(left.id);
+      });
+  }
 }
 
 export class PostgresAssetRepository implements AssetRepository {
@@ -105,7 +136,9 @@ export class PostgresAssetRepository implements AssetRepository {
 
   async create(input: {
     ownerUserId?: string | null;
+    artifactId?: string | null;
     kind: AssetRecord["kind"];
+    filename?: string | null;
     storageProvider: AssetRecord["storageProvider"];
     objectKey: string;
     contentType: string;
@@ -114,7 +147,9 @@ export class PostgresAssetRepository implements AssetRepository {
     const result = await this.database.query<{
       id: string;
       owner_user_id: string | null;
+      artifact_id: string | null;
       kind: AssetRecord["kind"];
+      filename: string | null;
       storage_provider: AssetRecord["storageProvider"];
       object_key: string;
       content_type: string;
@@ -135,7 +170,9 @@ export class PostgresAssetRepository implements AssetRepository {
        returning
          id,
          owner_user_id,
+         artifact_id,
          kind,
+         filename,
          storage_provider,
          object_key,
          content_type,
@@ -145,7 +182,9 @@ export class PostgresAssetRepository implements AssetRepository {
       [
         crypto.randomUUID(),
         input.ownerUserId ?? null,
+        input.artifactId ?? null,
         input.kind,
+        input.filename ?? null,
         input.storageProvider,
         input.objectKey,
         input.contentType,
@@ -160,7 +199,9 @@ export class PostgresAssetRepository implements AssetRepository {
     const result = await this.database.query<{
       id: string;
       owner_user_id: string | null;
+      artifact_id: string | null;
       kind: AssetRecord["kind"];
+      filename: string | null;
       storage_provider: AssetRecord["storageProvider"];
       object_key: string;
       content_type: string;
@@ -172,7 +213,9 @@ export class PostgresAssetRepository implements AssetRepository {
         ? `select
              id,
              owner_user_id,
+             artifact_id,
              kind,
+             filename,
              storage_provider,
              object_key,
              content_type,
@@ -185,7 +228,9 @@ export class PostgresAssetRepository implements AssetRepository {
         : `select
              id,
              owner_user_id,
+             artifact_id,
              kind,
+             filename,
              storage_provider,
              object_key,
              content_type,
@@ -200,5 +245,59 @@ export class PostgresAssetRepository implements AssetRepository {
 
     const record = result.rows[0];
     return record ? mapAssetRecord(record) : null;
+  }
+
+  async listByArtifactId(
+    artifactId: string,
+    input?: { ownerUserId?: string | null }
+  ): Promise<AssetRecord[]> {
+    const result = await this.database.query<{
+      id: string;
+      owner_user_id: string | null;
+      artifact_id: string | null;
+      kind: AssetRecord["kind"];
+      filename: string | null;
+      storage_provider: AssetRecord["storageProvider"];
+      object_key: string;
+      content_type: string;
+      size_bytes: number;
+      created_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      input?.ownerUserId
+        ? `select
+             id,
+             owner_user_id,
+             artifact_id,
+             kind,
+             filename,
+             storage_provider,
+             object_key,
+             content_type,
+             size_bytes,
+             created_at,
+             updated_at
+           from assets
+           where artifact_id = $1 and owner_user_id = $2
+           order by created_at desc`
+        : `select
+             id,
+             owner_user_id,
+             artifact_id,
+             kind,
+             filename,
+             storage_provider,
+             object_key,
+             content_type,
+             size_bytes,
+             created_at,
+             updated_at
+           from assets
+           where artifact_id = $1
+           order by created_at desc`,
+      input?.ownerUserId ? [artifactId, input.ownerUserId] : [artifactId]
+    );
+
+    return result.rows.map(mapAssetRecord);
   }
 }

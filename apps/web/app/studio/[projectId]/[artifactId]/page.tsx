@@ -14,6 +14,7 @@ import { StudioSceneSectionsPanel } from "../../../../components/studio-scene-se
 import { StudioVersionsPanel } from "../../../../components/studio-versions-panel";
 import {
   type ApiArtifactVersionDiff,
+  getArtifactAssetUrl,
   getArtifactWorkspace,
   getArtifactVersionDiff,
   listArtifactExportJobs,
@@ -31,6 +32,7 @@ import {
   resolveArtifactCommentAction,
   restoreArtifactVersionAction,
   saveCodeWorkspaceAction,
+  uploadArtifactAssetAction,
   updateSceneNodeAction
 } from "./actions";
 
@@ -109,6 +111,14 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
   const latestVersion = versions[0] ?? null;
   const activeCommentCount = comments.filter((comment) => comment.status === "open").length;
   const rootNode = workspace.sceneDocument.nodes[0];
+  const rootImageAssetId =
+    typeof rootNode?.props.imageAssetId === "string" ? rootNode.props.imageAssetId : null;
+  const rootImageAlt =
+    typeof rootNode?.props.imageAlt === "string" ? rootNode.props.imageAlt : artifact.name;
+  const rootImageAsset =
+    rootImageAssetId
+      ? workspacePayload.assets.find((asset) => asset.id === rootImageAssetId) ?? null
+      : null;
   const frameLabel =
     rootNode?.name ??
     (artifactKind === "prototype"
@@ -300,6 +310,15 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
                   <span>{workspace.sceneDocument.metadata.themeId ?? "Default theme"}</span>
                 </div>
                 <div className="canvas-stage-feature">
+                  {rootImageAsset ? (
+                    <div className="canvas-stage-hero-media">
+                      <img
+                        src={getArtifactAssetUrl(project.id, artifact.id, rootImageAsset.id)}
+                        alt={rootImageAlt}
+                        className="canvas-stage-hero-image"
+                      />
+                    </div>
+                  ) : null}
                   <p className="canvas-stage-lead">
                     {canvasLead}
                   </p>
@@ -340,9 +359,11 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
             projectId={project.id}
             artifactId={artifact.id}
             artifactKind={artifactKind}
+            assets={workspacePayload.assets}
             sceneNodes={sceneNodes}
             appendSceneTemplateAction={appendSceneTemplateAction}
             updateSceneNodeAction={updateSceneNodeAction}
+            uploadArtifactAssetAction={uploadArtifactAssetAction}
           />
           <div className="project-meta">
             <span>Sync: {workspace.syncPlan.mode}</span>

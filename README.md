@@ -26,6 +26,8 @@ Exports are still executed through the current synchronous download routes, but 
 
 MinIO/S3 is now used by the API as the asset backing store when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY` are configured. Site-capture design-system imports persist screenshot bytes into object storage, store asset metadata in the application database when Postgres is enabled, and expose those persisted screenshots back through `/api/design-systems/assets/:assetId` so the Studio can render the captured evidence.
 
+Artifact workspaces now reuse that same asset pipeline. Studio can upload artifact-scoped image assets through `/api/projects/:projectId/artifacts/:artifactId/assets`, persist the binary in MinIO/S3 or the in-memory fallback, and immediately render the stored asset back into the Studio canvas. The first attached surface is the website/prototype/slides hero section, which keeps the change set small while proving artifact-level asset persistence end-to-end.
+
 ## Open-Source Stack
 
 - Better Auth for self-hosted authentication without a hosted dependency.

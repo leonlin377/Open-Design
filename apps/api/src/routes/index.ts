@@ -62,6 +62,8 @@ export const registerRoutes: FastifyPluginAsync<RouteDependencies> = async (
     comments: options.comments,
     designSystems: options.designSystems,
     exportJobs: options.exportJobs,
+    assets: options.assets,
+    assetStorage: options.assetStorage,
     auth: options.auth
   });
   await app.register(registerDesignSystemRoutes, {

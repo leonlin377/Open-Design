@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  ArtifactAssetSchema,
   ArtifactCommentSchema,
   ArtifactGenerateResponseSchema,
   ArtifactGenerateStreamEventSchema,
@@ -8,6 +9,7 @@ import {
   ArtifactGenerationRunSchema,
   ArtifactGenerationPlanSchema,
   ArtifactKindSchema,
+  ArtifactWorkspacePayloadSchema,
   ArtifactVersionDiffSummarySchema,
   ArtifactVersionSnapshotSchema,
   ArtifactWorkspaceSchema,
@@ -166,6 +168,27 @@ describe("ArtifactVersionSnapshotSchema", () => {
   });
 });
 
+describe("ArtifactAssetSchema", () => {
+  test("accepts persisted artifact upload metadata", () => {
+    const asset = ArtifactAssetSchema.parse({
+      id: "asset_1",
+      artifactId: "artifact_1",
+      ownerUserId: "user_1",
+      kind: "artifact-upload",
+      filename: "hero-shot.png",
+      storageProvider: "s3",
+      contentType: "image/png",
+      sizeBytes: 2048,
+      createdAt: "2026-04-19T11:00:00.000Z",
+      updatedAt: "2026-04-19T11:00:00.000Z"
+    });
+
+    expect(asset.kind).toBe("artifact-upload");
+    expect(asset.filename).toBe("hero-shot.png");
+    expect(asset.artifactId).toBe("artifact_1");
+  });
+});
+
 describe("ArtifactCommentSchema", () => {
   test("accepts anchored open comments", () => {
     const comment = ArtifactCommentSchema.parse({
@@ -203,6 +226,64 @@ describe("ShareTokenSchema", () => {
     expect(share.resourceType).toBe("artifact");
     expect(share.role).toBe("editor");
     expect(share.projectId).toBe("project_1");
+  });
+});
+
+describe("ArtifactWorkspacePayloadSchema", () => {
+  test("accepts workspace payloads with artifact attachments", () => {
+    const payload = ArtifactWorkspacePayloadSchema.parse({
+      artifact: {
+        id: "artifact_1",
+        projectId: "project_1",
+        name: "Launch Site",
+        kind: "website",
+        createdAt: "2026-04-19T09:10:00.000Z",
+        updatedAt: "2026-04-19T09:15:00.000Z"
+      },
+      workspace: {
+        artifactId: "artifact_1",
+        intent: "Build a cinematic launch page.",
+        activeVersionId: "version_1",
+        sceneDocument: {
+          id: "scene_1",
+          artifactId: "artifact_1",
+          kind: "website",
+          version: 2,
+          nodes: [],
+          metadata: {}
+        },
+        codeWorkspace: null,
+        syncPlan: {
+          mode: "full",
+          reason: "Scene is the current source of truth.",
+          sourceMode: "scene",
+          targetMode: "code-supported",
+          changeScope: "document"
+        },
+        versionCount: 1,
+        openCommentCount: 0,
+        updatedAt: "2026-04-19T11:05:00.000Z"
+      },
+      versions: [],
+      comments: [],
+      assets: [
+        {
+          id: "asset_1",
+          artifactId: "artifact_1",
+          ownerUserId: null,
+          kind: "artifact-upload",
+          filename: "hero-shot.png",
+          storageProvider: "memory",
+          contentType: "image/png",
+          sizeBytes: 2048,
+          createdAt: "2026-04-19T11:00:00.000Z",
+          updatedAt: "2026-04-19T11:00:00.000Z"
+        }
+      ]
+    });
+
+    expect(payload.assets).toHaveLength(1);
+    expect(payload.assets[0]?.filename).toBe("hero-shot.png");
   });
 });
 

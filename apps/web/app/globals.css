@@ -667,6 +667,36 @@ main {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.asset-reference-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.asset-reference-title {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.canvas-stage-hero-media {
+  margin-bottom: 1rem;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 244, 214, 0.14);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 244, 214, 0.02)),
+    rgba(12, 14, 18, 0.9);
+}
+
+.canvas-stage-hero-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
 .scene-node-list {
   display: grid;
   gap: 10px;
