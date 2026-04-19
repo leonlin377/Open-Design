@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ArtifactGenerateStreamEvent } from "@opendesign/contracts";
 import { Button, Surface } from "@opendesign/ui";
+import type { ApiArtifact } from "../lib/opendesign-api";
 import type { ApiArtifactGenerateResponse } from "../lib/opendesign-api";
 import { buildApiRequestError, readApiErrorMessage } from "../lib/api-errors";
+import { getArtifactEditorAffordance } from "./studio-artifact-affordances";
 
 type StudioGeneratePanelProps = {
   projectId: string;
   artifactId: string;
+  artifactKind: ApiArtifact["kind"];
   initialPrompt: string;
 };
 
@@ -93,6 +96,7 @@ async function consumeGenerationStream(
 export function StudioGeneratePanel({
   projectId,
   artifactId,
+  artifactKind,
   initialPrompt
 }: StudioGeneratePanelProps) {
   const router = useRouter();
@@ -103,6 +107,8 @@ export function StudioGeneratePanel({
     tone: "success" | "warning" | "error";
     message: string;
   } | null>(null);
+  const affordance = getArtifactEditorAffordance(artifactKind);
+  const unitPluralLabel = `${affordance.unitLabel}s`;
   const apiOrigin = useMemo(
     () => process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:4000",
     []
@@ -143,17 +149,20 @@ export function StudioGeneratePanel({
 
         const appendedNodeCount =
           completedPayload.generation.scenePatch.appendedNodes.length;
-        const sectionLabel = appendedNodeCount === 1 ? "section" : "sections";
+        const unitLabel =
+          appendedNodeCount === 1
+            ? affordance.unitLabel
+            : `${affordance.unitLabel}s`;
 
         setFeedback(
           completedPayload.generation.diagnostics.warning
             ? {
                 tone: "warning",
-                message: `${completedPayload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${sectionLabel} for this pass.`
+                message: `${completedPayload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${unitLabel} for this pass.`
               }
             : {
                 tone: "success",
-                message: `Generated ${appendedNodeCount} ${sectionLabel} via ${completedPayload.generation.plan.provider} and refreshed the Studio workspace.`
+                message: `Generated ${appendedNodeCount} ${unitLabel} via ${completedPayload.generation.plan.provider} and refreshed the Studio workspace.`
               }
         );
         setProgressMessage(null);
@@ -172,7 +181,7 @@ export function StudioGeneratePanel({
   return (
     <Surface className="project-card" as="section">
       <div>
-        <h3>Generate Artifact</h3>
+        <h3>Generate {artifactKind === "slides" ? "Deck" : artifactKind === "prototype" ? "Flow" : "Artifact"}</h3>
         <p className="footer-note">
           Send a prompt into the generation pipeline. LiteLLM streams are used when
           configured; otherwise the backend falls back to the local heuristic planner.
@@ -185,7 +194,7 @@ export function StudioGeneratePanel({
         <span className="footer-note">
           {pending
             ? progressMessage ?? "Waiting for the generation pass to finish and refresh the workspace."
-            : "A completed pass appends new scene sections and creates a prompt snapshot."}
+            : `A completed pass appends new ${unitPluralLabel} and creates a prompt snapshot.`}
         </span>
       </div>
       {feedback ? (
@@ -198,7 +207,13 @@ export function StudioGeneratePanel({
             rows={4}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Design a cinematic launch surface with a strong hero, proof points, and a conversion CTA."
+            placeholder={
+              artifactKind === "prototype"
+                ? "Design a navigable product flow with an entry screen, a comparison screen, and a decisive action screen."
+                : artifactKind === "slides"
+                  ? "Design a narrative deck with a title slide, a structured system slide, and a strong closing ask."
+                  : "Design a cinematic launch surface with a strong hero, proof points, and a conversion CTA."
+            }
             required
           />
         </label>

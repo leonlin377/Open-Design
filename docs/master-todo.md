@@ -33,10 +33,10 @@ The project is not "done" until all of these are true:
 
 ## Overall Progress
 
-Current estimated product completion for a serious V1: `94%`
+Current estimated product completion for a serious V1: `95%`
 
 ```text
-[###################-] 94%
+[###################-] 95%
 ```
 
 ## Phase Scoreboard
@@ -69,6 +69,7 @@ What is already working:
 - [x] Design-system selection and generation grounding for artifacts
 - [x] Prototype screen flows with navigable preview and coherent scene-based exports
 - [x] Slides decks with sequential preview and coherent scene-based exports
+- [x] Studio affordances now branch by artifact type across canvas, scene editor, generation, and code copy
 
 What still blocks a true Claude Design benchmark:
 
@@ -298,7 +299,7 @@ Goal: Support the full artifact surface instead of just website-first flows.
 - [x] `TYPE-002` Implement slides-specific scene structure
 - [x] `TYPE-003` Add prototype-specific export path
 - [x] `TYPE-004` Add slides export path
-- [ ] `TYPE-005` Add per-artifact editor affordances in Studio
+- [x] `TYPE-005` Add per-artifact editor affordances in Studio
 
 ## Phase 5: Collaboration and Handoff
 
@@ -342,12 +343,13 @@ Goal: Close the gap between a functional system and a high-quality product.
 - [x] Playwright E2E core Studio flow with login, scene edit, code save, snapshot, restore, and export
 - [x] Prototype flow JSON export and slides deck JSON export
 - [x] Project and artifact share tokens with public read-only review pages
+- [x] Prototype/slides-specific Studio editor affordances with Playwright coverage
 
 ## Immediate Next Slice
 
 If no blocker appears, continue in this exact order:
 
-1. `TYPE-005` Per-artifact editor affordances in Studio
-2. `COLLAB-002` Roles: `viewer`, `commenter`, `editor`
-3. `OPS-003` Validate full Docker studio stack in real build/run mode
-4. `COLLAB-004` Handoff export bundle
+1. `COLLAB-002` Roles: `viewer`, `commenter`, `editor`
+2. `OPS-003` Validate full Docker studio stack in real build/run mode
+3. `COLLAB-004` Handoff export bundle
+4. `ASSET-001` Asset upload/storage pipeline backed by MinIO/S3

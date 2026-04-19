@@ -9,6 +9,7 @@ import {
 } from "../../../../components/studio-inspector";
 import { StudioDesignSystemPanel } from "../../../../components/studio-design-system-panel";
 import { StudioGeneratePanel } from "../../../../components/studio-generate-panel";
+import { getArtifactEditorAffordance } from "../../../../components/studio-artifact-affordances";
 import { StudioSceneSectionsPanel } from "../../../../components/studio-scene-sections-panel";
 import { StudioVersionsPanel } from "../../../../components/studio-versions-panel";
 import {
@@ -113,6 +114,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
         : "Empty canvas");
   const sceneNodes = workspace.sceneDocument.nodes;
   const activeTab = readInspectorTab(resolvedSearchParams.tab);
+  const editorAffordance = getArtifactEditorAffordance(artifactKind);
   const generatedSourceBundle = buildArtifactSourceBundle({
     artifactKind,
     artifactName: artifact.name,
@@ -216,20 +218,22 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <StudioGeneratePanel
             projectId={project.id}
             artifactId={artifact.id}
+            artifactKind={artifactKind}
             initialPrompt={workspace.intent}
           />
         </aside>
 
         <section className="canvas-panel">
           <div className="hero-actions">
-            <Badge tone="outline">Canvas</Badge>
+            <Badge tone="outline">{editorAffordance.canvasTitle}</Badge>
             <Badge>{artifactLabel}</Badge>
           </div>
           <div className="canvas-stage" id="artifact-canvas">
             <div>
-              <h3>Artifact Canvas</h3>
+              <h3>{editorAffordance.canvasTitle}</h3>
               <p>
-                {frameLabel} · Scene v{workspace.sceneDocument.version} ·{" "}
+                {editorAffordance.canvasDescription} {frameLabel} · Scene v
+                {workspace.sceneDocument.version} ·{" "}
                 {workspace.sceneDocument.nodes.length} root{" "}
                 {artifactKind === "prototype"
                   ? "screen"
@@ -258,6 +262,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
         <StudioInspector
           projectId={project.id}
           artifactId={artifact.id}
+          artifactKind={artifactKind}
           initialTab={activeTab}
           sourceBundle={sourceBundle}
           sceneVersion={workspace.sceneDocument.version}

@@ -166,4 +166,99 @@ test.describe("studio core flow", () => {
     await page.getByRole("link", { name: "Download ZIP" }).click();
     expect((await zipDownload).suggestedFilename()).toMatch(/\.zip$/);
   });
+
+  test("shows per-artifact editor affordances for prototype and slides", async ({ page }) => {
+    const runId = Date.now();
+    const projectName = `Affordance ${runId}`;
+
+    await page.goto("/projects");
+
+    const createProjectCard = page.locator(".project-card").filter({
+      has: page.getByRole("heading", { name: "Create Project" })
+    });
+    await createProjectCard.getByLabel("Project Name").fill(projectName);
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/projects") &&
+          response.request().method() === "POST" &&
+          response.status() === 200
+      ),
+      createProjectCard.getByRole("button", { name: "Create Project" }).click()
+    ]);
+
+    const projectCard = page.locator(".project-card").filter({
+      has: page.getByRole("heading", { name: projectName })
+    });
+
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/projects") &&
+          response.request().method() === "POST" &&
+          response.status() === 303
+      ),
+      projectCard.getByRole("button", { name: "Create prototype" }).click()
+    ]);
+
+    await page.waitForURL(/\/studio\//);
+    await expect(page.getByRole("heading", { name: "Prototype Screens" })).toBeVisible();
+    await expect(page.getByText("Shape state-to-state flow, screen hierarchy, and interaction prompts.")).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          /\/studio\/.+/.test(response.url()) &&
+          response.request().method() === "POST" &&
+          response.status() === 200
+      ),
+      page.getByRole("button", { name: "Add Hero Screen" }).click()
+    ]);
+
+    const prototypeCard = page.locator(".scene-node-list .project-card").filter({
+      has: page.getByRole("heading", { name: "Hero Screen" })
+    });
+    await expect(prototypeCard.getByLabel("Screen Name")).toBeVisible();
+    await expect(prototypeCard.getByLabel("Flow Label")).toBeVisible();
+    await expect(prototypeCard.getByLabel("Screen Headline")).toBeVisible();
+    await expect(prototypeCard.getByRole("button", { name: "Update Screen" })).toBeVisible();
+
+    await page.goto("/projects");
+    const sameProjectCard = page.locator(".project-card").filter({
+      has: page.getByRole("heading", { name: projectName })
+    });
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/projects") &&
+          response.request().method() === "POST" &&
+          response.status() === 303
+      ),
+      sameProjectCard.getByRole("button", { name: "Create slides" }).click()
+    ]);
+
+    await page.waitForURL(/\/studio\//);
+    await expect(
+      page.locator(".canvas-stage").getByRole("heading", { name: "Slides Deck" })
+    ).toBeVisible();
+    await expect(page.getByText("Shape deck pacing, slide framing, and closing narrative beats.")).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          /\/studio\/.+/.test(response.url()) &&
+          response.request().method() === "POST" &&
+          response.status() === 200
+      ),
+      page.getByRole("button", { name: "Add Title Slide" }).click()
+    ]);
+
+    const slidesCard = page.locator(".scene-node-list .project-card").filter({
+      has: page.getByRole("heading", { name: "Title Slide" })
+    });
+    await expect(slidesCard.getByLabel("Slide Name")).toBeVisible();
+    await expect(slidesCard.getByLabel("Kicker")).toBeVisible();
+    await expect(slidesCard.getByLabel("Slide Headline")).toBeVisible();
+    await expect(slidesCard.getByRole("button", { name: "Update Slide" })).toBeVisible();
+  });
 });

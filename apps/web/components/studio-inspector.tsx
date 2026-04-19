@@ -10,6 +10,7 @@ import {
   useSandpack
 } from "@codesandbox/sandpack-react";
 import { Surface } from "@opendesign/ui";
+import type { ApiArtifact } from "../lib/opendesign-api";
 
 const inspectorTabs = [
   { id: "preview", label: "Preview" },
@@ -24,6 +25,7 @@ export type StudioInspectorTab = (typeof inspectorTabs)[number]["id"];
 type StudioInspectorProps = {
   projectId: string;
   artifactId: string;
+  artifactKind: ApiArtifact["kind"];
   initialTab: StudioInspectorTab;
   sourceBundle: {
     filenameBase: string;
@@ -73,6 +75,7 @@ function normalizeFiles(files: Record<string, string>) {
 function SaveCodeWorkspaceForm(props: {
   projectId: string;
   artifactId: string;
+  artifactKind: ApiArtifact["kind"];
   sourceBundleFiles: Record<string, string>;
   sceneVersion: number;
   codeWorkspaceBaseSceneVersion: number | null;
@@ -130,7 +133,7 @@ function SaveCodeWorkspaceForm(props: {
         tone: result?.sceneSync.status === "unchanged" ? "warning" : "success",
         message:
           result?.sceneSync.status === "synced"
-            ? "Saved code workspace and synced supported section fields back into the scene."
+            ? `Saved code workspace and synced supported ${props.artifactKind === "website" ? "section" : props.artifactKind === "prototype" ? "screen" : "slide"} fields back into the scene.`
             : `Saved code workspace. Preview and ZIP export now use this scaffold. ${result?.sceneSync.reason ?? "Scene stayed unchanged."}`
       });
     });
@@ -159,9 +162,9 @@ function SaveCodeWorkspaceForm(props: {
         </span>
       </div>
       <div className="footer-note">
-        Save Code Workspace persists the current scaffold for preview and ZIP export. It
-        only syncs supported section fields back into the scene; unsupported code edits
-        stay code-only.
+        {props.artifactKind === "website"
+          ? "Save Code Workspace persists the current scaffold for preview and ZIP export. Supported website fields can sync back into the scene; unsupported edits stay code-only."
+          : `Save Code Workspace persists the current ${props.artifactKind} scaffold for preview and ZIP export. Scene sync stays conservative, so unsupported edits remain code-only.`}
       </div>
       <div className="studio-status-row">
         <span className={hasUnsavedDraft ? "status-pill warning" : "status-pill success"}>
@@ -208,6 +211,7 @@ function SaveCodeWorkspaceForm(props: {
 export function StudioInspector({
   projectId,
   artifactId,
+  artifactKind,
   initialTab,
   sourceBundle,
   sceneVersion,
@@ -291,9 +295,10 @@ export function StudioInspector({
                 <span>{Object.keys(sourceBundle.files).length} files</span>
               </div>
               <SaveCodeWorkspaceForm
-                projectId={projectId}
-                artifactId={artifactId}
-                sourceBundleFiles={sourceBundle.files}
+              projectId={projectId}
+              artifactId={artifactId}
+              artifactKind={artifactKind}
+              sourceBundleFiles={sourceBundle.files}
                 sceneVersion={sceneVersion}
                 codeWorkspaceBaseSceneVersion={codeWorkspaceBaseSceneVersion}
                 codeWorkspaceUpdatedAt={codeWorkspaceUpdatedAt}

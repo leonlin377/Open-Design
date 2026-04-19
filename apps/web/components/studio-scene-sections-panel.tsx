@@ -1,12 +1,9 @@
 import { Button, Surface } from "@opendesign/ui";
 import type { SceneNode } from "@opendesign/contracts";
 import type { ApiArtifact } from "../lib/opendesign-api";
+import { getArtifactEditorAffordance } from "./studio-artifact-affordances";
 
-const sceneTemplates = [
-  { template: "hero" as const, label: "Add Hero" },
-  { template: "feature-grid" as const, label: "Add Feature Grid" },
-  { template: "cta" as const, label: "Add CTA" }
-];
+const sceneTemplates = ["hero", "feature-grid", "cta"] as const;
 
 const defaultFeatureGridItems = [
   {
@@ -59,55 +56,30 @@ export function StudioSceneSectionsPanel({
   appendSceneTemplateAction,
   updateSceneNodeAction
 }: StudioSceneSectionsPanelProps) {
-  const sceneUnitLabel =
-    artifactKind === "prototype" ? "screen" : artifactKind === "slides" ? "slide" : "section";
-  const panelTitle =
-    artifactKind === "prototype"
-      ? "Prototype Screens"
-      : artifactKind === "slides"
-        ? "Slides Deck"
-        : "Scene Sections";
-  const emptyStateLabel =
-    artifactKind === "prototype"
-      ? "No prototype screens yet."
-      : artifactKind === "slides"
-        ? "No slides yet."
-        : "No scene sections yet.";
+  const affordance = getArtifactEditorAffordance(artifactKind);
 
   return (
     <Surface className="project-card" as="section">
       <div>
-        <h3>{panelTitle}</h3>
-        <p className="footer-note">
-          Append a root {sceneUnitLabel} template to the current scene document.
-        </p>
+        <h3>{affordance.panelTitle}</h3>
+        <p className="footer-note">{affordance.panelDescription}</p>
       </div>
       <div className="artifact-action-grid">
-        {sceneTemplates.map((entry) => (
-          <form key={entry.template} action={appendSceneTemplateAction}>
+        {sceneTemplates.map((template) => (
+          <form key={template} action={appendSceneTemplateAction}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="artifactId" value={artifactId} />
-            <input type="hidden" name="template" value={entry.template} />
+            <input type="hidden" name="template" value={template} />
             <Button variant="outline" size="sm" type="submit">
-              {artifactKind === "prototype"
-                ? entry.template === "hero"
-                  ? "Add Hero Screen"
-                  : entry.template === "feature-grid"
-                    ? "Add Feature Screen"
-                    : "Add Action Screen"
-                : artifactKind === "slides"
-                  ? entry.template === "hero"
-                    ? "Add Title Slide"
-                    : entry.template === "feature-grid"
-                      ? "Add System Slide"
-                      : "Add Closing Slide"
-                : entry.label}
+              {affordance.templateButtonLabels[template]}
             </Button>
           </form>
         ))}
       </div>
       <div className="scene-node-list">
-        {sceneNodes.length === 0 ? <div className="footer-note">{emptyStateLabel}</div> : null}
+        {sceneNodes.length === 0 ? (
+          <div className="footer-note">{affordance.emptyStateLabel}</div>
+        ) : null}
         {sceneNodes.map((node) => {
           const featureItems = readFeatureGridItems(node.props.items);
           const template = String(node.props.template ?? node.type);
@@ -130,6 +102,17 @@ export function StudioSceneSectionsPanel({
                 <p className="footer-note">
                   {template} · {node.id.slice(-8)}
                 </p>
+                <p className="footer-note">
+                  {
+                    affordance.templateDescriptions[
+                      (template === "hero" ||
+                      template === "feature-grid" ||
+                      template === "cta"
+                        ? template
+                        : "hero") as (typeof sceneTemplates)[number]
+                    ]
+                  }
+                </p>
               </div>
               <form action={updateSceneNodeAction} className="stack-form">
                 <input type="hidden" name="projectId" value={projectId} />
@@ -143,18 +126,18 @@ export function StudioSceneSectionsPanel({
                   />
                 ) : null}
                 <label className="field">
-                  <span>Section Name</span>
+                  <span>{affordance.fieldLabels.name}</span>
                   <input name="name" defaultValue={node.name} />
                 </label>
                 {typeof node.props.eyebrow === "string" ? (
                   <label className="field">
-                    <span>Eyebrow</span>
+                    <span>{affordance.fieldLabels.eyebrow}</span>
                     <input name="eyebrow" defaultValue={node.props.eyebrow} />
                   </label>
                 ) : null}
                 {typeof node.props.title === "string" ? (
                   <label className="field">
-                    <span>Title</span>
+                    <span>{affordance.fieldLabels.title}</span>
                     <input name="title" defaultValue={node.props.title} />
                   </label>
                 ) : null}
@@ -164,7 +147,7 @@ export function StudioSceneSectionsPanel({
                       <Surface key={`${node.id}-item-${index}`} className="kv" as="section">
                         <span>Item {index + 1}</span>
                         <label className="field">
-                          <span>Label</span>
+                          <span>{affordance.fieldLabels.itemLabel}</span>
                           <input
                             name={`item${index}Label`}
                             defaultValue={editableFeatureItems[index]?.label ?? ""}
@@ -172,7 +155,7 @@ export function StudioSceneSectionsPanel({
                           />
                         </label>
                         <label className="field">
-                          <span>Body</span>
+                          <span>{affordance.fieldLabels.itemBody}</span>
                           <textarea
                             name={`item${index}Body`}
                             defaultValue={editableFeatureItems[index]?.body ?? ""}
@@ -186,30 +169,30 @@ export function StudioSceneSectionsPanel({
                 ) : null}
                 {typeof node.props.headline === "string" ? (
                   <label className="field">
-                    <span>Headline</span>
+                    <span>{affordance.fieldLabels.headline}</span>
                     <input name="headline" defaultValue={node.props.headline} />
                   </label>
                 ) : null}
                 {typeof node.props.body === "string" ? (
                   <label className="field">
-                    <span>Body</span>
+                    <span>{affordance.fieldLabels.body}</span>
                     <textarea name="body" defaultValue={node.props.body} rows={4} />
                   </label>
                 ) : null}
                 {typeof node.props.primaryAction === "string" ? (
                   <label className="field">
-                    <span>Primary Action</span>
+                    <span>{affordance.fieldLabels.primaryAction}</span>
                     <input name="primaryAction" defaultValue={node.props.primaryAction} />
                   </label>
                 ) : null}
                 {typeof node.props.secondaryAction === "string" ? (
                   <label className="field">
-                    <span>Secondary Action</span>
+                    <span>{affordance.fieldLabels.secondaryAction}</span>
                     <input name="secondaryAction" defaultValue={node.props.secondaryAction} />
                   </label>
                 ) : null}
                 <Button variant="ghost" size="sm" type="submit">
-                  Update {sceneUnitLabel === "screen" ? "Screen" : "Section"}
+                  {affordance.updateButtonLabel}
                 </Button>
               </form>
             </Surface>
