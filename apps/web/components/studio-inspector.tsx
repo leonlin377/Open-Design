@@ -168,7 +168,7 @@ function SaveCodeWorkspaceForm(props: {
       </div>
       <div className="studio-status-row">
         <span className={hasUnsavedDraft ? "status-pill warning" : "status-pill success"}>
-          {hasUnsavedDraft ? "Code Draft Unsaved" : "Code Draft Saved"}
+          {hasUnsavedDraft ? "Unsaved draft" : "Draft saved"}
         </span>
         <span className="footer-note">
           {hasUnsavedDraft
@@ -187,7 +187,7 @@ function SaveCodeWorkspaceForm(props: {
           onClick={handleSave}
           disabled={isPending}
         >
-          {isPending ? "Saving..." : "Save Code Workspace"}
+          {isPending ? "Saving…" : "Save Code Workspace"}
         </button>
         <button
           type="button"
@@ -195,7 +195,7 @@ function SaveCodeWorkspaceForm(props: {
           onClick={handleReset}
           disabled={isPending || !hasUnsavedDraft}
         >
-          Reset To Saved
+          Reset to saved
         </button>
       </div>
       <SandpackLayout className="studio-code-layout">
@@ -246,10 +246,14 @@ export function StudioInspector({
       <div className="inspector-section">
         <SandpackProvider
           template="react-ts"
-          files={sourceBundle.files}
+          files={{
+            "/App.tsx": sourceBundle.files["/App.tsx"] ?? "",
+            ...(sourceBundle.files["/styles.css"] ? { "/styles.css": sourceBundle.files["/styles.css"] } : {})
+          }}
           options={{
             activeFile: "/App.tsx",
-            visibleFiles: Object.keys(sourceBundle.files)
+            visibleFiles: ["/App.tsx", ...(sourceBundle.files["/styles.css"] ? ["/styles.css"] : [])],
+            externalResources: ["https://cdn.tailwindcss.com"]
           }}
         >
           <div className={activeTab === "preview" ? "studio-tab-panel active" : "studio-tab-panel"}>
@@ -267,15 +271,15 @@ export function StudioInspector({
               />
             </div>
             <Surface className="kv">
-              <span>Active Frame</span>
+              <span>Active frame</span>
               {frameLabel}
             </Surface>
             <Surface className="kv">
-              <span>Sync Strategy</span>
+              <span>Sync strategy</span>
               {syncStrategy}
             </Surface>
             <Surface className="kv">
-              <span>Version Lane</span>
+              <span>Version lane</span>
               {versionLane}
             </Surface>
           </div>

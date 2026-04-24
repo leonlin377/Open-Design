@@ -14,6 +14,12 @@
     "baseUrl": ".",
     "paths": {
       "@opendesign/contracts": ["packages/contracts/src/index.ts"],
+      "@opendesign/contracts/image-generation": ["packages/contracts/src/image-generation.ts"],
+      "@opendesign/contracts/src/image-generation": ["packages/contracts/src/image-generation.ts"],
+      "@opendesign/contracts/artifact-theme": ["packages/contracts/src/artifact-theme.ts"],
+      "@opendesign/contracts/src/artifact-theme": ["packages/contracts/src/artifact-theme.ts"],
+      "@opendesign/contracts/chat": ["packages/contracts/src/chat.ts"],
+      "@opendesign/contracts/src/chat": ["packages/contracts/src/chat.ts"],
       "@opendesign/scene-engine": ["packages/scene-engine/src/index.ts"],
       "@opendesign/code-sync": ["packages/code-sync/src/index.ts"],
       "@opendesign/design-ingest": ["packages/design-ingest/src/index.ts"],

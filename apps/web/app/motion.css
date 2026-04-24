@@ -1,0 +1,159 @@
+/*
+ * Motion primitives (UX-POLISH-001).
+ *
+ * Reusable keyframes + utility classes for the composition agent to attach
+ * without coupling to this file's tokens. Durations/easings follow the
+ * system tokens:
+ *   --motion-duration-1 (140ms)  exit / fast micro-interactions
+ *   --motion-duration-2 (180ms)  default enter
+ *   --motion-duration-3 (280ms)  modal/drawer
+ *   --motion-ease-out   cubic-bezier(0.2, 0, 0, 1)
+ *   --motion-ease-in    cubic-bezier(0.4, 0, 1, 1)
+ *   --motion-ease-in-out cubic-bezier(0.4, 0, 0.2, 1)
+ */
+
+/* --- Keyframes --- */
+
+@keyframes od-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes od-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes od-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes od-slide-out-right {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+}
+
+@keyframes od-slide-in-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes od-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes od-dim-backdrop-in {
+  from { background-color: rgba(11, 11, 14, 0); }
+  to   { background-color: rgba(11, 11, 14, 0.55); }
+}
+
+@keyframes od-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+/* --- @property registrations (allow interpolation of custom props) --- */
+
+@property --od-dim {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* --- Utility classes (composition-agent friendly) --- */
+
+.anim-fade-in {
+  animation: od-fade-in var(--motion-duration-2) var(--motion-ease-out) both;
+}
+
+.anim-fade-out {
+  animation: od-fade-out var(--motion-duration-1) var(--motion-ease-in) both;
+}
+
+.anim-slide-in-right {
+  animation: od-slide-in-right 230ms var(--motion-ease-out) both;
+}
+
+.anim-slide-out-right {
+  animation: od-slide-out-right var(--motion-duration-2) var(--motion-ease-in) both;
+}
+
+.anim-slide-in-up {
+  animation: od-slide-in-up var(--motion-duration-2) var(--motion-ease-out) both;
+}
+
+.anim-scale-in {
+  animation: od-scale-in var(--motion-duration-1) var(--motion-ease-out) both;
+}
+
+.dim-backdrop-in {
+  animation: od-dim-backdrop-in var(--motion-duration-2) var(--motion-ease-out) both;
+}
+
+.anim-pulse {
+  animation: od-pulse 1600ms var(--motion-ease-in-out) infinite;
+}
+
+/* Transition helpers — for elements whose state changes (hover/focus/active)
+   rather than mount/unmount. */
+
+.transition-ui {
+  transition:
+    background-color var(--motion-duration-2) var(--motion-ease-out),
+    border-color var(--motion-duration-2) var(--motion-ease-out),
+    color var(--motion-duration-2) var(--motion-ease-out),
+    box-shadow var(--motion-duration-2) var(--motion-ease-out),
+    transform var(--motion-duration-1) var(--motion-ease-out),
+    opacity var(--motion-duration-2) var(--motion-ease-out);
+}
+
+.transition-spring {
+  transition:
+    transform var(--motion-duration-2) cubic-bezier(0.3, 1.4, 0.5, 1),
+    box-shadow var(--motion-duration-2) var(--motion-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-in,
+  .anim-fade-out,
+  .anim-slide-in-right,
+  .anim-slide-out-right,
+  .anim-slide-in-up,
+  .anim-scale-in,
+  .dim-backdrop-in,
+  .anim-pulse {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .transition-ui,
+  .transition-spring {
+    transition-duration: 1ms !important;
+  }
+}

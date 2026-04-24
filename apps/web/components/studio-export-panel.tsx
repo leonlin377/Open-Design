@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Surface } from "@opendesign/ui";
+import { useT } from "../lib/i18n";
 import type { ApiArtifact, ApiExportJob } from "../lib/opendesign-api";
 
 type StudioExportPanelProps = {
@@ -17,15 +20,15 @@ export function StudioExportPanel({
   sourceBundleFiles,
   exportJobs
 }: StudioExportPanelProps) {
+  const t = useT();
+
   return (
     <>
       <Surface className="project-card" as="section">
         <div>
-          <h3>Export Surface</h3>
+          <h3>{t("studio.export.title")}</h3>
           <p className="footer-note">
-            Download a handoff bundle, runnable source scaffold, or standalone HTML
-            render. ZIP follows the saved code workspace when present; HTML stays
-            scene-based.
+            {t("studio.export.description")}
           </p>
         </div>
         <div className="artifact-action-grid">
@@ -33,26 +36,26 @@ export function StudioExportPanel({
             href={`/studio/${projectId}/${artifactId}/export/handoff-bundle`}
             className="button-link ghost"
           >
-            Download Handoff ZIP
+            {t("studio.export.handoff")}
           </Link>
           <Link
             href={`/studio/${projectId}/${artifactId}/export/source-bundle`}
             className="button-link ghost"
           >
-            Download ZIP
+            {t("studio.export.zip")}
           </Link>
           <Link
             href={`/studio/${projectId}/${artifactId}/export/html`}
             className="button-link primary"
           >
-            Download HTML
+            {t("studio.export.html")}
           </Link>
           {artifactKind === "prototype" ? (
             <Link
               href={`/studio/${projectId}/${artifactId}/export/prototype-flow`}
               className="button-link ghost"
             >
-              Download Flow JSON
+              {t("studio.export.flow")}
             </Link>
           ) : null}
           {artifactKind === "slides" ? (
@@ -60,22 +63,21 @@ export function StudioExportPanel({
               href={`/studio/${projectId}/${artifactId}/export/slides-deck`}
               className="button-link ghost"
             >
-              Download Deck JSON
+              {t("studio.export.deck")}
             </Link>
           ) : null}
         </div>
       </Surface>
       <Surface className="project-card" as="section">
         <div>
-          <h3>Recent Export Jobs</h3>
+          <h3>{t("studio.export.jobs.title")}</h3>
           <p className="footer-note">
-            Export jobs are tracked on the API side even when downloads still run through
-            the current synchronous routes. Refresh the Studio to see the latest status.
+            {t("studio.export.jobs.description")}
           </p>
         </div>
         <div className="stack-form">
           {exportJobs.length === 0 ? (
-            <div className="footer-note">No export jobs yet.</div>
+            <div className="footer-note">{t("studio.export.jobs.empty")}</div>
           ) : null}
           {exportJobs.map((job) => (
             <Surface key={job.id} className="kv">

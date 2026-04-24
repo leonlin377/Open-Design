@@ -2,7 +2,21 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Surface } from "@opendesign/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  FormField,
+  Inline,
+  Input,
+  Stack,
+  Surface,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Text
+} from "@opendesign/ui";
+import { useT } from "../lib/i18n";
 import { buildApiRequestError } from "../lib/api-errors";
 
 type AuthPanelProps = {
@@ -22,6 +36,7 @@ type Mode = "sign-in" | "sign-up";
 
 export function AuthPanel({ session }: AuthPanelProps) {
   const router = useRouter();
+  const t = useT();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +74,9 @@ export function AuthPanel({ session }: AuthPanelProps) {
         router.refresh();
       } catch (submitError) {
         setError(
-          submitError instanceof Error ? submitError.message : "Authentication failed."
+          submitError instanceof Error
+            ? submitError.message
+            : t("auth.error.failed")
         );
       }
     });
@@ -72,86 +89,99 @@ export function AuthPanel({ session }: AuthPanelProps) {
         await runAuth("/api/auth/sign-out");
         router.refresh();
       } catch (submitError) {
-        setError(submitError instanceof Error ? submitError.message : "Sign out failed.");
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : t("auth.error.signout")
+        );
       }
     });
   }
 
   return (
     <Surface className="auth-panel">
-      <div className="auth-head">
-        <Badge tone={session ? "accent" : "outline"}>
-          {session ? "Session Active" : "Sign In"}
-        </Badge>
+      <Stack gap={4}>
+        <Inline justify="space-between" align="center" className="auth-head">
+          <Badge tone={session ? "accent" : "outline"}>
+            {session ? t("auth.badge.active") : t("auth.badge.signin")}
+          </Badge>
+          {session ? (
+            <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={pending}>
+              {t("auth.signout")}
+            </Button>
+          ) : null}
+        </Inline>
+
         {session ? (
-          <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={pending}>
-            Sign Out
-          </Button>
+          <Stack gap={2} className="auth-summary">
+            <Text as="strong" variant="title-s">
+              {session.user.name || session.user.email || t("auth.user.authenticated")}
+            </Text>
+            <Text as="span" variant="body-s" tone="muted">
+              {session.user.email ?? t("auth.user.scope")}
+            </Text>
+          </Stack>
+        ) : (
+          <Stack gap={3}>
+            <Tabs
+              value={mode}
+              onValueChange={(next) => setMode(next as Mode)}
+              className="auth-toggle"
+            >
+              <TabsList>
+                <TabsTrigger value="sign-in" disabled={pending}>
+                  {t("auth.toggle.signin")}
+                </TabsTrigger>
+                <TabsTrigger value="sign-up" disabled={pending}>
+                  {t("auth.toggle.signup")}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <Stack gap={3} className="auth-fields">
+              {mode === "sign-up" ? (
+                <FormField label={t("auth.field.name")}>
+                  <Input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </FormField>
+              ) : null}
+              <FormField label={t("auth.field.email")}>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </FormField>
+              <FormField label={t("auth.field.password")}>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </FormField>
+            </Stack>
+
+            <Button variant="primary" onClick={handleSubmit} disabled={pending}>
+              {pending
+                ? `${t("auth.submit.working")}…`
+                : mode === "sign-up"
+                  ? t("auth.submit.signup")
+                  : t("auth.submit.signin")}
+            </Button>
+            <Text as="div" variant="caption" tone="muted" className="footer-note">
+              {t("auth.note")}
+            </Text>
+          </Stack>
+        )}
+
+        {error ? (
+          <Alert tone="danger" className="auth-error">
+            {error}
+          </Alert>
         ) : null}
-      </div>
-
-      {session ? (
-        <div className="auth-summary">
-          <strong>{session.user.name || session.user.email || "Authenticated user"}</strong>
-          <span>{session.user.email ?? "Ready to scope projects to your account."}</span>
-        </div>
-      ) : (
-        <>
-          <div className="auth-toggle">
-            <Button
-              variant={mode === "sign-in" ? "primary" : "outline"}
-              size="sm"
-              onClick={() => setMode("sign-in")}
-              disabled={pending}
-            >
-              Sign In
-            </Button>
-            <Button
-              variant={mode === "sign-up" ? "primary" : "outline"}
-              size="sm"
-              onClick={() => setMode("sign-up")}
-              disabled={pending}
-            >
-              Create Account
-            </Button>
-          </div>
-
-          <div className="auth-fields">
-            {mode === "sign-up" ? (
-              <label className="field">
-                <span>Name</span>
-                <input value={name} onChange={(event) => setName(event.target.value)} />
-              </label>
-            ) : null}
-            <label className="field">
-              <span>Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </label>
-          </div>
-
-          <Button variant="primary" onClick={handleSubmit} disabled={pending}>
-            {pending ? "Working..." : mode === "sign-up" ? "Create Account" : "Sign In"}
-          </Button>
-          <div className="footer-note">
-            Use the same browser host for web and API, for example `127.0.0.1` on both
-            ports.
-          </div>
-        </>
-      )}
-
-      {error ? <div className="auth-error">{error}</div> : null}
+      </Stack>
     </Surface>
   );
 }

@@ -16,10 +16,12 @@ import {
   type ArtifactComment,
   type ArtifactGenerateResponse,
   type ArtifactGenerateStreamEvent,
+  type ArtifactSceneTemplateKind,
   type SceneNode,
   type ArtifactVersionSnapshot
 } from "@opendesign/contracts";
 import {
+  buildFreeformCodeWorkspace,
   planSyncPatch,
   syncCodeToSceneDocument,
   syncSceneToCodeWorkspace
@@ -33,6 +35,11 @@ import {
 } from "@opendesign/exporters";
 import {
   appendRootSceneNode,
+  buildPrototypeScreen,
+  buildPrototypeScreenCta,
+  buildPrototypeScreenLink,
+  buildSlide,
+  buildWebsiteSection,
   createEmptySceneDocument,
   indexSceneNodesById,
   updateRootSceneNode
@@ -42,7 +49,9 @@ import { z } from "zod";
 import {
   ArtifactGenerationError,
   generateArtifactPlan,
-  summarizeDesignSystemForGeneration
+  generateFreeformCode,
+  summarizeDesignSystemForGeneration,
+  type FreeformCodeGenerationResult
 } from "../generation";
 import { buildAssetObjectKey, type AssetStorage } from "../asset-storage";
 import { buildApiError, sendApiError } from "../lib/api-errors";
@@ -173,10 +182,79 @@ export interface ArtifactRouteOptions {
   assets: AssetRepository;
   assetStorage: AssetStorage;
   auth: OpenDesignAuth;
+  /**
+   * Optional shared in-flight registry. When supplied, the primary /generate
+   * route persists its `InFlightGeneration` entries here instead of into a
+   * plugin-local Map so sibling plugins (e.g. artifact-generation-extras)
+   * can enforce the same per-artifact / per-user concurrency gates. When
+   * absent (tests that only spin up this plugin), a local Map is used.
+   */
+  activeGenerations?: Map<string, unknown>;
+}
+
+// Per-process default for per-user concurrency cap. The env var is read at
+// request time so tests can override it without rebuilding the app.
+const DEFAULT_GENERATION_MAX_CONCURRENT_PER_USER = 2;
+
+function readGenerationConcurrencyCap(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.OPENDESIGN_GENERATION_MAX_CONCURRENT_PER_USER;
+  if (raw === undefined || raw === null || raw === "") {
+    return DEFAULT_GENERATION_MAX_CONCURRENT_PER_USER;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 1) {
+    return DEFAULT_GENERATION_MAX_CONCURRENT_PER_USER;
+  }
+  return Math.floor(value);
+}
+
+interface InFlightGeneration {
+  artifactId: string;
+  userKey: string;
+  prompt: string;
+  designSystemPackId: string | null;
+  controller: AbortController;
+  /** Marked true once the generation has committed durable state. */
+  completed: boolean;
 }
 
 export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
   async (app, options) => {
+    // In-process generation registry. Keyed by artifactId — at most one
+    // in-flight run per artifact. A second per-user counter is derived from
+    // this map so we only need one source of truth. When the caller provides
+    // a shared map (the production wiring does), we reuse it so the
+    // generation-extras plugin can enforce the same quota/409 state.
+    const activeGenerations = (options.activeGenerations ??
+      new Map<string, InFlightGeneration>()) as Map<string, InFlightGeneration>;
+
+    function countUserGenerations(userKey: string): number {
+      let count = 0;
+      for (const run of activeGenerations.values()) {
+        if (run.userKey === userKey) {
+          count += 1;
+        }
+      }
+      return count;
+    }
+
+    function userKeyForSession(
+      session: { user?: { id?: string | null } } | null | undefined
+    ): string {
+      return session?.user?.id ?? "__anonymous__";
+    }
+
+    function clearGenerationIfCurrent(artifactId: string, run: InFlightGeneration) {
+      // Only drop the slot if the map still points at *our* run. This guards
+      // against the race where a cancel arrives after we completed but before
+      // we removed ourselves — the cancel handler already overwrote the entry
+      // (or removed it), and we mustn't clobber a later run.
+      const current = activeGenerations.get(artifactId);
+      if (current === run) {
+        activeGenerations.delete(artifactId);
+      }
+    }
+
     const exportKindToResult = {
       html: {
         filename: "artifact.html",
@@ -275,100 +353,187 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         name: string;
       };
       intent: string;
-      template: z.infer<typeof SceneTemplateKindSchema>;
+      template: ArtifactSceneTemplateKind;
       designSystemName?: string | null;
+      priorPrototypeScreenId?: string | null;
     }): SceneNode {
       const nodeId = `${input.template}_${crypto.randomUUID()}`;
-      const nodeType =
-        input.artifact.kind === "prototype"
-          ? "screen"
-          : input.artifact.kind === "slides"
-            ? "slide"
-            : "section";
 
-      if (input.template === "hero") {
-        return {
-          id: nodeId,
-          type: nodeType,
-          name:
-            input.artifact.kind === "prototype"
-              ? "Hero Screen"
-              : input.artifact.kind === "slides"
-                ? "Title Slide"
-                : "Hero Section",
-          props: {
+      if (input.artifact.kind === "website") {
+        if (
+          input.template !== "hero" &&
+          input.template !== "feature-grid" &&
+          input.template !== "cta"
+        ) {
+          throw new Error(
+            `Website artifacts cannot consume the "${input.template}" template.`
+          );
+        }
+
+        if (input.template === "hero") {
+          return buildWebsiteSection({
+            id: nodeId,
             template: "hero",
-            eyebrow:
-              input.designSystemName
+            name: "Hero Section",
+            props: {
+              eyebrow: input.designSystemName
                 ? `${input.designSystemName} System`
-                : input.artifact.kind === "slides"
-                ? "Deck Surface"
-                : input.artifact.kind === "prototype"
-                  ? "Flow Surface"
-                  : "Launch Surface",
+                : "Launch Surface",
+              headline: input.designSystemName
+                ? `${input.artifact.name} adopts ${input.designSystemName} hierarchy.`
+                : `${input.artifact.name} leads with cinematic hierarchy.`,
+              body: input.intent
+            }
+          });
+        }
+
+        if (input.template === "feature-grid") {
+          return buildWebsiteSection({
+            id: nodeId,
+            template: "feature-grid",
+            name: "Feature Grid",
+            props: {
+              title: input.designSystemName
+                ? `${input.designSystemName} system lanes`
+                : "Artifact system lanes",
+              items: [
+                {
+                  label: "Scene",
+                  body: "Sections stay versioned and ready for review snapshots."
+                },
+                {
+                  label: "Design",
+                  body: "Brand rhythm and layout motifs stay attached to the workspace."
+                },
+                {
+                  label: "Export",
+                  body: "Preview, handoff, and export flows derive from one source of truth."
+                }
+              ]
+            }
+          });
+        }
+
+        return buildWebsiteSection({
+          id: nodeId,
+          template: "cta",
+          name: "Call To Action",
+          props: {
+            headline: input.designSystemName
+              ? `Ready to ship ${input.designSystemName} fidelity?`
+              : "Ready for the next review pass?",
+            body: "Promote the current artifact into a snapshot, then push it toward export.",
+            primaryAction: "Create Snapshot",
+            secondaryAction: "Export Handoff"
+          }
+        });
+      }
+
+      // Backward-compat: legacy callers (append-template endpoint, web UI)
+      // still send website template kinds for prototype/slides artifacts.
+      // Map them transparently onto the typed node kinds so appended nodes
+      // match the artifact-kind scene schema.
+      const resolvedTemplate: ArtifactSceneTemplateKind =
+        input.artifact.kind === "prototype" && input.template === "hero"
+          ? "screen"
+          : input.artifact.kind === "prototype" && input.template === "feature-grid"
+            ? "screen"
+            : input.artifact.kind === "prototype" && input.template === "cta"
+              ? "screen-cta"
+              : input.artifact.kind === "slides" && input.template === "hero"
+                ? "slide-title"
+                : input.artifact.kind === "slides" && input.template === "feature-grid"
+                  ? "slide-content"
+                  : input.artifact.kind === "slides" && input.template === "cta"
+                    ? "slide-closing"
+                    : input.template;
+
+      if (input.artifact.kind === "prototype") {
+        if (resolvedTemplate === "screen") {
+          return buildPrototypeScreen({
+            id: nodeId,
+            name: "Hero Screen",
+            eyebrow: input.designSystemName
+              ? `${input.designSystemName} Flow`
+              : "Flow Surface",
             headline: input.designSystemName
               ? `${input.artifact.name} adopts ${input.designSystemName} hierarchy.`
-              : `${input.artifact.name} leads with cinematic hierarchy.`,
+              : `${input.artifact.name} leads with a navigable opener.`,
             body: input.intent
-          },
-          children: []
-        };
+          });
+        }
+
+        if (resolvedTemplate === "screen-link") {
+          return buildPrototypeScreenLink({
+            id: nodeId,
+            from: input.priorPrototypeScreenId ?? "entry",
+            to: `screen_target_${crypto.randomUUID().slice(0, 8)}`,
+            trigger: "tap",
+            name: "Flow Transition"
+          });
+        }
+
+        if (resolvedTemplate === "screen-cta") {
+          return buildPrototypeScreenCta({
+            id: nodeId,
+            name: "Action Screen",
+            headline: input.designSystemName
+              ? `Confirm the ${input.designSystemName} experience.`
+              : "Confirm the next step.",
+            primaryAction: "Continue",
+            secondaryAction: "Back"
+          });
+        }
+
+        throw new Error(
+          `Prototype artifacts cannot consume the "${resolvedTemplate}" template.`
+        );
       }
 
-      if (input.template === "feature-grid") {
-        return {
-          id: nodeId,
-          type: nodeType,
-          name:
-            input.artifact.kind === "prototype"
-              ? "Feature Screen"
-              : input.artifact.kind === "slides"
-                ? "System Slide"
-                : "Feature Grid",
-          props: {
-            template: "feature-grid",
-            title: input.designSystemName
+      // slides
+      if (
+        resolvedTemplate !== "slide-title" &&
+        resolvedTemplate !== "slide-content" &&
+        resolvedTemplate !== "slide-closing"
+      ) {
+        throw new Error(
+          `Slides artifacts cannot consume the "${resolvedTemplate}" template.`
+        );
+      }
+
+      const slideHeadline =
+        resolvedTemplate === "slide-title"
+          ? input.designSystemName
+            ? `${input.artifact.name} — ${input.designSystemName} system`
+            : `${input.artifact.name}`
+          : resolvedTemplate === "slide-content"
+            ? input.designSystemName
               ? `${input.designSystemName} system lanes`
-              : "Artifact system lanes",
-            items: [
-              {
-                label: "Scene",
-                body: "Sections stay versioned and ready for review snapshots."
-              },
-              {
-                label: "Design",
-                body: "Brand rhythm and layout motifs stay attached to the workspace."
-              },
-              {
-                label: "Export",
-                body: "Preview, handoff, and export flows derive from one source of truth."
-              }
-            ]
-          },
-          children: []
-        };
-      }
+              : "System lanes"
+            : "Ready for the next review pass?";
 
-      return {
+      const slideBody =
+        resolvedTemplate === "slide-title"
+          ? input.intent
+          : resolvedTemplate === "slide-content"
+            ? "Scene, design, and export flows derive from one source of truth."
+            : "Promote the current deck into a snapshot, then push it toward export.";
+
+      return buildSlide({
         id: nodeId,
-        type: nodeType,
-        name:
-          input.artifact.kind === "prototype"
-            ? "Action Screen"
-            : input.artifact.kind === "slides"
-              ? "Closing Slide"
-              : "Call To Action",
-        props: {
-          template: "cta",
-          headline: input.designSystemName
-            ? `Ready to ship ${input.designSystemName} fidelity?`
-            : "Ready for the next review pass?",
-          body: "Promote the current artifact into a snapshot, then push it toward export.",
-          primaryAction: "Create Snapshot",
-          secondaryAction: "Export Handoff"
-        },
-        children: []
-      };
+        role: resolvedTemplate,
+        headline: slideHeadline,
+        body: slideBody,
+        ...(resolvedTemplate === "slide-content"
+          ? {
+              bullets: [
+                "Sections stay versioned and ready for review snapshots.",
+                "Brand rhythm and layout motifs stay attached to the workspace.",
+                "Preview, handoff, and export flows derive from one source of truth."
+              ]
+            }
+          : {})
+      });
     }
 
     function buildSeedIntent(artifact: { kind: string; name: string }) {
@@ -445,26 +610,127 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       return accept.includes("text/event-stream");
     }
 
-    function beginGenerationEventStream(reply: FastifyReply) {
+    interface GenerationEventStreamSession {
+      writeEvent: (event: ArtifactGenerateStreamEvent) => void;
+      close: () => void;
+      isClosed: () => boolean;
+      onTimeout: (handler: () => void) => void;
+      clearDeadline: () => void;
+    }
+
+    function readGenerationReadTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+      const value = Number(env.OPENDESIGN_GENERATION_TIMEOUT_MS ?? "15000");
+      return Number.isFinite(value) && value > 0 ? value : 15000;
+    }
+
+    function readGenerationSessionTimeoutMs(
+      env: NodeJS.ProcessEnv = process.env
+    ): number {
+      const override = Number(env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS ?? "");
+      if (Number.isFinite(override) && override > 0) {
+        return override;
+      }
+      return readGenerationReadTimeoutMs(env) * 2;
+    }
+
+    function beginGenerationEventStream(
+      reply: FastifyReply,
+      request: FastifyRequest,
+      options: { sessionTimeoutMs?: number } = {}
+    ): GenerationEventStreamSession {
       reply.hijack();
+      const origin = request.headers.origin;
       reply.raw.writeHead(200, {
         "content-type": "text/event-stream; charset=utf-8",
         "cache-control": "no-cache, no-transform",
-        connection: "keep-alive"
+        connection: "keep-alive",
+        ...(origin ? {
+          "access-control-allow-origin": origin,
+          "access-control-allow-credentials": "true"
+        } : {})
       });
 
       if (typeof reply.raw.flushHeaders === "function") {
         reply.raw.flushHeaders();
       }
+
+      let closed = false;
+      let timeoutHandler: (() => void) | null = null;
+
+      const writeEvent = (event: ArtifactGenerateStreamEvent) => {
+        if (closed) {
+          return;
+        }
+        reply.raw.write(
+          `data: ${JSON.stringify(ArtifactGenerateStreamEventSchema.parse(event))}\n\n`
+        );
+      };
+
+      const close = () => {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        if (deadline) {
+          clearTimeout(deadline);
+          deadline = null;
+        }
+        reply.raw.end();
+      };
+
+      const sessionTimeoutMs = options.sessionTimeoutMs ?? readGenerationSessionTimeoutMs();
+      let deadline: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        deadline = null;
+        if (timeoutHandler) {
+          timeoutHandler();
+        }
+      }, sessionTimeoutMs);
+
+      // If the socket is closed by the client, stop writes and cancel the deadline.
+      reply.raw.on("close", () => {
+        closed = true;
+        if (deadline) {
+          clearTimeout(deadline);
+          deadline = null;
+        }
+      });
+
+      return {
+        writeEvent,
+        close,
+        isClosed: () => closed,
+        onTimeout: (handler) => {
+          timeoutHandler = handler;
+        },
+        clearDeadline: () => {
+          if (deadline) {
+            clearTimeout(deadline);
+            deadline = null;
+          }
+        }
+      };
     }
 
-    function writeGenerationEvent(
-      reply: FastifyReply,
-      event: ArtifactGenerateStreamEvent
-    ) {
-      reply.raw.write(
-        `data: ${JSON.stringify(ArtifactGenerateStreamEventSchema.parse(event))}\n\n`
-      );
+    function generationStatusForCode(code: string): number {
+      switch (code) {
+        case "GENERATION_TIMEOUT":
+          return 504;
+        case "GENERATION_PROVIDER_FAILURE":
+          return 502;
+        case "INVALID_GENERATION_PLAN":
+        case "INVALID_SCENE_PATCH":
+          return 422;
+        case "GENERATION_CANCELLED":
+          // Cancels are client-driven — the request itself is unprocessable
+          // in that no artifact change was made.
+          return 422;
+        case "GENERATION_ALREADY_RUNNING":
+          return 409;
+        case "GENERATION_QUOTA_EXCEEDED":
+          return 429;
+        default:
+          return 500;
+      }
     }
 
     function mapGenerationFailure(error: unknown) {
@@ -480,36 +746,16 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
             : {})
         });
 
-        const statusCode =
-          error.code === "GENERATION_TIMEOUT"
-            ? 504
-            : error.code === "GENERATION_PROVIDER_FAILURE"
-              ? 502
-              : error.code === "INVALID_GENERATION_PLAN" ||
-                  error.code === "INVALID_SCENE_PATCH"
-                ? 422
-              : 422;
-
         return {
-          statusCode,
+          statusCode: generationStatusForCode(error.code),
           apiError
         };
       }
 
       if (error && typeof error === "object" && "code" in error && "error" in error) {
         const apiError = buildApiError(error as Parameters<typeof buildApiError>[0]);
-        const statusCode =
-          apiError.code === "GENERATION_TIMEOUT"
-            ? 504
-            : apiError.code === "GENERATION_PROVIDER_FAILURE"
-              ? 502
-              : apiError.code === "INVALID_GENERATION_PLAN" ||
-                  apiError.code === "INVALID_SCENE_PATCH"
-                ? 422
-                : 500;
-
         return {
-          statusCode,
+          statusCode: generationStatusForCode(apiError.code),
           apiError
         };
       }
@@ -592,19 +838,162 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         name: string;
       };
       prompt: string;
+      signal?: AbortSignal;
+      onDesignSystemResolved?: (packId: string | null) => void;
       onProgress?: (
         event: Extract<ArtifactGenerateStreamEvent, { type: "planning" | "applying" }>
       ) => Promise<void> | void;
     }): Promise<ArtifactGenerateResponse> {
+      const throwIfCancelled = () => {
+        if (input.signal?.aborted) {
+          throw new ArtifactGenerationError({
+            message: "Generation was cancelled before it could commit.",
+            code: "GENERATION_CANCELLED",
+            details: {
+              stage: "generate"
+            }
+          });
+        }
+      };
+
       const { workspace, versions, comments } = await ensureWorkspaceState(input.artifact);
+      throwIfCancelled();
       const selectedDesignSystemPackId =
         workspace.sceneDocument.metadata.designSystemPackId ?? null;
+      input.onDesignSystemResolved?.(selectedDesignSystemPackId);
       const selectedDesignSystem = selectedDesignSystemPackId
         ? await options.designSystems.getById(selectedDesignSystemPackId)
         : null;
       const generationDesignSystem = selectedDesignSystem
         ? summarizeDesignSystemForGeneration(selectedDesignSystem)
         : undefined;
+
+      const generationMode = (process.env.OPENDESIGN_GENERATION_MODE ?? "freeform") as
+        | "template"
+        | "freeform";
+
+      if (generationMode === "freeform") {
+        await input.onProgress?.({
+          type: "planning",
+          message: generationDesignSystem
+            ? `Generating freeform code with ${generationDesignSystem.name} grounding.`
+            : "Generating freeform React + Tailwind code from the current prompt."
+        });
+
+        const freeformResult: FreeformCodeGenerationResult = await generateFreeformCode({
+          artifactKind: input.artifact.kind,
+          artifactName: input.artifact.name,
+          prompt: input.prompt,
+          designSystem: generationDesignSystem,
+          signal: input.signal
+        });
+        throwIfCancelled();
+
+        const freeformNodeId = `freeform_${crypto.randomUUID()}`;
+        const freeformNode: SceneNode = {
+          id: freeformNodeId,
+          type: "freeform",
+          name: "Freeform Component",
+          props: { generationMode: "freeform" },
+          children: []
+        };
+        const freeformSceneDocument = appendRootSceneNode(
+          workspace.sceneDocument,
+          freeformNode
+        );
+
+        await input.onProgress?.({
+          type: "applying",
+          message: "Applying freeform generated code and persisting a prompt snapshot."
+        });
+
+        const freeformWorkspace = buildFreeformCodeWorkspace({
+          artifactName: input.artifact.name,
+          freeformFiles: freeformResult.files,
+          sceneVersion: freeformSceneDocument.version
+        });
+
+        throwIfCancelled();
+
+        const freeformCodeWorkspace = {
+          files: freeformWorkspace.files,
+          baseSceneVersion: freeformWorkspace.baseSceneVersion,
+          updatedAt: new Date().toISOString()
+        };
+
+        const freeformApplyResult = await options.workspaces.applyGenerationRun({
+          artifactId: input.artifact.id,
+          intent: freeformResult.intent,
+          sceneDocument: freeformSceneDocument,
+          codeWorkspace: freeformCodeWorkspace,
+          activateNewVersion: true,
+          version: {
+            label: `Prompt ${versions.length + 1}`,
+            summary: `Generated from prompt: ${input.prompt.slice(0, 120)}`,
+            source: "prompt",
+            sceneVersion: freeformSceneDocument.version,
+            sceneDocument: freeformSceneDocument,
+            codeWorkspace: freeformCodeWorkspace
+          }
+        });
+
+        if (!freeformApplyResult) {
+          throw buildApiError({
+            error: "Workspace update failed",
+            code: "WORKSPACE_UPDATE_FAILED",
+            recoverable: true,
+            details: { stage: "generate" }
+          });
+        }
+
+        const { workspace: activeFreeformWorkspace, version: freeformVersion } =
+          freeformApplyResult;
+
+        const freeformGenerationRun = ArtifactGenerationRunSchema.parse({
+          plan: {
+            prompt: input.prompt,
+            intent: freeformResult.intent,
+            rationale: freeformResult.rationale,
+            mode: "freeform",
+            provider: freeformResult.diagnostics.provider,
+            ...(generationDesignSystem ? { designSystem: generationDesignSystem } : {})
+          },
+          diagnostics: freeformResult.diagnostics,
+          scenePatch: ArtifactScenePatchSchema.parse({
+            mode: "freeform-inject",
+            rationale: "Injected a freeform placeholder node into the scene document.",
+            appendedNodes: [
+              {
+                id: freeformNode.id,
+                type: freeformNode.type,
+                name: freeformNode.name,
+                template: "freeform"
+              }
+            ]
+          }),
+          codePatch: ArtifactCodePatchSchema.parse({
+            mode: "synced",
+            rationale: "Code workspace created directly from LLM-generated freeform code.",
+            filesTouched: Object.keys(freeformWorkspace.files).sort()
+          }),
+          commentResolution: ArtifactCommentResolutionSchema.parse({
+            mode: "none",
+            rationale: "Prompt generation does not resolve open review comments yet.",
+            resolvedCommentIds: []
+          })
+        });
+
+        return ArtifactGenerateResponseSchema.parse({
+          generation: freeformGenerationRun,
+          version: freeformVersion,
+          workspace: buildWorkspacePayload({
+            artifactKind: input.artifact.kind,
+            workspace: activeFreeformWorkspace,
+            versions: [freeformVersion, ...versions],
+            comments
+          })
+        });
+      }
 
       await input.onProgress?.({
         type: "planning",
@@ -617,23 +1006,33 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         artifactKind: input.artifact.kind,
         artifactName: input.artifact.name,
         prompt: input.prompt,
-        designSystem: generationDesignSystem
+        designSystem: generationDesignSystem,
+        signal: input.signal
       });
+      throwIfCancelled();
       const plan = ArtifactGenerationPlanSchema.parse(generation.plan);
 
       let sceneDocument = workspace.sceneDocument;
       const appendedNodes: SceneNode[] = [];
 
       try {
-        for (const template of plan.sections) {
+        let priorPrototypeScreenId: string | null = null;
+        for (const template of plan.sections ?? []) {
           const node = buildTemplateNode({
             artifact: input.artifact,
             intent: plan.intent,
             template,
-            designSystemName: plan.designSystem?.name ?? null
+            designSystemName: plan.designSystem?.name ?? null,
+            priorPrototypeScreenId
           });
           sceneDocument = appendRootSceneNode(sceneDocument, node);
           appendedNodes.push(node);
+          if (
+            input.artifact.kind === "prototype" &&
+            (node.type === "screen" || node.type === "screen-cta")
+          ) {
+            priorPrototypeScreenId = node.id;
+          }
         }
 
         indexSceneNodesById(sceneDocument.nodes);
@@ -658,13 +1057,61 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         message: `Applying ${appendedNodes.length} generated sections and persisting a prompt snapshot.`
       });
 
-      const intentWorkspace = await options.workspaces.updateIntent(input.artifact.id, plan.intent);
-      const sceneWorkspace = await options.workspaces.updateSceneDocument(
-        input.artifact.id,
-        sceneDocument
-      );
+      // Pre-compute the scene-derived code sync decision so we can package the
+      // resulting code workspace into a single atomic commit below.
+      const codeSyncDecision = syncSceneToCodeWorkspace({
+        artifactKind: input.artifact.kind,
+        artifactName: input.artifact.name,
+        previousIntent: workspace.intent,
+        nextIntent: plan.intent,
+        previousSceneDocument: workspace.sceneDocument,
+        nextSceneDocument: sceneDocument,
+        currentCodeWorkspace: workspace.codeWorkspace
+      });
 
-      if (!intentWorkspace || !sceneWorkspace) {
+      const nextCodeWorkspace =
+        codeSyncDecision.applied && codeSyncDecision.codeWorkspace
+          ? {
+              files: codeSyncDecision.codeWorkspace.files,
+              baseSceneVersion: codeSyncDecision.codeWorkspace.baseSceneVersion,
+              // updatedAt is assigned inside the atomic commit below.
+              updatedAt: new Date().toISOString()
+            }
+          : workspace.codeWorkspace;
+
+      // Last chance to bail before the atomic commit — a cancel that races
+      // past this check still lets the commit run, but any post-commit work
+      // (code-sync, activeVersion update) short-circuits on the same signal.
+      throwIfCancelled();
+
+      // Fold intent + scene + codeWorkspace + version + activeVersionId into
+      // one atomic commit so a crash mid-generation cannot leave the workspace
+      // in an observably torn state (intent updated without scene, scene
+      // updated without matching active version, etc.).
+      const applyResult = await options.workspaces.applyGenerationRun({
+        artifactId: input.artifact.id,
+        intent: plan.intent,
+        sceneDocument,
+        codeWorkspace:
+          codeSyncDecision.applied && codeSyncDecision.codeWorkspace
+            ? {
+                files: codeSyncDecision.codeWorkspace.files,
+                baseSceneVersion: codeSyncDecision.codeWorkspace.baseSceneVersion,
+                updatedAt: new Date().toISOString()
+              }
+            : undefined,
+        activateNewVersion: true,
+        version: {
+          label: `Prompt ${versions.length + 1}`,
+          summary: `Generated from prompt: ${input.prompt.slice(0, 120)}`,
+          source: "prompt",
+          sceneVersion: sceneDocument.version,
+          sceneDocument,
+          codeWorkspace: nextCodeWorkspace
+        }
+      });
+
+      if (!applyResult) {
         throw buildApiError({
           error: "Workspace update failed",
           code: "WORKSPACE_UPDATE_FAILED",
@@ -675,30 +1122,7 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
       }
 
-      const { workspace: syncedWorkspace, decision: codeSyncDecision } =
-        await applySceneDerivedCodeWorkspaceSync({
-          artifact: input.artifact,
-          previousWorkspace: workspace,
-          nextIntent: plan.intent,
-          nextSceneDocument: sceneWorkspace.sceneDocument,
-          stage: "generate-code-sync"
-        });
-
-      const persistedWorkspace = syncedWorkspace ?? sceneWorkspace;
-
-      const version = await options.versions.create({
-        artifactId: input.artifact.id,
-        label: `Prompt ${versions.length + 1}`,
-        summary: `Generated from prompt: ${input.prompt.slice(0, 120)}`,
-        source: "prompt",
-        sceneVersion: persistedWorkspace.sceneDocument.version,
-        sceneDocument: persistedWorkspace.sceneDocument,
-        codeWorkspace: persistedWorkspace.codeWorkspace
-      });
-
-      const activeWorkspace =
-        (await options.workspaces.updateActiveVersion(input.artifact.id, version.id)) ??
-        persistedWorkspace;
+      const { workspace: activeWorkspace, version } = applyResult;
 
       const generationRun = ArtifactGenerationRunSchema.parse({
         plan,
@@ -706,17 +1130,29 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         scenePatch: ArtifactScenePatchSchema.parse({
           mode: appendedNodes.length > 0 ? "append-root-sections" : "no-op",
           rationale: "Append the generated section stack to the root scene document.",
-          appendedNodes: appendedNodes.map((node) => ({
-            id: node.id,
-            type: node.type,
-            name: node.name,
-            template:
-              node.props.template === "feature-grid" ||
-              node.props.template === "cta" ||
-              node.props.template === "hero"
-                ? node.props.template
-                : "hero"
-          }))
+          appendedNodes: appendedNodes.map((node) => {
+            // Prototype / slides nodes encode their template kind in `node.type`.
+            // Website sections carry the template kind in `node.props.template`.
+            const typedKind =
+              node.type === "screen" ||
+              node.type === "screen-link" ||
+              node.type === "screen-cta" ||
+              node.type === "slide-title" ||
+              node.type === "slide-content" ||
+              node.type === "slide-closing"
+                ? node.type
+                : node.props.template === "feature-grid" ||
+                    node.props.template === "cta" ||
+                    node.props.template === "hero"
+                  ? node.props.template
+                  : "hero";
+            return {
+              id: node.id,
+              type: node.type,
+              name: node.name,
+              template: typedKind
+            };
+          })
         }),
         codePatch: ArtifactCodePatchSchema.parse({
           mode: codeSyncDecision.applied ? "synced" : "unchanged",
@@ -1540,7 +1976,8 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
     app.post("/projects/:projectId/artifacts/:artifactId/generate", async (request, reply) => {
       const params = artifactDetailParamsSchema.parse(request.params);
       const body = generateArtifactBodySchema.parse(request.body);
-      const { artifact, project } = await resolveAuthorizedArtifact(request, params);
+      const { artifact, project, session: userSession } =
+        await resolveAuthorizedArtifact(request, params);
 
       if (!project) {
         return sendApiError(reply, 404, {
@@ -1558,38 +1995,146 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
         });
       }
 
+      const userKey = userKeyForSession(userSession);
+      const concurrencyCap = readGenerationConcurrencyCap();
+
+      // Gate 1: at most one active generation per artifact.
+      if (activeGenerations.has(artifact.id)) {
+        return sendApiError(reply, 409, {
+          error: "A generation is already running for this artifact.",
+          code: "GENERATION_ALREADY_RUNNING",
+          recoverable: false,
+          details: {
+            artifactId: artifact.id
+          }
+        });
+      }
+
+      // Gate 2: per-user quota across all artifacts.
+      const runningForUser = countUserGenerations(userKey);
+      if (runningForUser >= concurrencyCap) {
+        reply.header("retry-after", "5");
+        return sendApiError(reply, 429, {
+          error: `You already have ${runningForUser} of ${concurrencyCap} generations running.`,
+          code: "GENERATION_QUOTA_EXCEEDED",
+          recoverable: true,
+          details: {
+            running: runningForUser,
+            limit: concurrencyCap,
+            retryAfterSeconds: 5
+          }
+        });
+      }
+
+      // Register the in-flight run. The AbortController is shared with the
+      // upstream LiteLLM fetch and with the `performArtifactGeneration` body
+      // so a cancel interrupts both.
+      const controller = new AbortController();
+      const run: InFlightGeneration = {
+        artifactId: artifact.id,
+        userKey,
+        prompt: body.prompt,
+        // designSystemPackId is resolved lazily once we load the workspace,
+        // so the cancel/retry payload can reflect the true pack the run was
+        // bound to — not just whatever was attached at request time.
+        designSystemPackId: null,
+        controller,
+        completed: false
+      };
+      activeGenerations.set(artifact.id, run);
+
+      const buildRetryPayload = (code: string) => {
+        // Explicit allow-list: only these failure codes invite a client
+        // retry with the same inputs. GENERATION_ALREADY_RUNNING is
+        // deliberately excluded — the client must wait, not retry.
+        const retryable =
+          code === "GENERATION_TIMEOUT" ||
+          code === "GENERATION_CANCELLED" ||
+          code === "GENERATION_PROVIDER_FAILURE" ||
+          code === "INVALID_GENERATION_PLAN" ||
+          code === "INVALID_SCENE_PATCH" ||
+          code === "WORKSPACE_UPDATE_FAILED";
+
+        if (!retryable) {
+          return { retryable: false as const };
+        }
+
+        return {
+          retryable: true as const,
+          prompt: body.prompt,
+          ...(run.designSystemPackId
+            ? { designSystemPackId: run.designSystemPackId }
+            : {})
+        };
+      };
+
+      request.raw.on("close", () => {
+        if (!run.completed) {
+          controller.abort();
+        }
+      });
+
       if (wantsGenerationEventStream(request)) {
-        beginGenerationEventStream(reply);
+        const generationMode = (process.env.OPENDESIGN_GENERATION_MODE ?? "freeform") as
+          | "template"
+          | "freeform";
+        const freeformSessionTimeoutMs = generationMode === "freeform" ? 240000 : undefined;
+        const streamSession = beginGenerationEventStream(reply, request, {
+          ...(freeformSessionTimeoutMs ? { sessionTimeoutMs: freeformSessionTimeoutMs } : {})
+        });
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          streamSession.onTimeout(() => {
+            const timeoutError = new ArtifactGenerationError({
+              message:
+                "Generation session exceeded its deadline before the pipeline completed.",
+              code: "GENERATION_TIMEOUT",
+              details: {
+                stage: "generate-session"
+              }
+            });
+            reject(timeoutError);
+          });
+        });
 
         try {
-          writeGenerationEvent(reply, {
+          streamSession.writeEvent({
             type: "started",
             message: "Generation pass started."
           });
 
-          const result = await performArtifactGeneration({
-            artifact,
-            prompt: body.prompt,
-            onProgress: async (event) => {
-              writeGenerationEvent(reply, event);
-            }
-          });
+          const result = await Promise.race([
+            performArtifactGeneration({
+              artifact,
+              prompt: body.prompt,
+              signal: controller.signal,
+              onDesignSystemResolved: (packId) => {
+                run.designSystemPackId = packId;
+              },
+              onProgress: async (event) => {
+                streamSession.writeEvent(event);
+              }
+            }),
+            timeoutPromise
+          ]);
 
-          writeGenerationEvent(reply, {
+          run.completed = true;
+          streamSession.writeEvent({
             type: "completed",
             message: `Generated ${result.generation.scenePatch.appendedNodes.length} sections and refreshed the workspace.`,
             result
           });
         } catch (error) {
           const { apiError } = mapGenerationFailure(error);
-
-          writeGenerationEvent(reply, {
+          streamSession.writeEvent({
             type: "failed",
             message: apiError.error,
-            error: apiError
+            error: apiError,
+            retry: buildRetryPayload(apiError.code)
           });
         } finally {
-          reply.raw.end();
+          clearGenerationIfCurrent(artifact.id, run);
+          streamSession.clearDeadline();
+          streamSession.close();
         }
 
         return;
@@ -1598,15 +2143,80 @@ export const registerArtifactRoutes: FastifyPluginAsync<ArtifactRouteOptions> =
       try {
         const result = await performArtifactGeneration({
           artifact,
-          prompt: body.prompt
+          prompt: body.prompt,
+          signal: controller.signal,
+          onDesignSystemResolved: (packId) => {
+            run.designSystemPackId = packId;
+          }
         });
-
+        run.completed = true;
         return reply.code(201).send(result);
       } catch (error) {
         const { statusCode, apiError } = mapGenerationFailure(error);
         return sendApiError(reply, statusCode, apiError);
+      } finally {
+        clearGenerationIfCurrent(artifact.id, run);
       }
     });
+
+    app.post(
+      "/projects/:projectId/artifacts/:artifactId/generate/cancel",
+      async (request, reply) => {
+        const params = artifactDetailParamsSchema.parse(request.params);
+        const { artifact, project, session: userSession } =
+          await resolveAuthorizedArtifact(request, params);
+
+        if (!project) {
+          return sendApiError(reply, 404, {
+            error: "Project not found",
+            code: "PROJECT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        if (!artifact) {
+          return sendApiError(reply, 404, {
+            error: "Artifact not found",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false
+          });
+        }
+
+        const run = activeGenerations.get(artifact.id);
+        if (!run) {
+          return sendApiError(reply, 404, {
+            error: "No active generation to cancel for this artifact.",
+            code: "ARTIFACT_NOT_FOUND",
+            recoverable: false,
+            details: {
+              artifactId: artifact.id,
+              stage: "cancel"
+            }
+          });
+        }
+
+        // Authorisation: a cancel must come from the same user (or anonymous
+        // caller) who started the run. Without this any session could cancel
+        // anyone else's run on an artifact they can otherwise see.
+        const callerKey = userKeyForSession(userSession);
+        if (run.userKey !== callerKey) {
+          return sendApiError(reply, 403, {
+            error: "Only the initiating user may cancel this generation.",
+            code: "SHARE_ROLE_FORBIDDEN",
+            recoverable: false
+          });
+        }
+
+        // Signal the run to abort. The run handler's `finally` clause will
+        // clear the map slot; we don't delete here so the race where this
+        // cancel arrives *after* the run already completed but before its
+        // `clearGenerationIfCurrent` fired still only signals a no-op abort
+        // on a controller nobody is listening to.
+        run.controller.abort();
+
+        return reply.code(204).send();
+      }
+    );
 
     app.post(
       "/projects/:projectId/artifacts/:artifactId/versions/:versionId/restore",

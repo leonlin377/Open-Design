@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  HeadBucketCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  S3Client
+} from "@aws-sdk/client-s3";
 
 export interface AssetStorage {
   provider: "memory" | "s3";
@@ -18,6 +23,14 @@ export interface AssetStorage {
     bytes: Uint8Array;
     contentType: string;
   } | null>;
+  /**
+   * Optional cheap liveness probe. Memory implementations resolve immediately;
+   * S3 implementations attempt a lightweight bucket head. Should reject with
+   * an Error when the backing store is unreachable or misconfigured. Callers
+   * that omit this method are treated as always-available (e.g. tests that
+   * stub out storage with vitest mocks).
+   */
+  ping?(options?: { timeoutMs?: number }): Promise<void>;
 }
 
 type StoredAsset = {
@@ -87,6 +100,10 @@ export class InMemoryAssetStorage implements AssetStorage {
       contentType: stored.contentType
     };
   }
+
+  async ping() {
+    // In-memory storage is always available; nothing to probe.
+  }
 }
 
 export class S3AssetStorage implements AssetStorage {
@@ -133,6 +150,21 @@ export class S3AssetStorage implements AssetStorage {
       };
     } catch {
       return null;
+    }
+  }
+
+  async ping(options: { timeoutMs?: number } = {}) {
+    const timeoutMs = options.timeoutMs ?? 2000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      await this.client.send(
+        new HeadBucketCommand({ Bucket: this.bucket }),
+        { abortSignal: controller.signal }
+      );
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

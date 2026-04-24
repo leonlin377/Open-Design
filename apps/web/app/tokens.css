@@ -1,0 +1,602 @@
+/*
+ * OpenDesign / Studio design tokens.
+ *
+ * Identity (BRAND-001, 2026-04-20): warm paper surface, moss-green accent,
+ * 1px hairlines, flat surfaces (no glass / no ambient shadow). Editorial
+ * typography pairing — Instrument Serif for display moments, Inter for UI,
+ * JetBrains Mono for code + metadata. Craft lineage: editorial print
+ * tradition + contemporary workhorse software (calm density, motion
+ * restraint, keyboard-first affordance).
+ *
+ * Legacy aliases (`--bg-ink`, `--text`, `--stroke`, `--shadow`, `--glass-*`,
+ * `--accent-2`, `--focus-ring`, etc.) are kept as mappings onto the semantic
+ * tokens below so sibling CSS continues to compile.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- Primitive: warm paper ramp. --- */
+  --paper:          #F5F1EB;
+  --paper-sunk:     #EAE3D6;
+  --paper-raised:   #FDFAF4;
+  --ink-1:          #1A1713;
+  --ink-2:          #5C5348;
+  --ink-3:          #8A8070;
+  --ink-4:          #B8AE9D;
+  --hairline:       #E3DCCB;
+
+  /* --- Primitive: rust-terracotta accent (Claude Design parity). --- */
+  --rust:           #C87E4F;
+  --rust-hover:     #B67244;
+  --rust-soft:      #F0E0CF;
+  --rust-contrast:  #FFFFFF;
+
+  /* --- Primitive: semantic status colours --- */
+  --success-500: #5F8A5C;
+  --warning-500: #7A5A12;
+  --danger-500:  #C84734;
+  --info-500:    #3E6B9C;
+
+  /* --- Signal (live/online indicator) — not a success colour. --- */
+  --signal-live: #35B46C;
+
+  /* --- Spacing scale (4px base, 21 steps — §4). ---
+   * NOTE: this is the NEW canonical numbering per docs/design-system.md §4.
+   * The old `--space-1..--space-16` mapping (1=4px, 2=8px, 3=12px, 4=16px,
+   * 6=24px, 8=32px, 12=48px, 16=64px) is INTENTIONALLY SHADOWED by the new
+   * scale so that raw numeric tokens finally agree with the spec. Existing
+   * consumers that reference `--space-6` etc. will shift values once; the
+   * parallel codemod lane should sweep them (see report). --- */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 40px;
+  --space-11: 48px;
+  --space-12: 56px;
+  --space-13: 64px;
+  --space-14: 80px;
+  --space-15: 96px;
+  --space-16: 128px;
+  --space-17: 160px;
+  --space-18: 192px;
+  --space-19: 240px;
+  --space-20: 320px;
+
+  /* --- Radius scale. --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* --- Shadow elevation.
+   * OpenDesign relies on hairlines, not shadows. Two tiers only.
+   * `shadow-lg` / `shadow-xl` have been removed per §6; callers have been
+   * migrated to `--shadow-md`. --- */
+  --shadow-sm: 0 1px 2px rgba(26, 23, 19, 0.06);
+  --shadow-md: 0 4px 12px rgba(26, 23, 19, 0.08);
+  /* Legacy alias (still referenced by primitives.css fallbacks). */
+  --shadow-xs: var(--shadow-sm);
+
+  /* --- Z-index --- */
+  --z-base: 1;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-popover: 300;
+  --z-tooltip: 400;
+  --z-toast: 500;
+
+  /* --- Motion (§8 — motion primitives). ---
+   * Eight named tokens. `motion-reduce` is substituted automatically by the
+   * prefers-reduced-motion block at the bottom of this file.
+   * --- */
+  --motion-ease-out:    cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-spring: cubic-bezier(0.3, 1.4, 0.5, 1);
+  --motion-ease-blink:  cubic-bezier(0, 0, 0, 1);
+
+  --motion-quick:     120ms var(--motion-ease-out);
+  --motion-base:      180ms var(--motion-ease-out);
+  --motion-enter:     230ms var(--motion-ease-out);
+  --motion-exit:      180ms var(--motion-ease-in);
+  --motion-spring:    280ms var(--motion-ease-spring);
+  --motion-indicator: 2000ms var(--motion-ease-out);
+  --motion-blink:     1050ms var(--motion-ease-blink);
+
+  /* Legacy aliases — kept for existing consumers (motion.css, primitives.css
+   * and apps/web/components). Collapse onto the canonical set above. */
+  --motion-duration-1: 120ms;
+  --motion-duration-2: 180ms;
+  --motion-duration-3: 280ms;
+  --motion-fast: var(--motion-quick);
+
+  /* --- Type scale (§3 — named usage tokens). ---
+   * Each named token is split into `-family`, `-size`, `-line`, `-weight`,
+   * `-tracking`. A shorthand `--type-<name>` custom property bundles
+   * `weight size/line family` for direct use in the `font:` property.
+   * --- */
+
+  /* display — Instrument Serif, clamp(44,6vw,72), 1.02, 400, -0.02em */
+  --type-display-family: var(--font-display);
+  --type-display-size: clamp(44px, 6vw, 72px);
+  --type-display-line: 1.02;
+  --type-display-weight: 400;
+  --type-display-tracking: -0.02em;
+  --type-display: var(--type-display-weight) var(--type-display-size) / var(--type-display-line) var(--type-display-family);
+
+  /* title-l — Instrument Serif, clamp(34,4vw,44), 1.15, 400, -0.012em */
+  --type-title-l-family: var(--font-display);
+  --type-title-l-size: clamp(34px, 4vw, 44px);
+  --type-title-l-line: 1.15;
+  --type-title-l-weight: 400;
+  --type-title-l-tracking: -0.012em;
+  --type-title-l: var(--type-title-l-weight) var(--type-title-l-size) / var(--type-title-l-line) var(--type-title-l-family);
+
+  /* title-m — Inter 22, 1.3, 600, -0.005em */
+  --type-title-m-family: var(--font-sans);
+  --type-title-m-size: 22px;
+  --type-title-m-line: 1.3;
+  --type-title-m-weight: 600;
+  --type-title-m-tracking: -0.005em;
+  --type-title-m: var(--type-title-m-weight) var(--type-title-m-size) / var(--type-title-m-line) var(--type-title-m-family);
+
+  /* title-s — Inter 18, 1.3, 600, 0 */
+  --type-title-s-family: var(--font-sans);
+  --type-title-s-size: 18px;
+  --type-title-s-line: 1.3;
+  --type-title-s-weight: 600;
+  --type-title-s-tracking: 0;
+  --type-title-s: var(--type-title-s-weight) var(--type-title-s-size) / var(--type-title-s-line) var(--type-title-s-family);
+
+  /* body-l — Inter 17, 1.55, 400, 0 */
+  --type-body-l-family: var(--font-sans);
+  --type-body-l-size: 17px;
+  --type-body-l-line: 1.55;
+  --type-body-l-weight: 400;
+  --type-body-l-tracking: 0;
+  --type-body-l: var(--type-body-l-weight) var(--type-body-l-size) / var(--type-body-l-line) var(--type-body-l-family);
+
+  /* body — Inter 15, 1.55, 400, 0 (DEFAULT UI BODY) */
+  --type-body-family: var(--font-sans);
+  --type-body-size: 15px;
+  --type-body-line: 1.55;
+  --type-body-weight: 400;
+  --type-body-tracking: 0;
+  --type-body: var(--type-body-weight) var(--type-body-size) / var(--type-body-line) var(--type-body-family);
+
+  /* body-s — Inter 13.5, 1.5, 400, 0 */
+  --type-body-s-family: var(--font-sans);
+  --type-body-s-size: 13.5px;
+  --type-body-s-line: 1.5;
+  --type-body-s-weight: 400;
+  --type-body-s-tracking: 0;
+  --type-body-s: var(--type-body-s-weight) var(--type-body-s-size) / var(--type-body-s-line) var(--type-body-s-family);
+
+  /* label — Inter 13, 1.3, 500, 0 */
+  --type-label-family: var(--font-sans);
+  --type-label-size: 13px;
+  --type-label-line: 1.3;
+  --type-label-weight: 500;
+  --type-label-tracking: 0;
+  --type-label: var(--type-label-weight) var(--type-label-size) / var(--type-label-line) var(--type-label-family);
+
+  /* caption — Inter 12, 1.4, 400, 0.02em */
+  --type-caption-family: var(--font-sans);
+  --type-caption-size: 12px;
+  --type-caption-line: 1.4;
+  --type-caption-weight: 400;
+  --type-caption-tracking: 0.02em;
+  --type-caption: var(--type-caption-weight) var(--type-caption-size) / var(--type-caption-line) var(--type-caption-family);
+
+  /* mono-label — JetBrains Mono 11.5, 1.3, 500, 0.08em UPPERCASE */
+  --type-mono-label-family: var(--font-mono);
+  --type-mono-label-size: 11.5px;
+  --type-mono-label-line: 1.3;
+  --type-mono-label-weight: 500;
+  --type-mono-label-tracking: 0.08em;
+  --type-mono-label: var(--type-mono-label-weight) var(--type-mono-label-size) / var(--type-mono-label-line) var(--type-mono-label-family);
+
+  /* data — JetBrains Mono 13 (tnum), 1.4, 400, 0 */
+  --type-data-family: var(--font-mono);
+  --type-data-size: 13px;
+  --type-data-line: 1.4;
+  --type-data-weight: 400;
+  --type-data-tracking: 0;
+  --type-data: var(--type-data-weight) var(--type-data-size) / var(--type-data-line) var(--type-data-family);
+
+  /* --- Legacy raw-size type tokens (kept as aliases) --- */
+  --text-xs: 0.8125rem;    /* 13px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-md: 1.0625rem;    /* 17px */
+  --text-lg: 1.1875rem;    /* 19px */
+  --text-xl: 1.375rem;     /* 22px */
+  --text-2xl: 1.75rem;     /* 28px */
+  --text-3xl: 2.125rem;    /* 34px */
+  --text-display: 2.75rem; /* 44px — legacy "display" (now title-l size) */
+  --text-display-fluid: var(--type-display-size);
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Tracking — split per spec §3. */
+  --tracking-display: var(--type-display-tracking); /* -0.02em */
+  --tracking-title-l: var(--type-title-l-tracking); /* -0.012em */
+  --tracking-heading: -0.005em;
+  --tracking-body: 0;
+  --tracking-caption: 0.02em;
+
+  /* --- Breakpoints (§9.1). CSS vars cannot drive @media queries but can be
+   * read by JS via getComputedStyle and used in @container queries. --- */
+  --bp-sm: 640px;
+  --bp-md: 860px;
+  --bp-lg: 1040px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1600px;
+
+  /* --- Iconography (§10). --- */
+  --icon-stroke: 1.5px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 18px;
+  --icon-size-lg: 24px;
+
+  /* --- Fonts (wired by apps/web/app/fonts.ts). --- */
+  --font-sans: var(--od-font-sans, "Inter"), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: var(--od-font-mono, "JetBrains Mono"), ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, monospace;
+  /* Display face: Instrument Serif (Latin). Chinese glyphs fall through to
+     Apple / Windows / Noto Serif CJK stack so 中文 标题 carries editorial serif
+     texture instead of bold sans. Legacy Georgia as final Latin fallback. */
+  --font-display: var(--od-font-display, "Instrument Serif"), "Iowan Old Style",
+    "Apple Garamond", "Source Han Serif SC", "Noto Serif CJK SC",
+    "Noto Serif SC", "Songti SC", "STSong", SimSun, "Times New Roman", Georgia,
+    serif;
+
+  /* ------------------------------------------------------------------
+   * Semantic tokens (LIGHT theme — OpenDesign paper palette).
+   * ------------------------------------------------------------------ */
+
+  /* Surfaces */
+  --surface: var(--paper);
+  --surface-raised: var(--paper-raised);
+  --surface-sunken: var(--paper-sunk);
+  --surface-hover: color-mix(in oklab, var(--ink-1) 6%, transparent);
+  --surface-active: color-mix(in oklab, var(--ink-1) 10%, transparent);
+  --surface-inverse: var(--ink-1);
+
+  --bg-app: var(--paper);
+  --bg-surface: var(--paper);
+  --bg-surface-raised: var(--paper-raised);
+  --bg-surface-muted: var(--paper-sunk);
+  --bg-surface-sunken: var(--paper-sunk);
+  --bg-inverse: var(--ink-1);
+
+  /* Ink — already declared above (paper ramp). */
+  --text-primary: var(--ink-1);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-caption: var(--ink-3);
+  --text-accent: var(--rust);
+  --text-on-accent: var(--rust-contrast);
+  --text-inverse: var(--paper-raised);
+
+  /* Borders — 1px neutral hairlines */
+  --border-subtle: var(--hairline);
+  --border-default: var(--hairline);
+  --border-strong: var(--ink-4);
+
+  /* Accent — moss-green */
+  --accent: var(--rust);
+  --accent-hover: var(--rust-hover);
+  --accent-contrast: var(--rust-contrast);
+  --accent-soft-bg: var(--rust-soft);
+  --accent-soft-border: color-mix(in oklab, var(--rust) 30%, transparent);
+  --accent-ring: color-mix(in oklab, var(--rust) 45%, transparent);
+
+  /* Accent primitives (legacy 50..800 ramp) */
+  --accent-50:  #FDF6F0;
+  --accent-100: #F0E0CF;
+  --accent-200: #E4C5A5;
+  --accent-300: #D9A97B;
+  --accent-400: #D09165;
+  --accent-500: #C87E4F;
+  --accent-600: #B67244;
+  --accent-700: #995F38;
+  --accent-800: #7D4C2D;
+  --accent-2-500: var(--rust);
+  --accent-2-400: var(--rust);
+
+  /* Status */
+  --success: var(--success-500);
+  --success-soft-bg: color-mix(in oklab, var(--success-500) 12%, var(--paper-raised));
+  --success-soft-border: color-mix(in oklab, var(--success-500) 30%, transparent);
+
+  --warning: var(--warning-500);
+  --warning-soft-bg: #F9E4B7;
+  --warning-soft-border: #EACB87;
+
+  --danger: var(--danger-500);
+  --danger-soft-bg: #F4CFCC;
+  --danger-soft-border: #E6A8A3;
+
+  --code-bg: var(--paper-sunk);
+  --code-fg: var(--ink-1);
+
+  /* Glass layer — OpenDesign doesn't ship glass. Map to raised surface. */
+  --glass-bg: var(--paper-raised);
+  --glass-bg-strong: var(--paper-raised);
+  --glass-border: var(--hairline);
+  --glass-blur: 0px;
+
+  /* Focus ring — spec §7 mandates outline, not box-shadow. The canonical
+   * rule lives in globals.css `:focus-visible`
+   * (`outline: 2px solid var(--rust); outline-offset: 2px`). The legacy
+   * `--focus-ring` box-shadow token is retained for back-compat with
+   * studio-shell; new code should use outline directly or the
+   * `--focus-ring-outline` shorthand. */
+  --focus-ring: 0 0 0 2px var(--rust);
+  --focus-ring-outline: 2px solid var(--rust);
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--rust);
+  --focus-ring-width: 2px;
+
+  --divider: 1px solid var(--hairline);
+
+  --shadow-surface: none;
+  --shadow-raised: var(--shadow-sm);
+
+  /* Back-compat aliases for legacy class names in globals.css / canvas. */
+  --bg-ink: var(--paper);
+  --bg-panel: var(--paper);
+  --bg-panel-2: var(--paper-sunk);
+  --bg-glow: var(--paper-sunk);
+  --stroke: var(--hairline);
+  --stroke-strong: var(--ink-4);
+  --text: var(--ink-1);
+  --muted: var(--ink-3);
+  --accent-2: var(--rust);
+  --shadow: var(--shadow-sm);
+}
+
+/* -------------------------------------------------------------------------
+ * DARK theme — OpenDesign dark (warm ink-brown)
+ * ------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper:          #1F1B15;
+  --paper-sunk:     #17140F;
+  --paper-raised:   #2A2520;
+  --ink-1:          #F0E8D8;
+  --ink-2:          #B8AE9D;
+  --ink-3:          #8A8070;
+  --ink-4:          #5C5348;
+  --hairline:       #3A342C;
+
+  --rust:           #E09060;
+  --rust-hover:     #EBA374;
+  --rust-soft:      #3D2E1F;
+  --rust-contrast:  #1A1713;
+
+  /* Dark-theme semantic colour overrides (§2.2). */
+  --success-500: #8AB57E;
+  --warning-500: #E5B757;
+  --danger-500:  #E07563;
+  --info-500:    #6FA3D6;
+
+  /* Signal green — brightened for dark surfaces (§2.2). */
+  --signal-live: #4FD185;
+
+  --surface: var(--paper);
+  --surface-raised: var(--paper-raised);
+  --surface-sunken: var(--paper-sunk);
+  --surface-hover: color-mix(in oklab, var(--ink-1) 8%, transparent);
+  --surface-active: color-mix(in oklab, var(--ink-1) 12%, transparent);
+  --surface-inverse: var(--ink-1);
+
+  --bg-app: var(--paper);
+  --bg-surface: var(--paper);
+  --bg-surface-raised: var(--paper-raised);
+  --bg-surface-muted: var(--paper-raised);
+  --bg-surface-sunken: var(--paper-sunk);
+  --bg-inverse: var(--ink-1);
+
+  --text-primary: var(--ink-1);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-caption: var(--ink-3);
+  --text-accent: var(--rust);
+  --text-on-accent: var(--rust-contrast);
+  --text-inverse: var(--paper);
+
+  --border-subtle: var(--hairline);
+  --border-default: var(--hairline);
+  --border-strong: var(--ink-4);
+
+  --accent: var(--rust);
+  --accent-hover: var(--rust-hover);
+  --accent-contrast: var(--rust-contrast);
+  --accent-soft-bg: var(--rust-soft);
+  --accent-soft-border: color-mix(in oklab, var(--rust) 35%, transparent);
+  --accent-ring: color-mix(in oklab, var(--rust) 50%, transparent);
+
+  --accent-2-500: var(--rust);
+  --accent-2-400: var(--rust);
+
+  /* Success is a distinct green — NOT rust. Fixes the dark collapse bug. */
+  --success: var(--success-500);
+  --success-soft-bg: color-mix(in oklab, var(--success-500) 18%, var(--paper-raised));
+  --success-soft-border: color-mix(in oklab, var(--success-500) 35%, transparent);
+  --warning: var(--warning-500);
+  --warning-soft-bg: #3C2E14;
+  --warning-soft-border: #5A4420;
+  --danger: var(--danger-500);
+  --danger-soft-bg: #3C1E1A;
+  --danger-soft-border: #5A2D27;
+
+  --code-bg: var(--paper-sunk);
+  --code-fg: var(--ink-1);
+
+  --glass-bg: var(--paper-raised);
+  --glass-bg-strong: var(--paper-raised);
+  --glass-border: var(--hairline);
+
+  --focus-ring: 0 0 0 2px var(--rust);
+  --focus-ring-outline: 2px solid var(--rust);
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--rust);
+  --focus-ring-width: 2px;
+
+  /* Dark shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.45);
+  --shadow-xs: var(--shadow-sm);
+  --shadow-surface: none;
+  --shadow-raised: var(--shadow-sm);
+
+  --divider: 1px solid var(--hairline);
+
+  /* Back-compat. */
+  --bg-ink: var(--paper);
+  --bg-panel: var(--paper);
+  --bg-panel-2: var(--paper-raised);
+  --bg-glow: var(--paper-sunk);
+  --stroke: var(--hairline);
+  --stroke-strong: var(--ink-4);
+  --text: var(--ink-1);
+  --muted: var(--ink-3);
+  --accent-2: var(--rust);
+  --shadow: var(--shadow-sm);
+}
+
+/* System-preference dark mapping (mirror of explicit dark block). */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    color-scheme: dark;
+
+    --paper:          #1F1B15;
+    --paper-sunk:     #17140F;
+    --paper-raised:   #2A2520;
+    --ink-1:          #F0E8D8;
+    --ink-2:          #B8AE9D;
+    --ink-3:          #8A8070;
+    --ink-4:          #5C5348;
+    --hairline:       #3A342C;
+
+    --rust:           #E09060;
+    --rust-hover:     #EBA374;
+    --rust-soft:      #3D2E1F;
+    --rust-contrast:  #1A1713;
+
+    --success-500: #8AB57E;
+    --warning-500: #E5B757;
+    --danger-500:  #E07563;
+    --info-500:    #6FA3D6;
+    --signal-live: #4FD185;
+
+    --surface: var(--paper);
+    --surface-raised: var(--paper-raised);
+    --surface-sunken: var(--paper-sunk);
+    --surface-hover: color-mix(in oklab, var(--ink-1) 8%, transparent);
+    --surface-active: color-mix(in oklab, var(--ink-1) 12%, transparent);
+    --surface-inverse: var(--ink-1);
+
+    --bg-app: var(--paper);
+    --bg-surface: var(--paper);
+    --bg-surface-raised: var(--paper-raised);
+    --bg-surface-muted: var(--paper-raised);
+    --bg-surface-sunken: var(--paper-sunk);
+    --bg-inverse: var(--ink-1);
+
+    --text-primary: var(--ink-1);
+    --text-secondary: var(--ink-2);
+    --text-muted: var(--ink-3);
+    --text-caption: var(--ink-3);
+    --text-accent: var(--rust);
+    --text-on-accent: var(--rust-contrast);
+    --text-inverse: var(--paper);
+
+    --border-subtle: var(--hairline);
+    --border-default: var(--hairline);
+    --border-strong: var(--ink-4);
+
+    --accent: var(--rust);
+    --accent-hover: var(--rust-hover);
+    --accent-contrast: var(--rust-contrast);
+    --accent-soft-bg: var(--rust-soft);
+    --accent-soft-border: color-mix(in oklab, var(--rust) 35%, transparent);
+    --accent-ring: color-mix(in oklab, var(--rust) 50%, transparent);
+
+    --accent-2-500: var(--rust);
+    --accent-2-400: var(--rust);
+
+    --success: var(--success-500);
+    --success-soft-bg: color-mix(in oklab, var(--success-500) 18%, var(--paper-raised));
+    --success-soft-border: color-mix(in oklab, var(--success-500) 35%, transparent);
+    --warning: var(--warning-500);
+    --warning-soft-bg: #3C2E14;
+    --warning-soft-border: #5A4420;
+    --danger: var(--danger-500);
+    --danger-soft-bg: #3C1E1A;
+    --danger-soft-border: #5A2D27;
+
+    --code-bg: var(--paper-sunk);
+    --code-fg: var(--ink-1);
+
+    --glass-bg: var(--paper-raised);
+    --glass-bg-strong: var(--paper-raised);
+    --glass-border: var(--hairline);
+
+    --focus-ring: 0 0 0 2px var(--rust);
+    --focus-ring-outline: 2px solid var(--rust);
+    --focus-ring-offset: 2px;
+    --focus-ring-color: var(--rust);
+    --focus-ring-width: 2px;
+
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.45);
+    --shadow-xs: var(--shadow-sm);
+    --shadow-surface: none;
+    --shadow-raised: var(--shadow-sm);
+
+    --bg-ink: var(--paper);
+    --bg-panel: var(--paper);
+    --bg-panel-2: var(--paper-raised);
+    --bg-glow: var(--paper-sunk);
+    --stroke: var(--hairline);
+    --stroke-strong: var(--ink-4);
+    --text: var(--ink-1);
+    --muted: var(--ink-3);
+    --accent-2: var(--rust);
+    --shadow: var(--shadow-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    /* motion-reduce (§8): substitute the 1ms linear token everywhere. */
+    --motion-quick: 1ms linear;
+    --motion-base: 1ms linear;
+    --motion-enter: 1ms linear;
+    --motion-exit: 1ms linear;
+    --motion-spring: 1ms linear;
+    --motion-indicator: 1ms linear;
+    --motion-blink: 1ms linear;
+    --motion-duration-1: 1ms;
+    --motion-duration-2: 1ms;
+    --motion-duration-3: 1ms;
+    --motion-fast: 1ms linear;
+  }
+}

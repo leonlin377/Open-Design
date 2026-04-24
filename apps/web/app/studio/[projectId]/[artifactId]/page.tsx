@@ -1,27 +1,37 @@
 import Link from "next/link";
-import { Badge, Button, Surface } from "@opendesign/ui";
+import {
+  ARTIFACT_THEME_PRESET_NAMES,
+  ARTIFACT_THEME_PRESETS,
+  DEFAULT_ARTIFACT_THEME
+} from "@opendesign/contracts";
+import { Badge, Button } from "@opendesign/ui";
 import { buildArtifactSourceBundle } from "@opendesign/exporters";
+import { CanvasStage } from "../../../../components/canvas";
 import { StudioCommentsPanel } from "../../../../components/studio-comments-panel";
 import { StudioExportPanel } from "../../../../components/studio-export-panel";
-import {
-  StudioInspector,
-  type StudioInspectorTab
-} from "../../../../components/studio-inspector";
 import { StudioDesignSystemPanel } from "../../../../components/studio-design-system-panel";
 import { StudioGeneratePanel } from "../../../../components/studio-generate-panel";
 import { getArtifactEditorAffordance } from "../../../../components/studio-artifact-affordances";
 import { StudioSceneSectionsPanel } from "../../../../components/studio-scene-sections-panel";
 import { StudioVersionsPanel } from "../../../../components/studio-versions-panel";
+import { StudioChatPanel } from "../../../../components/studio-chat-panel";
+import { StudioPalettePanel } from "../../../../components/studio-palette-panel";
+import { StudioVariationsPanel } from "../../../../components/studio-variations-panel";
+import { StudioRemixButton } from "../../../../components/studio-remix-button";
+import { StudioExportExtrasButtons } from "../../../../components/studio-export-extras-buttons";
+import { fetchArtifactTheme } from "../../../../lib/opendesign-theme";
+import { RefineTrigger } from "./studio-panels-client";
+import { StudioShell } from "./studio-shell";
 import {
   type ApiArtifactVersionDiff,
-  getArtifactAssetUrl,
   getArtifactWorkspace,
   getArtifactVersionDiff,
   listArtifactExportJobs,
   getProject,
   getSession,
   listArtifacts,
-  listDesignSystems
+  listDesignSystems,
+  listProjects
 } from "../../../../lib/opendesign-api";
 import {
   attachArtifactDesignSystemAction,
@@ -31,16 +41,40 @@ import {
   createArtifactShareTokenAction,
   resolveArtifactCommentAction,
   restoreArtifactVersionAction,
-  saveCodeWorkspaceAction,
   uploadArtifactAssetAction,
   updateSceneNodeAction
 } from "./actions";
 
-const artifactLabels: Record<string, string> = {
-  website: "Website",
-  prototype: "Prototype",
-  slides: "Slides"
-};
+// Presets mounted into `StudioPalettePanel`. Sourced from contracts so
+// adding a preset there surfaces it in Studio automatically.
+const paletteThemePresets = ARTIFACT_THEME_PRESET_NAMES.map((name) => ({
+  name,
+  theme: ARTIFACT_THEME_PRESETS[name]
+}));
+
+// Font-pair catalogue shipped to `StudioPalettePanel`.
+const fontPairCatalogue = [
+  {
+    id: "inter-sans",
+    label: "Inter / Inter",
+    display:
+      '"Inter", "SF Pro Display", "Segoe UI", system-ui, -apple-system, sans-serif',
+    body: '"Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif'
+  },
+  {
+    id: "display-serif",
+    label: "Display / Serif",
+    display:
+      '"Manrope", "SF Pro Display", "Segoe UI", system-ui, -apple-system, sans-serif',
+    body: 'ui-serif, Georgia, "Times New Roman", Times, serif'
+  },
+  {
+    id: "serif-sans",
+    label: "Serif / Sans",
+    display: 'ui-serif, Georgia, "Times New Roman", Times, serif',
+    body: '"Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif'
+  }
+];
 
 type StudioPageProps = {
   params: Promise<{
@@ -52,24 +86,8 @@ type StudioPageProps = {
   }>;
 };
 
-function readInspectorTab(value: string | string[] | undefined): StudioInspectorTab {
-  const candidate = Array.isArray(value) ? value[0] : value;
-  const supportedTabs: StudioInspectorTab[] = [
-    "preview",
-    "code",
-    "inspector",
-    "versions",
-    "export"
-  ];
-
-  return supportedTabs.includes(candidate as StudioInspectorTab)
-    ? (candidate as StudioInspectorTab)
-    : "preview";
-}
-
-export default async function StudioPage({ params, searchParams }: StudioPageProps) {
+export default async function StudioPage({ params }: StudioPageProps) {
   const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
   const [session, project, workspacePayload, designSystems] = await Promise.all([
     getSession(),
     getProject(resolvedParams.projectId),
@@ -80,6 +98,15 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
     ? await listArtifactExportJobs(resolvedParams.projectId, resolvedParams.artifactId)
     : null;
   const artifacts = project ? await listArtifacts(project.id) : [];
+  const initialTheme = workspacePayload
+    ? await fetchArtifactTheme({
+        projectId: resolvedParams.projectId,
+        artifactId: resolvedParams.artifactId
+      }).catch(() => null)
+    : null;
+  const allProjects = await listProjects().catch(() => [] as Awaited<
+    ReturnType<typeof listProjects>
+  >);
 
   if (!project || !workspacePayload) {
     return (
@@ -88,12 +115,12 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
           <Badge tone="outline">Studio</Badge>
           <h1>Artifact not found.</h1>
           <p>
-            The requested project or artifact is not available in the current workspace
-            snapshot. Return to projects and create a new artifact.
+            This project or artifact is not in the current workspace snapshot. Return
+            to projects and create a new one.
           </p>
           <div className="hero-actions">
             <Link href="/projects" className="button-link primary">
-              Back to Projects
+              Back to projects
             </Link>
           </div>
         </section>
@@ -101,30 +128,13 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
     );
   }
 
-  const projectLabel = project.name;
   const artifact = workspacePayload.artifact;
   const workspace = workspacePayload.workspace;
   const versions = workspacePayload.versions;
   const comments = workspacePayload.comments;
   const artifactKind = artifact.kind;
-  const artifactLabel = artifactLabels[artifactKind] ?? "Artifact";
-  const latestVersion = versions[0] ?? null;
-  const activeCommentCount = comments.filter((comment) => comment.status === "open").length;
   const sceneNodes = workspace.sceneDocument.nodes;
-  const showFirstRunChecklist =
-    sceneNodes.length === 0 &&
-    versions.length <= 1 &&
-    workspace.sceneDocument.metadata.designSystemPackId == null &&
-    workspace.codeWorkspace == null;
   const rootNode = workspace.sceneDocument.nodes[0];
-  const rootImageAssetId =
-    typeof rootNode?.props.imageAssetId === "string" ? rootNode.props.imageAssetId : null;
-  const rootImageAlt =
-    typeof rootNode?.props.imageAlt === "string" ? rootNode.props.imageAlt : artifact.name;
-  const rootImageAsset =
-    rootImageAssetId
-      ? workspacePayload.assets.find((asset) => asset.id === rootImageAssetId) ?? null
-      : null;
   const frameLabel =
     rootNode?.name ??
     (artifactKind === "prototype"
@@ -132,34 +142,7 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
       : artifactKind === "slides"
         ? "Title slide"
         : "Empty canvas");
-  const activeTab = readInspectorTab(resolvedSearchParams.tab);
   const editorAffordance = getArtifactEditorAffordance(artifactKind);
-  const canvasLead =
-    typeof rootNode?.props.headline === "string"
-      ? rootNode.props.headline
-      : typeof rootNode?.props.title === "string"
-        ? rootNode.props.title
-        : `${artifact.name} is ready for the next review pass.`;
-  const canvasBody =
-    typeof rootNode?.props.body === "string" ? rootNode.props.body : workspace.intent;
-  const canvasMetricValues =
-    artifactKind === "prototype"
-      ? [
-          `${sceneNodes.length} ${sceneNodes.length === 1 ? "screen" : "screens"}`,
-          rootNode?.name ?? "Start screen",
-          workspace.syncPlan.targetMode
-        ]
-      : artifactKind === "slides"
-        ? [
-            `${sceneNodes.length} ${sceneNodes.length === 1 ? "slide" : "slides"}`,
-            rootNode?.name ?? "Title slide",
-            workspace.syncPlan.targetMode
-          ]
-        : [
-            `${sceneNodes.length} ${sceneNodes.length === 1 ? "section" : "sections"}`,
-            workspace.codeWorkspace ? "Saved code workspace" : "Scene scaffold",
-            workspace.syncPlan.targetMode
-          ];
   const generatedSourceBundle = buildArtifactSourceBundle({
     artifactKind,
     artifactName: artifact.name,
@@ -190,278 +173,222 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
     versionDiffEntries.map(([versionId, payload]) => [versionId, payload?.diff ?? null])
   ) as Record<string, ApiArtifactVersionDiff | null>;
 
+  // Per-user storage key when we have a session, otherwise per-artifact so
+  // rail preferences don't bleed across artifacts for signed-out users.
+  const shellStorageKey = session?.user.id
+    ? `u:${session.user.id}`
+    : `a:${artifact.id}`;
+
+  // ---------------------------------------------------------------------
+  // Panel renders — the shell receives each as a ReactNode so panel
+  // internals stay as-is. This file only recomposes them.
+  // ---------------------------------------------------------------------
+
+  // Scene-mode canvas (fallback when user flips the topbar view toggle).
+  const sceneCanvas = (
+    <div
+      className={`canvas-stage studio-canvas-stage ${artifactKind}-canvas-stage`}
+    >
+      <CanvasStage
+        projectId={project.id}
+        artifactId={artifact.id}
+        artifactKind={artifactKind}
+        sceneNodes={sceneNodes}
+        updateSceneNodeAction={updateSceneNodeAction}
+        emptyStateTitle={editorAffordance.canvasTitle}
+        emptyStateDescription={`${editorAffordance.canvasDescription} ${editorAffordance.canvasFrameTone}.`}
+        unitLabel={editorAffordance.unitLabel}
+        frameLabel={frameLabel}
+        themeLabel={workspace.sceneDocument.metadata.themeId ?? "Default theme"}
+      />
+    </div>
+  );
+
+  const layersPanel = (
+    <StudioSceneSectionsPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      artifactKind={artifactKind}
+      assets={workspacePayload.assets}
+      sceneNodes={sceneNodes}
+      appendSceneTemplateAction={appendSceneTemplateAction}
+      updateSceneNodeAction={updateSceneNodeAction}
+      uploadArtifactAssetAction={uploadArtifactAssetAction}
+    />
+  );
+
+  const commentsPanel = (
+    <StudioCommentsPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      workspaceIntent={workspace.intent}
+      frameLabel={frameLabel}
+      syncStrategy={`${workspace.syncPlan.mode} / ${workspace.syncPlan.targetMode}`}
+      sceneNodes={sceneNodes}
+      comments={comments}
+      createArtifactCommentAction={createArtifactCommentAction}
+      resolveArtifactCommentAction={resolveArtifactCommentAction}
+    />
+  );
+
+  const versionsPanel = (
+    <StudioVersionsPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      activeVersionId={workspace.activeVersionId}
+      versions={versions}
+      versionDiffById={versionDiffById}
+      createArtifactVersionAction={createArtifactVersionAction}
+      restoreArtifactVersionAction={restoreArtifactVersionAction}
+    />
+  );
+
+  const exportPanel = (
+    <>
+      <StudioExportPanel
+        projectId={project.id}
+        artifactId={artifact.id}
+        artifactKind={artifactKind}
+        sourceBundleFiles={sourceBundle.files}
+        exportJobs={exportJobsPayload?.jobs ?? []}
+      />
+      <StudioExportExtrasButtons projectId={project.id} artifactId={artifact.id} />
+    </>
+  );
+
+  const chatPanel = (
+    <StudioChatPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      artifactName={artifact.name}
+      selectedNode={null}
+    />
+  );
+
+  const designSystemPanel = (
+    <StudioDesignSystemPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      designSystems={designSystems}
+      selectedDesignSystemPackId={
+        workspace.sceneDocument.metadata.designSystemPackId ?? null
+      }
+      attachArtifactDesignSystemAction={attachArtifactDesignSystemAction}
+    />
+  );
+
+  const palettePanel = (
+    <StudioPalettePanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      initialTheme={initialTheme?.theme ?? DEFAULT_ARTIFACT_THEME}
+      presets={paletteThemePresets}
+      fontPairs={fontPairCatalogue}
+    />
+  );
+
+  const promptPanel = (
+    <StudioGeneratePanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      artifactKind={artifactKind}
+      initialPrompt={workspace.intent}
+    />
+  );
+
+  const variationsPanel = (
+    <StudioVariationsPanel
+      projectId={project.id}
+      artifactId={artifact.id}
+      initialPrompt={workspace.intent}
+    />
+  );
+
+  // Refine trigger now pulls the active node from `SelectionProvider` — no
+  // more pinning to the first root node. The trigger renders a disabled
+  // "Select an element to refine" hint when nothing is selected.
+  const refinePanel = rootNode ? (
+    <RefineTrigger projectId={project.id} artifactId={artifact.id} />
+  ) : null;
+
+  const topbarExtraMenu = (
+    <div className="studio-topbar-menu-items">
+      <StudioRemixButton
+        projectId={project.id}
+        artifactId={artifact.id}
+        artifactName={artifact.name}
+        availableProjects={allProjects.map((entry) => ({
+          id: entry.id,
+          name: entry.name
+        }))}
+      />
+      <Link
+        href={`/studio/${project.id}/${artifact.id}/export/handoff-bundle`}
+        className="button-link ghost"
+      >
+        Export handoff
+      </Link>
+      <Link
+        href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
+        className="button-link ghost"
+      >
+        Export ZIP
+      </Link>
+      <Link
+        href={`/studio/${project.id}/${artifact.id}/export/html`}
+        className="button-link ghost"
+      >
+        Export HTML
+      </Link>
+      <form action={createArtifactShareTokenAction} className="studio-topbar-share">
+        <input type="hidden" name="projectId" value={project.id} />
+        <input type="hidden" name="artifactId" value={artifact.id} />
+        <select name="role" defaultValue="viewer" aria-label="Share role">
+          <option value="viewer">Viewer</option>
+          <option value="commenter">Commenter</option>
+          <option value="editor">Editor</option>
+        </select>
+        <Button variant="outline" size="sm" type="submit">
+          Share
+        </Button>
+      </form>
+    </div>
+  );
+
+  // Artifacts sibling strip currently deprecated — remix lives in the
+  // overflow menu and versions land in the resource popover. Reference it
+  // here so the list isn't silently unused.
+  void artifacts;
+
+  const publishHref = `/studio/${project.id}/${artifact.id}/export/source-bundle`;
+  const canvasBreadcrumb = `opendesign.live/${project.id}/${artifact.id}`;
+
   return (
-    <main className="studio-shell">
-      <header className="studio-header">
-        <div className="studio-title">
-          <h2>{projectLabel}</h2>
-          <span>
-            {artifactLabel} · Studio
-            {session?.user.email ? ` · ${session.user.email}` : ""}
-          </span>
-        </div>
-        <div className="hero-actions">
-          <Link href="/projects" className="button-link ghost">
-            All Projects
-          </Link>
-          <form action={createArtifactShareTokenAction}>
-            <input type="hidden" name="projectId" value={project.id} />
-            <input type="hidden" name="artifactId" value={artifact.id} />
-            <select name="role" defaultValue="viewer">
-              <option value="viewer">Viewer</option>
-              <option value="commenter">Commenter</option>
-              <option value="editor">Editor</option>
-            </select>
-            <Button variant="outline" size="sm" type="submit">
-              Share Artifact
-            </Button>
-          </form>
-          <Link
-            href={`/studio/${project.id}/${artifact.id}/export/handoff-bundle`}
-            className="button-link ghost"
-          >
-            Export Handoff
-          </Link>
-          <Link
-            href={`/studio/${project.id}/${artifact.id}/export/source-bundle`}
-            className="button-link ghost"
-          >
-            Export ZIP
-          </Link>
-          <Link
-            href={`/studio/${project.id}/${artifact.id}/export/html`}
-            className="button-link primary"
-          >
-            Export HTML
-          </Link>
-        </div>
-      </header>
-
-      <section className="studio-grid">
-        <aside className="rail">
-          <Badge tone="outline">Chat Rail</Badge>
-          <div className="chat-thread">
-            <div className="chat-bubble user">
-              {workspace.intent}
-            </div>
-            <div className="chat-bubble">
-              {latestVersion
-                ? `${latestVersion.label} is active. ${latestVersion.summary}`
-                : "Workspace seeded. Create the first review snapshot when this artifact is ready."}
-            </div>
-          </div>
-          <Surface className="kv">
-            <span>Intent</span>
-            {workspace.intent}
-          </Surface>
-          <Surface className="kv">
-            <span>Artifact Record</span>
-            {artifact.name}
-          </Surface>
-          <Surface className="kv">
-            <span>Comment Queue</span>
-            {activeCommentCount} open comment{activeCommentCount === 1 ? "" : "s"}
-          </Surface>
-          {showFirstRunChecklist ? (
-            <Surface className="onboarding-card" as="section">
-              <div className="onboarding-card-head">
-                <Badge tone="outline">{editorAffordance.onboardingTitle}</Badge>
-                <strong>{editorAffordance.onboardingDescription}</strong>
-              </div>
-              <div className="onboarding-steps compact">
-                {editorAffordance.onboardingSteps.map((step, index) => (
-                  <div key={step} className="onboarding-step">
-                    <span>{index + 1}</span>
-                    <p>{step}</p>
-                  </div>
-                ))}
-              </div>
-            </Surface>
-          ) : null}
-          <StudioDesignSystemPanel
-            projectId={project.id}
-            artifactId={artifact.id}
-            designSystems={designSystems}
-            selectedDesignSystemPackId={
-              workspace.sceneDocument.metadata.designSystemPackId ?? null
-            }
-            attachArtifactDesignSystemAction={attachArtifactDesignSystemAction}
-          />
-          <StudioGeneratePanel
-            projectId={project.id}
-            artifactId={artifact.id}
-            artifactKind={artifactKind}
-            initialPrompt={workspace.intent}
-          />
-        </aside>
-
-        <section className="canvas-panel">
-          <div className="canvas-panel-head">
-            <div>
-              <div className="hero-actions">
-                <Badge tone="outline">{editorAffordance.canvasTitle}</Badge>
-                <Badge>{artifactLabel}</Badge>
-                <Badge tone={activeCommentCount > 0 ? "outline" : "accent"}>
-                  {activeCommentCount} open comments
-                </Badge>
-              </div>
-              <h3 className="canvas-panel-title">{artifact.name}</h3>
-              <p className="canvas-panel-copy">
-                {editorAffordance.canvasDescription} {editorAffordance.canvasFrameTone}.
-              </p>
-            </div>
-            <div className="canvas-panel-meta">
-              <span>Scene v{workspace.sceneDocument.version}</span>
-              <span>{workspace.syncPlan.mode} sync</span>
-              <span>{versions.length} snapshots</span>
-            </div>
-          </div>
-          <div
-            className={`canvas-stage ${artifactKind}-canvas-stage`}
-            id="artifact-canvas"
-          >
-            <div className="canvas-stage-shell">
-              <div className="canvas-stage-topline">
-                <span>{editorAffordance.canvasEyebrow}</span>
-                <strong>{frameLabel}</strong>
-              </div>
-              <div className="canvas-stage-frame">
-                <div className="canvas-stage-frame-head">
-                  <span>{artifactLabel}</span>
-                  <span>{workspace.sceneDocument.metadata.themeId ?? "Default theme"}</span>
-                </div>
-                <div className="canvas-stage-feature">
-                  {rootImageAsset ? (
-                    <div className="canvas-stage-hero-media">
-                      <img
-                        src={getArtifactAssetUrl(project.id, artifact.id, rootImageAsset.id)}
-                        alt={rootImageAlt}
-                        className="canvas-stage-hero-image"
-                      />
-                    </div>
-                  ) : null}
-                  <p className="canvas-stage-lead">
-                    {canvasLead}
-                  </p>
-                  <p className="canvas-stage-body">
-                    {canvasBody}
-                  </p>
-                </div>
-                <div className="canvas-stage-grid">
-                  {editorAffordance.canvasMetricLabels.map((label, index) => (
-                    <Surface key={label} className="kv">
-                      <span>{label}</span>
-                      {canvasMetricValues[index]}
-                    </Surface>
-                  ))}
-                </div>
-                {sceneNodes.length > 0 ? (
-                  <div className="canvas-stage-sequence">
-                    {sceneNodes.map((node, index) => (
-                      <div key={node.id} className="canvas-stage-sequence-card">
-                        <span>{index + 1}</span>
-                        <strong>{node.name}</strong>
-                        <p>
-                          {String(node.props.headline ?? node.props.title ?? node.type)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="canvas-stage-empty">
-                    No scene nodes yet. Add the first {editorAffordance.unitLabel} to start
-                    shaping this artifact.
-                  </div>
-                )}
-                {showFirstRunChecklist ? (
-                  <div className="canvas-stage-guidance">
-                    <Badge tone="outline">Recommended first pass</Badge>
-                    <div className="project-meta">
-                      <span>Generate a first pass</span>
-                      <span>or add the first {editorAffordance.unitLabel}</span>
-                      <span>then save a snapshot before export</span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <StudioSceneSectionsPanel
-            projectId={project.id}
-            artifactId={artifact.id}
-            artifactKind={artifactKind}
-            assets={workspacePayload.assets}
-            sceneNodes={sceneNodes}
-            appendSceneTemplateAction={appendSceneTemplateAction}
-            updateSceneNodeAction={updateSceneNodeAction}
-            uploadArtifactAssetAction={uploadArtifactAssetAction}
-          />
-          <div className="project-meta">
-            <span>Sync: {workspace.syncPlan.mode}</span>
-            <span>Scope: {workspace.syncPlan.changeScope}</span>
-            <span>Theme: {workspace.sceneDocument.metadata.themeId ?? "Default"}</span>
-          </div>
-        </section>
-
-        <StudioInspector
-          projectId={project.id}
-          artifactId={artifact.id}
-          artifactKind={artifactKind}
-          initialTab={activeTab}
-          sourceBundle={sourceBundle}
-          sceneVersion={workspace.sceneDocument.version}
-          codeWorkspaceBaseSceneVersion={workspace.codeWorkspace?.baseSceneVersion ?? null}
-          codeWorkspaceUpdatedAt={workspace.codeWorkspace?.updatedAt ?? null}
-          frameLabel={frameLabel}
-          syncStrategy={`${workspace.syncPlan.mode} · ${workspace.syncPlan.targetMode}`}
-          versionLane={
-            latestVersion
-              ? `${latestVersion.label} · ${latestVersion.source} · ${versions.length} snapshots`
-              : "No snapshots yet"
-          }
-          saveCodeWorkspaceAction={saveCodeWorkspaceAction}
-          inspectorPanel={
-            <StudioCommentsPanel
-              projectId={project.id}
-              artifactId={artifact.id}
-              workspaceIntent={workspace.intent}
-              frameLabel={frameLabel}
-              syncStrategy={`${workspace.syncPlan.mode} · ${workspace.syncPlan.targetMode}`}
-              sceneNodes={sceneNodes}
-              comments={comments}
-              createArtifactCommentAction={createArtifactCommentAction}
-              resolveArtifactCommentAction={resolveArtifactCommentAction}
-            />
-          }
-          versionsPanel={
-            <StudioVersionsPanel
-              projectId={project.id}
-              artifactId={artifact.id}
-              activeVersionId={workspace.activeVersionId}
-              versions={versions}
-              versionDiffById={versionDiffById}
-              createArtifactVersionAction={createArtifactVersionAction}
-              restoreArtifactVersionAction={restoreArtifactVersionAction}
-            />
-          }
-          exportPanel={
-            <StudioExportPanel
-              projectId={project.id}
-              artifactId={artifact.id}
-              artifactKind={artifactKind}
-              sourceBundleFiles={sourceBundle.files}
-              exportJobs={exportJobsPayload?.jobs ?? []}
-            />
-          }
-          artifactSwitcher={artifacts.map((entry) => (
-            <Link key={entry.id} href={`/studio/${project.id}/${entry.id}`}>
-              <Badge tone={entry.id === artifact.id ? "accent" : "outline"}>
-                {entry.kind}
-              </Badge>
-            </Link>
-          ))}
-        />
-      </section>
-    </main>
+    <StudioShell
+      storageKey={shellStorageKey}
+      projectId={project.id}
+      artifactId={artifact.id}
+      artifactKind={artifactKind}
+      artifactName={artifact.name}
+      canvasBreadcrumb={canvasBreadcrumb}
+      codeWorkspaceFiles={sourceBundle.files}
+      sceneCanvas={sceneCanvas}
+      chatPanel={chatPanel}
+      composePanels={{
+        promptPanel,
+        variationsPanel,
+        refinePanel
+      }}
+      resourcePanels={{
+        layersPanel,
+        designSystemPanel,
+        palettePanel,
+        versionsPanel,
+        exportPanel,
+        commentsPanel
+      }}
+      topbarExtraMenu={topbarExtraMenu}
+      publishHref={publishHref}
+    />
   );
 }

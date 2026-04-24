@@ -9,16 +9,25 @@ import {
   ArtifactGenerationRunSchema,
   ArtifactGenerationPlanSchema,
   ArtifactKindSchema,
+  ArtifactSceneTemplateKindSchema,
   ArtifactWorkspacePayloadSchema,
   ArtifactVersionDiffSummarySchema,
   ArtifactVersionSnapshotSchema,
   ArtifactWorkspaceSchema,
   CommentAnchorSchema,
   DesignSystemPackSchema,
+  PrototypeSceneDocumentSchema,
+  PrototypeSceneTemplateKindSchema,
+  SCENE_TEMPLATE_KINDS_BY_ARTIFACT_KIND,
   ShareReviewPayloadSchema,
   ShareTokenSchema,
   SceneTemplateKindSchema,
-  SceneDocumentSchema
+  SceneDocumentSchema,
+  SlidesSceneDocumentSchema,
+  SlidesSceneTemplateKindSchema,
+  TypedSceneDocumentSchema,
+  WebsiteSceneDocumentSchema,
+  WebsiteSceneTemplateKindSchema
 } from "../src/index";
 
 describe("ArtifactKindSchema", () => {
@@ -38,6 +47,182 @@ describe("SceneTemplateKindSchema", () => {
     expect(SceneTemplateKindSchema.parse("hero")).toBe("hero");
     expect(SceneTemplateKindSchema.parse("feature-grid")).toBe("feature-grid");
     expect(SceneTemplateKindSchema.parse("cta")).toBe("cta");
+  });
+
+  test("rejects prototype-only and slides-only kinds at the website schema", () => {
+    expect(() => WebsiteSceneTemplateKindSchema.parse("screen")).toThrowError();
+    expect(() => WebsiteSceneTemplateKindSchema.parse("slide-title")).toThrowError();
+  });
+});
+
+describe("PrototypeSceneTemplateKindSchema", () => {
+  test("accepts prototype-specific template kinds", () => {
+    expect(PrototypeSceneTemplateKindSchema.parse("screen")).toBe("screen");
+    expect(PrototypeSceneTemplateKindSchema.parse("screen-link")).toBe("screen-link");
+    expect(PrototypeSceneTemplateKindSchema.parse("screen-cta")).toBe("screen-cta");
+  });
+
+  test("rejects website and slides kinds", () => {
+    expect(() => PrototypeSceneTemplateKindSchema.parse("hero")).toThrowError();
+    expect(() => PrototypeSceneTemplateKindSchema.parse("slide-title")).toThrowError();
+  });
+});
+
+describe("SlidesSceneTemplateKindSchema", () => {
+  test("accepts slide-specific template kinds", () => {
+    expect(SlidesSceneTemplateKindSchema.parse("slide-title")).toBe("slide-title");
+    expect(SlidesSceneTemplateKindSchema.parse("slide-content")).toBe("slide-content");
+    expect(SlidesSceneTemplateKindSchema.parse("slide-closing")).toBe("slide-closing");
+  });
+
+  test("rejects website and prototype kinds", () => {
+    expect(() => SlidesSceneTemplateKindSchema.parse("hero")).toThrowError();
+    expect(() => SlidesSceneTemplateKindSchema.parse("screen")).toThrowError();
+  });
+});
+
+describe("ArtifactSceneTemplateKindSchema", () => {
+  test("accepts every kind from the per-artifact lookup", () => {
+    for (const kind of ["website", "prototype", "slides"] as const) {
+      const schema = SCENE_TEMPLATE_KINDS_BY_ARTIFACT_KIND[kind];
+      for (const value of schema.options) {
+        expect(ArtifactSceneTemplateKindSchema.parse(value)).toBe(value);
+      }
+    }
+  });
+});
+
+describe("TypedSceneDocumentSchema", () => {
+  test("accepts a prototype scene built from screen and screen-link nodes", () => {
+    const scene = PrototypeSceneDocumentSchema.parse({
+      id: "scene_proto_1",
+      artifactId: "artifact_proto_1",
+      kind: "prototype",
+      version: 1,
+      nodes: [
+        {
+          id: "screen_1",
+          type: "screen",
+          name: "Welcome Screen",
+          props: { template: "screen", headline: "Begin the flow." },
+          children: []
+        },
+        {
+          id: "link_1",
+          type: "screen-link",
+          name: "Welcome to Offer",
+          props: { from: "screen_1", to: "screen_2", trigger: "tap" },
+          children: []
+        }
+      ],
+      metadata: {}
+    });
+    expect(scene.nodes[0]?.type).toBe("screen");
+    expect(scene.nodes[1]?.type).toBe("screen-link");
+
+    const typed = TypedSceneDocumentSchema.parse(scene);
+    expect(typed.kind).toBe("prototype");
+  });
+
+  test("accepts a slides scene built from slide-title/content/closing nodes", () => {
+    const scene = SlidesSceneDocumentSchema.parse({
+      id: "scene_slides_1",
+      artifactId: "artifact_slides_1",
+      kind: "slides",
+      version: 1,
+      nodes: [
+        {
+          id: "title_1",
+          type: "slide-title",
+          name: "Title",
+          props: { headline: "Atlas Q2" },
+          children: []
+        },
+        {
+          id: "content_1",
+          type: "slide-content",
+          name: "System",
+          props: { title: "Lanes", bullets: ["A", "B", "C"] },
+          children: []
+        },
+        {
+          id: "closing_1",
+          type: "slide-closing",
+          name: "Close",
+          props: { headline: "Next steps" },
+          children: []
+        }
+      ],
+      metadata: {}
+    });
+    expect(scene.nodes.map((node) => node.type)).toEqual([
+      "slide-title",
+      "slide-content",
+      "slide-closing"
+    ]);
+  });
+
+  test("rejects a prototype scene containing a website-only node type", () => {
+    expect(() =>
+      PrototypeSceneDocumentSchema.parse({
+        id: "scene_bad",
+        artifactId: "artifact_bad",
+        kind: "prototype",
+        version: 1,
+        nodes: [
+          {
+            id: "root",
+            type: "section",
+            name: "Illegal for prototype",
+            props: {},
+            children: []
+          }
+        ],
+        metadata: {}
+      })
+    ).toThrowError(/Prototype scene nodes/);
+  });
+
+  test("rejects a slides scene containing a prototype-only node type", () => {
+    expect(() =>
+      SlidesSceneDocumentSchema.parse({
+        id: "scene_bad",
+        artifactId: "artifact_bad",
+        kind: "slides",
+        version: 1,
+        nodes: [
+          {
+            id: "screen_1",
+            type: "screen",
+            name: "Illegal for slides",
+            props: {},
+            children: []
+          }
+        ],
+        metadata: {}
+      })
+    ).toThrowError(/Slides scene nodes/);
+  });
+
+  test("rejects a website scene containing a prototype-only node type", () => {
+    expect(() =>
+      WebsiteSceneDocumentSchema.parse({
+        id: "scene_bad",
+        artifactId: "artifact_bad",
+        kind: "website",
+        version: 1,
+        nodes: [
+          {
+            id: "screen_1",
+            type: "screen",
+            name: "Illegal for website",
+            props: {},
+            children: []
+          }
+        ],
+        metadata: {}
+      })
+    ).toThrowError(/Website scene nodes/);
   });
 });
 
@@ -598,6 +783,52 @@ describe("ArtifactGenerateStreamEventSchema", () => {
 
     expect(event.result.generation.plan.sections).toHaveLength(3);
   });
+
+  test("accepts a failed event with a retryable retry handle", () => {
+    const event = ArtifactGenerateStreamEventSchema.parse({
+      type: "failed",
+      message: "Generation was cancelled.",
+      error: {
+        error: "Generation was cancelled.",
+        code: "GENERATION_CANCELLED",
+        recoverable: true
+      },
+      retry: {
+        retryable: true,
+        prompt: "Create a launch page.",
+        designSystemPackId: "dsp_1"
+      }
+    });
+
+    if (event.type !== "failed") {
+      throw new Error("expected a failed event");
+    }
+    expect(event.retry).toMatchObject({
+      retryable: true,
+      prompt: "Create a launch page.",
+      designSystemPackId: "dsp_1"
+    });
+  });
+
+  test("accepts a failed event with a non-retryable retry handle", () => {
+    const event = ArtifactGenerateStreamEventSchema.parse({
+      type: "failed",
+      message: "A generation is already running.",
+      error: {
+        error: "A generation is already running.",
+        code: "GENERATION_ALREADY_RUNNING",
+        recoverable: false
+      },
+      retry: {
+        retryable: false
+      }
+    });
+
+    if (event.type !== "failed") {
+      throw new Error("expected a failed event");
+    }
+    expect(event.retry).toMatchObject({ retryable: false });
+  });
 });
 
 describe("ApiErrorSchema", () => {
@@ -662,6 +893,29 @@ describe("ApiErrorSchema", () => {
 
     expect(error.code).toBe("INVALID_SCENE_PATCH");
     expect(error.details?.stage).toBe("apply-scene");
+  });
+
+  test("accepts generation cancel, already-running, and quota error codes", () => {
+    const cancelled = ApiErrorSchema.parse({
+      error: "Generation was cancelled.",
+      code: "GENERATION_CANCELLED",
+      recoverable: true
+    });
+    const alreadyRunning = ApiErrorSchema.parse({
+      error: "A generation is already running.",
+      code: "GENERATION_ALREADY_RUNNING",
+      recoverable: false
+    });
+    const quota = ApiErrorSchema.parse({
+      error: "Too many generations.",
+      code: "GENERATION_QUOTA_EXCEEDED",
+      recoverable: true,
+      details: { running: 2, limit: 2, retryAfterSeconds: 5 }
+    });
+
+    expect(cancelled.code).toBe("GENERATION_CANCELLED");
+    expect(alreadyRunning.code).toBe("GENERATION_ALREADY_RUNNING");
+    expect(quota.details?.limit).toBe(2);
   });
 
   test("accepts artifact-kind-specific export failures", () => {

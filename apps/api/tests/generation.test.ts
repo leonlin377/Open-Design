@@ -207,6 +207,57 @@ describe("generateArtifactPlan", () => {
     });
   });
 
+  test("raises GENERATION_CANCELLED when the caller aborts the upstream fetch", async () => {
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const externalController = new AbortController();
+    // Abort on the next tick so the fetch has entered its await state first.
+    setTimeout(() => externalController.abort(), 5);
+
+    await expect(
+      generateArtifactPlan({
+        artifactKind: "website",
+        artifactName: "Atlas",
+        prompt: "Create a launch page with a hero and CTA.",
+        signal: externalController.signal,
+        env: {
+          LITELLM_API_BASE_URL: "http://127.0.0.1:4001",
+          OPENDESIGN_GENERATION_MODEL: "openai/gpt-4.1-mini",
+          OPENDESIGN_GENERATION_TIMEOUT_MS: "60000"
+        }
+      })
+    ).rejects.toMatchObject({
+      code: "GENERATION_CANCELLED"
+    });
+  });
+
+  test("raises GENERATION_CANCELLED synchronously when the signal is already aborted for heuristic path", async () => {
+    const externalController = new AbortController();
+    externalController.abort();
+
+    await expect(
+      generateArtifactPlan({
+        artifactKind: "website",
+        artifactName: "Atlas",
+        prompt: "Create a launch page.",
+        signal: externalController.signal,
+        env: {}
+      })
+    ).rejects.toMatchObject({
+      code: "GENERATION_CANCELLED"
+    });
+  });
+
   test("raises a generation timeout when LiteLLM does not respond in time", async () => {
     globalThis.fetch = vi.fn(async (_input, init) => {
       const signal = init?.signal;

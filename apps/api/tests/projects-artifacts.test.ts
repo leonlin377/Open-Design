@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { buildApp } from "../src/app";
+import { InMemoryArtifactVersionRepository } from "../src/repositories/artifact-versions";
 
 const originalFetch = globalThis.fetch;
 const originalLiteLLMApiBaseUrl = process.env.LITELLM_API_BASE_URL;
 const originalGenerationModel = process.env.OPENDESIGN_GENERATION_MODEL;
 const originalGenerationTimeoutMs = process.env.OPENDESIGN_GENERATION_TIMEOUT_MS;
+const originalGenerationSessionTimeoutMs =
+  process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS;
+const originalGenerationMaxConcurrent =
+  process.env.OPENDESIGN_GENERATION_MAX_CONCURRENT_PER_USER;
 
 function parseSseEvents(body: string) {
   return body
@@ -43,6 +48,20 @@ afterEach(() => {
     delete process.env.OPENDESIGN_GENERATION_TIMEOUT_MS;
   } else {
     process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = originalGenerationTimeoutMs;
+  }
+
+  if (originalGenerationSessionTimeoutMs === undefined) {
+    delete process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS;
+  } else {
+    process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS =
+      originalGenerationSessionTimeoutMs;
+  }
+
+  if (originalGenerationMaxConcurrent === undefined) {
+    delete process.env.OPENDESIGN_GENERATION_MAX_CONCURRENT_PER_USER;
+  } else {
+    process.env.OPENDESIGN_GENERATION_MAX_CONCURRENT_PER_USER =
+      originalGenerationMaxConcurrent;
   }
 });
 
@@ -1086,7 +1105,11 @@ describe("Projects and artifacts", () => {
         type: "screen",
         name: "Hero Screen"
       });
-      expect(appendHeroResponse.json().workspace.codeWorkspace).toBeNull();
+      // SYNC-005: scene→code sync now emits a prototype scaffold for
+      // non-website artifacts, so codeWorkspace is populated.
+      expect(appendHeroResponse.json().workspace.codeWorkspace?.files["/App.tsx"]).toContain(
+        "const screens ="
+      );
 
       const appendCtaResponse = await app.inject({
         method: "POST",
@@ -1098,7 +1121,7 @@ describe("Projects and artifacts", () => {
 
       expect(appendCtaResponse.statusCode).toBe(201);
       expect(appendCtaResponse.json().appendedNode).toMatchObject({
-        type: "screen",
+        type: "screen-cta",
         name: "Action Screen"
       });
       const ctaNodeId = appendCtaResponse.json().appendedNode.id as string;
@@ -1113,7 +1136,9 @@ describe("Projects and artifacts", () => {
       });
 
       expect(updateResponse.statusCode).toBe(200);
-      expect(updateResponse.json().workspace.codeWorkspace).toBeNull();
+      expect(updateResponse.json().workspace.codeWorkspace?.files["/App.tsx"]).toContain(
+        "Confirm the selected plan."
+      );
       expect(updateResponse.json().workspace.sceneDocument).toMatchObject({
         version: 4,
         nodes: [
@@ -1121,7 +1146,7 @@ describe("Projects and artifacts", () => {
             type: "screen"
           },
           {
-            type: "screen",
+            type: "screen-cta",
             props: {
               headline: "Confirm the selected plan.",
               body: "Guide the user into the final confirmation step."
@@ -1157,7 +1182,7 @@ describe("Projects and artifacts", () => {
       });
 
       expect(sourceExportResponse.statusCode).toBe(200);
-      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Next Screen");
+      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("const screens =");
       expect(sourceExportResponse.json().files["/App.tsx"]).toContain("useState");
 
       const flowExportResponse = await app.inject({
@@ -1173,11 +1198,14 @@ describe("Projects and artifacts", () => {
         screens: [
           expect.objectContaining({
             id: appendHeroResponse.json().appendedNode.id,
-            nextScreenId: appendCtaResponse.json().appendedNode.id
-          }),
+            nodeType: "screen"
+          })
+        ],
+        screenCtas: [
           expect.objectContaining({
             id: appendCtaResponse.json().appendedNode.id,
-            previousScreenId: appendHeroResponse.json().appendedNode.id
+            nodeType: "screen-cta",
+            headline: "Confirm the selected plan."
           })
         ]
       });
@@ -1219,7 +1247,7 @@ describe("Projects and artifacts", () => {
           changedNodeCount: 0
         },
         code: {
-          currentHasCodeWorkspace: false
+          currentHasCodeWorkspace: true
         }
       });
     } finally {
@@ -1272,10 +1300,14 @@ describe("Projects and artifacts", () => {
 
       expect(appendHeroResponse.statusCode).toBe(201);
       expect(appendHeroResponse.json().appendedNode).toMatchObject({
-        type: "slide",
+        type: "slide-title",
         name: "Title Slide"
       });
-      expect(appendHeroResponse.json().workspace.codeWorkspace).toBeNull();
+      // SYNC-005: scene→code sync now emits a slides scaffold for
+      // non-website artifacts, so codeWorkspace is populated.
+      expect(appendHeroResponse.json().workspace.codeWorkspace?.files["/App.tsx"]).toContain(
+        "const slides ="
+      );
 
       const appendGridResponse = await app.inject({
         method: "POST",
@@ -1287,8 +1319,8 @@ describe("Projects and artifacts", () => {
 
       expect(appendGridResponse.statusCode).toBe(201);
       expect(appendGridResponse.json().appendedNode).toMatchObject({
-        type: "slide",
-        name: "System Slide"
+        type: "slide-content",
+        name: "Content Slide"
       });
       const slideNodeId = appendGridResponse.json().appendedNode.id as string;
 
@@ -1302,15 +1334,22 @@ describe("Projects and artifacts", () => {
       });
 
       expect(updateResponse.statusCode).toBe(200);
-      expect(updateResponse.json().workspace.codeWorkspace).toBeNull();
+      // Scene update carries `title` into scene props — that field is
+      // intentionally outside the slide-content scaffold allowlist, so
+      // scene→code sync fails closed and codeWorkspace retains the prior
+      // successful emission (still populated, just not mirroring the new
+      // `title`). The scene itself reflects the update as asserted below.
+      expect(updateResponse.json().workspace.codeWorkspace?.files["/App.tsx"]).toContain(
+        "const slides ="
+      );
       expect(updateResponse.json().workspace.sceneDocument).toMatchObject({
         version: 4,
         nodes: [
           {
-            type: "slide"
+            type: "slide-title"
           },
           {
-            type: "slide",
+            type: "slide-content",
             props: {
               title: "Operating system lanes",
               body: "Close on the board-level operating cadence."
@@ -1346,8 +1385,8 @@ describe("Projects and artifacts", () => {
       });
 
       expect(sourceExportResponse.statusCode).toBe(200);
-      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Deck Preview");
-      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Next Slide");
+      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("const slides =");
+      expect(sourceExportResponse.json().files["/App.tsx"]).toContain("Slides Deck");
 
       const deckExportResponse = await app.inject({
         method: "GET",
@@ -1382,7 +1421,7 @@ describe("Projects and artifacts", () => {
           changedNodeCount: 0
         },
         code: {
-          currentHasCodeWorkspace: false
+          currentHasCodeWorkspace: true
         }
       });
     } finally {
@@ -2750,6 +2789,504 @@ describe("Projects and artifacts", () => {
       expect(htmlExportResponse.statusCode).toBe(200);
       expect(htmlExportResponse.body).toContain("Snapshot hero");
       expect(htmlExportResponse.body).not.toContain("Ready for the next review pass?");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("leaves the workspace untouched when generation fails midway through its atomic commit", async () => {
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Atomic Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Atomic Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      // Force the workspace to be seeded so we have a stable pre-generation
+      // baseline (intent + scene document + V1 seed version snapshot).
+      const baselineResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+      expect(baselineResponse.statusCode).toBe(200);
+      const baseline = baselineResponse.json();
+      const baselineIntent = baseline.workspace.intent;
+      const baselineSceneVersion = baseline.workspace.sceneDocument.version;
+      const baselineNodeCount = baseline.workspace.sceneDocument.nodes.length;
+      const baselineVersions = baseline.versions as Array<{ id: string }>;
+      const baselineActiveVersionId = baseline.workspace.activeVersionId;
+      expect(baselineVersions).toHaveLength(1);
+
+      // Arrange: make the transactional version insert fail mid-commit. The
+      // workspace repo's applyGenerationRun should revert the intent and scene
+      // document so nothing is torn.
+      const createSpy = vi
+        .spyOn(InMemoryArtifactVersionRepository.prototype, "create")
+        .mockImplementationOnce(async () => {
+          throw new Error("forced-midway-failure");
+        });
+
+      const generateResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: {
+          prompt: "Create a torn-state launch page with hero and CTA."
+        }
+      });
+
+      expect(generateResponse.statusCode).toBeGreaterThanOrEqual(500);
+      expect(createSpy).toHaveBeenCalledTimes(1);
+
+      const postFailureResponse = await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+      });
+      expect(postFailureResponse.statusCode).toBe(200);
+      const afterFailure = postFailureResponse.json();
+
+      // Workspace intent, scene document, and version list must match the
+      // pre-generation baseline — the failed run must not leave any partial
+      // writes behind.
+      expect(afterFailure.workspace.intent).toBe(baselineIntent);
+      expect(afterFailure.workspace.sceneDocument.version).toBe(baselineSceneVersion);
+      expect(afterFailure.workspace.sceneDocument.nodes).toHaveLength(baselineNodeCount);
+      expect(afterFailure.workspace.activeVersionId).toBe(baselineActiveVersionId);
+      expect(afterFailure.versions).toHaveLength(baselineVersions.length);
+      expect(afterFailure.versions[0].id).toBe(baselineVersions[0].id);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("emits a GENERATION_TIMEOUT failed event and closes the stream when the session deadline fires", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = "10000";
+    process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS = "75";
+
+    // Make the upstream LLM fetch hang until its own abort signal fires; the
+    // session-level deadline should trip first and emit a failed event.
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const projectResponse = await app.inject({
+        method: "POST",
+        url: "/api/projects",
+        payload: { name: "Session Timeout Project" }
+      });
+      const project = projectResponse.json();
+
+      const artifactResponse = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts`,
+        payload: { name: "Session Timeout Artifact", kind: "website" }
+      });
+      const artifact = artifactResponse.json();
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: {
+          accept: "text/event-stream"
+        },
+        payload: {
+          prompt: "Create a launch page with a hero and CTA."
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["content-type"]).toContain("text/event-stream");
+
+      const events = parseSseEvents(response.body);
+      const types = events.map((event) => event.type);
+      expect(types).toContain("failed");
+      const failedEvent = events.find((event) => event.type === "failed");
+      expect(failedEvent).toMatchObject({
+        type: "failed",
+        error: {
+          code: "GENERATION_TIMEOUT",
+          recoverable: true
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("cancels an in-flight generation without committing any workspace state", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = "60000";
+    process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS = "60000";
+
+    // The fetch hangs until the shared abort signal fires. The cancel route
+    // flips that signal, which should surface as a GENERATION_CANCELLED
+    // failed SSE event with a retryable payload.
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const project = (
+        await app.inject({
+          method: "POST",
+          url: "/api/projects",
+          payload: { name: "Cancel Project" }
+        })
+      ).json();
+      const artifact = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Cancel Artifact", kind: "website" }
+        })
+      ).json();
+
+      const baselineWorkspace = (
+        await app.inject({
+          method: "GET",
+          url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+        })
+      ).json();
+
+      const streamPromise = app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: {
+          accept: "text/event-stream"
+        },
+        payload: {
+          prompt: "Create a launch page the client will cancel mid-flight."
+        }
+      });
+
+      // Poll briefly until the run has registered in the activeGenerations
+      // map — observable via the 409 from a second concurrent call — and
+      // then fire the cancel.
+      let cancelResponse: Awaited<ReturnType<typeof app.inject>> | null = null;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const candidate = await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate/cancel`
+        });
+        if (candidate.statusCode === 204) {
+          cancelResponse = candidate;
+          break;
+        }
+      }
+
+      expect(cancelResponse?.statusCode).toBe(204);
+
+      const stream = await streamPromise;
+      expect(stream.statusCode).toBe(200);
+      const events = parseSseEvents(stream.body);
+      const failed = events.find((event) => event.type === "failed") as
+        | { type: "failed"; error: { code: string }; retry?: { retryable: boolean; prompt?: string } }
+        | undefined;
+      expect(failed).toBeDefined();
+      expect(failed?.error.code).toBe("GENERATION_CANCELLED");
+      expect(failed?.retry).toMatchObject({
+        retryable: true,
+        prompt: "Create a launch page the client will cancel mid-flight."
+      });
+
+      // Workspace must be untouched: no new version, no intent drift.
+      const afterWorkspace = (
+        await app.inject({
+          method: "GET",
+          url: `/api/projects/${project.id}/artifacts/${artifact.id}/workspace`
+        })
+      ).json();
+      expect(afterWorkspace.workspace.intent).toBe(baselineWorkspace.workspace.intent);
+      expect(afterWorkspace.workspace.sceneDocument.version).toBe(
+        baselineWorkspace.workspace.sceneDocument.version
+      );
+      expect(afterWorkspace.versions).toHaveLength(baselineWorkspace.versions.length);
+
+      // Cancelling again must now 404 — the registry slot was cleared.
+      const afterCancel = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate/cancel`
+      });
+      expect(afterCancel.statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects a second concurrent generation on the same artifact with GENERATION_ALREADY_RUNNING", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = "60000";
+    process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS = "60000";
+
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const project = (
+        await app.inject({
+          method: "POST",
+          url: "/api/projects",
+          payload: { name: "Already Running Project" }
+        })
+      ).json();
+      const artifact = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Already Running Artifact", kind: "website" }
+        })
+      ).json();
+
+      const firstStream = app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        payload: { prompt: "First in-flight run." }
+      });
+
+      // Wait briefly for the first run to register.
+      let secondResponse: Awaited<ReturnType<typeof app.inject>> | null = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        secondResponse = await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+          payload: { prompt: "Second attempt while first still running." }
+        });
+        if (secondResponse.statusCode === 409) {
+          break;
+        }
+      }
+
+      expect(secondResponse?.statusCode).toBe(409);
+      expect(secondResponse?.json()).toMatchObject({
+        code: "GENERATION_ALREADY_RUNNING",
+        recoverable: false,
+        details: {
+          artifactId: artifact.id
+        }
+      });
+
+      // Drain the first run by cancelling it so app.close() doesn't hang.
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate/cancel`
+      });
+      await firstStream;
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects a third simultaneous generation from the same user with GENERATION_QUOTA_EXCEEDED", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+    process.env.OPENDESIGN_GENERATION_TIMEOUT_MS = "60000";
+    process.env.OPENDESIGN_GENERATION_SESSION_TIMEOUT_MS = "60000";
+    process.env.OPENDESIGN_GENERATION_MAX_CONCURRENT_PER_USER = "2";
+
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      const signal = init?.signal;
+      await new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+      throw new Error("unreachable");
+    }) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const project = (
+        await app.inject({
+          method: "POST",
+          url: "/api/projects",
+          payload: { name: "Quota Project" }
+        })
+      ).json();
+      const artifactA = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Quota A", kind: "website" }
+        })
+      ).json();
+      const artifactB = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Quota B", kind: "website" }
+        })
+      ).json();
+      const artifactC = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Quota C", kind: "website" }
+        })
+      ).json();
+
+      const runA = app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifactA.id}/generate`,
+        payload: { prompt: "Run on A." }
+      });
+      const runB = app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifactB.id}/generate`,
+        payload: { prompt: "Run on B." }
+      });
+
+      // Busy-wait until the first two runs are both registered.
+      let runC: Awaited<ReturnType<typeof app.inject>> | null = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        runC = await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts/${artifactC.id}/generate`,
+          payload: { prompt: "Run on C over quota." }
+        });
+        if (runC.statusCode === 429) {
+          break;
+        }
+      }
+
+      expect(runC?.statusCode).toBe(429);
+      expect(runC?.headers["retry-after"]).toBe("5");
+      expect(runC?.json()).toMatchObject({
+        code: "GENERATION_QUOTA_EXCEEDED",
+        recoverable: true,
+        details: {
+          running: 2,
+          limit: 2,
+          retryAfterSeconds: 5
+        }
+      });
+
+      // Drain the two running slots.
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifactA.id}/generate/cancel`
+      });
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifactB.id}/generate/cancel`
+      });
+      await Promise.all([runA, runB]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("surfaces a retryable payload with prompt on a recoverable provider failure", async () => {
+    process.env.LITELLM_API_BASE_URL = "http://127.0.0.1:4001";
+    process.env.OPENDESIGN_GENERATION_MODEL = "openai/gpt-4.1-mini";
+
+    globalThis.fetch = vi.fn(async () =>
+      new Response("gateway failed", {
+        status: 502,
+        headers: {
+          "content-type": "text/plain"
+        }
+      })
+    ) as typeof globalThis.fetch;
+
+    const app = await buildApp();
+    try {
+      const project = (
+        await app.inject({
+          method: "POST",
+          url: "/api/projects",
+          payload: { name: "Retry Project" }
+        })
+      ).json();
+      const artifact = (
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${project.id}/artifacts`,
+          payload: { name: "Retry Artifact", kind: "website" }
+        })
+      ).json();
+
+      // Ground the artifact in a design system so the retry payload echoes
+      // the designSystemPackId back to the client.
+      const importResponse = await app.inject({
+        method: "POST",
+        url: "/api/design-systems/import/local",
+        payload: {
+          absolutePath: "/Users/leon/design-systems/retry-ds",
+          files: [
+            {
+              path: "tokens/theme.json",
+              content: JSON.stringify({ colors: { primary: "#000" } })
+            }
+          ]
+        }
+      });
+      const pack = importResponse.json().pack;
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/design-system`,
+        payload: { designSystemPackId: pack.id }
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/artifacts/${artifact.id}/generate`,
+        headers: { accept: "text/event-stream" },
+        payload: { prompt: "Create a page that will trip the upstream." }
+      });
+
+      expect(response.statusCode).toBe(200);
+      const events = parseSseEvents(response.body);
+      const failed = events.find((event) => event.type === "failed") as
+        | {
+            type: "failed";
+            error: { code: string };
+            retry?: { retryable: boolean; prompt?: string; designSystemPackId?: string };
+          }
+        | undefined;
+      expect(failed?.error.code).toBe("GENERATION_PROVIDER_FAILURE");
+      expect(failed?.retry).toMatchObject({
+        retryable: true,
+        prompt: "Create a page that will trip the upstream.",
+        designSystemPackId: pack.id
+      });
     } finally {
       await app.close();
     }

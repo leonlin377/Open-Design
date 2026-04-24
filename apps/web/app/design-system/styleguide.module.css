@@ -1,0 +1,409 @@
+/*
+ * Design-system styleguide — page-local helpers only. Anything reusable
+ * belongs in a primitive or globals.css; this file is deliberately minimal
+ * (grid shell, swatch chrome, guide overlay, anchor affordance).
+ */
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 40px 32px 120px;
+  position: relative;
+}
+
+.nav {
+  position: sticky;
+  top: 32px;
+  align-self: start;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding-right: 12px;
+  border-right: 1px solid var(--hairline);
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItem {
+  margin: 0;
+}
+
+.navLink {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 10px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color 140ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.navLink:hover,
+.navLink:focus-visible {
+  color: var(--ink-1);
+  background: var(--paper-sunk);
+  outline: none;
+}
+
+.navIndex {
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 88px;
+}
+
+.section {
+  scroll-margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.sectionEyebrow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sectionEyebrow .idx {
+  color: var(--ink-4);
+}
+
+.anchorTitle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+
+.anchorTitle .hash {
+  opacity: 0;
+  color: var(--ink-4);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7em;
+  transition: opacity 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.anchorTitle:hover .hash,
+.anchorTitle:focus-visible .hash {
+  opacity: 1;
+}
+
+/* ---------- Palette swatch ---------- */
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+}
+
+.swatchBlock {
+  width: 100%;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+}
+
+.swatchMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.swatchLabel {
+  color: var(--ink-1);
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.swatchHex {
+  font-variant-numeric: tabular-nums;
+}
+
+.swatchRatio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.swatchRatioPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline);
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.swatchRatioPill[data-pass="pass"] {
+  color: #5F8A5C;
+  border-color: color-mix(in oklab, #5F8A5C 40%, transparent);
+}
+
+.swatchRatioPill[data-pass="fail"] {
+  color: #C84734;
+  border-color: color-mix(in oklab, #C84734 40%, transparent);
+}
+
+/* ---------- Theme preview cards (light/dark) ---------- */
+
+.themeCard {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.themeCardLight {
+  background: #F5F1EB;
+  color: #1A1713;
+}
+
+.themeCardDark {
+  background: #1F1B15;
+  color: #F0E8D8;
+}
+
+.themeCardLabel {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: currentColor;
+  opacity: 0.55;
+}
+
+/* ---------- Typography sample row ---------- */
+
+.typeRow {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 180px;
+  gap: 24px;
+  align-items: baseline;
+  padding: 16px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.typeRow:first-child {
+  border-top: none;
+}
+
+.typeMeta {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.typeStats {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-align: right;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- Demo block w/ visible layout guides ---------- */
+
+.demoSurface {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--paper-raised);
+}
+
+.demoGuide {
+  outline: 1px dashed color-mix(in oklab, var(--ink-4) 60%, transparent);
+  outline-offset: 0;
+}
+
+.demoGuide > * {
+  outline: 1px dashed color-mix(in oklab, var(--rust) 40%, transparent);
+  outline-offset: 0;
+}
+
+/* ---------- Motion demo ---------- */
+
+.motionRow {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 180px;
+  gap: 24px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.motionRow:first-child {
+  border-top: none;
+}
+
+.motionTrack {
+  position: relative;
+  height: 28px;
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.motionBlock {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--rust);
+  transform: translateX(0);
+}
+
+.motionBlock[data-active="true"] {
+  transform: translateX(calc(100% + 280px));
+}
+
+/* ---------- Iconography strip ---------- */
+
+.iconCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  color: var(--ink-1);
+  min-width: 76px;
+}
+
+.iconCellLabel {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---------- Colophon / footer ---------- */
+
+.colophon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  max-width: 1120px;
+  margin-inline: auto;
+  color: var(--ink-3);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.colophon .liveRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.liveDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #35B46C;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #35B46C 18%, transparent);
+}
+
+.pageFooter {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 40px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ink-3);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+}
+
+.pageFooter .footnote {
+  color: var(--ink-4);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ---------- Matrix of buttons ---------- */
+
+.buttonMatrix {
+  display: grid;
+  grid-template-columns: 80px repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.matrixHeader {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---------- Toast demo row ---------- */
+
+.toastRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

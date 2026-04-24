@@ -37,13 +37,13 @@ export function StudioDesignSystemPanel({
         </p>
       </div>
       <div className="studio-status-row">
-        <span className={selectedDesignSystem ? "status-pill success" : "status-pill warning"}>
-          {selectedDesignSystem ? "Pack Attached" : "No Pack Attached"}
+        <span className={selectedDesignSystem ? "status-pill success" : "status-pill"}>
+          {selectedDesignSystem ? "Attached" : "Not attached"}
         </span>
         <span className="footer-note">
           {selectedDesignSystem
             ? `${selectedDesignSystem.name} · ${selectedDesignSystem.source}`
-            : "Generation currently runs without imported pack grounding."}
+            : "Generation runs without imported pack grounding."}
         </span>
       </div>
       <form action={attachArtifactDesignSystemAction} className="stack-form">

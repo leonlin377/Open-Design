@@ -1,85 +1,235 @@
 # OpenDesign
 
-OpenDesign is an artifact-first AI design workspace for websites, prototypes, and slides.
+An open, self-hostable AI design workspace for building websites, prototypes, and slide decks. Prompt-driven artifact generation is grounded in your own design systems (GitHub repos, local directories, or Playwright site captures), with scene/code round-trip, element-aware review comments, versions, structured exports, and a review-ready handoff bundle.
 
-Current artifact-specific export surfaces:
+Target: a Claude Design–class product surface that runs entirely on your own infrastructure.
 
-- `website`: handoff ZIP, standalone HTML, and runnable ZIP scaffold
-- `prototype`: handoff ZIP, standalone HTML, runnable ZIP scaffold, and flow JSON manifest
-- `slides`: handoff ZIP, standalone HTML, runnable ZIP scaffold, and deck JSON manifest
+## Table of Contents
 
-## Docker Isolation
+- [Product Surface](#product-surface)
+- [Repository Layout](#repository-layout)
+- [Prerequisites](#prerequisites)
+- [Quick Start — Local Development](#quick-start--local-development)
+- [Quick Start — Full Docker Studio](#quick-start--full-docker-studio)
+- [Environment Variables](#environment-variables)
+- [Generation Pipeline](#generation-pipeline)
+- [Design-System Ingest](#design-system-ingest)
+- [Asset Storage](#asset-storage)
+- [Testing](#testing)
+- [Operational Diagnostics](#operational-diagnostics)
+- [Scripts Reference](#scripts-reference)
+- [Architecture Notes](#architecture-notes)
+- [Project Status](#project-status)
 
-Three Docker paths are checked in:
+## Product Surface
 
-- `pnpm docker:infra` starts only the stateful dependencies (`postgres`, `redis`, `minio`) and leaves `web/api` on the host for the fastest iteration loop.
-- `pnpm docker:dev` launches `postgres`, `redis`, `minio`, and the `web`/`api` dev servers inside containers. Sources are mounted so local edits propagate instantly, and `pnpm --filter` runs inside each container so the active toolchain stays containerized while retaining the fast-feedback loops of the dev commands.
-- `pnpm docker:studio` builds and runs the production-profile stack (`web`, `api`, `postgres`, `redis`, `minio`). Add `pnpm docker:gateway` if you also want the optional LiteLLM gateway.
+| Capability | What it does |
+| --- | --- |
+| Artifact types | `website`, `prototype` (navigable flows), `slides` (deck/page) |
+| Scene engine | Structured scene document, element-aware anchors |
+| Code sync | `scene → code` + safe-subset `code → scene` back-sync |
+| Preview | Sandpack-backed live preview and code panel |
+| Generation | Prompt-driven, streaming, LiteLLM gateway with heuristic fallback |
+| Design systems | GitHub repo / local directory / Playwright site capture |
+| Grounding | Selected pack tokens, motifs, and component signatures feed generation |
+| Collaboration | Share tokens, roles (`viewer` / `commenter` / `editor`), element-aware comments |
+| Versions | Snapshot + restore of scene and saved code workspace |
+| Exports | HTML, runnable source ZIP, prototype flow JSON, slides deck JSON, handoff bundle ZIP |
+| Export jobs | Every export writes a tracked job (`queued` / `running` / `completed` / `failed`) |
+| Assets | MinIO/S3 uploads for screenshots and artifact hero images, in-memory fallback |
+| Ops | Request correlation ids, structured API errors, `/api/ready`, `/api/diagnostics` |
 
-The full containerized path is the safest default for demos, shared environments, and parity checks because the browser-facing app and API stop depending on host Node/npm state.
+## Repository Layout
 
-When `DATABASE_URL` is present, the API now boots with Postgres-backed repositories and runs Better Auth plus application table migrations during startup. Without `DATABASE_URL`, it falls back to the in-memory repositories used by the lightweight test/dev path. The web app uses `OPENDESIGN_API_INTERNAL_URL` for server-side fetches and `NEXT_PUBLIC_API_ORIGIN` for browser-side auth calls.
+Monorepo managed by `pnpm` + `turbo`.
 
-The API now emits an `x-request-id` header on every response, preserves caller-supplied request IDs when present, attaches that correlation ID to structured validation errors, and exposes `/api/ready` plus `/api/diagnostics` for production-style readiness and runtime diagnostics. `/api/ready` reports persistence and asset-storage mode, while `/api/diagnostics` adds request correlation plus auth/runtime wiring details that are useful during Docker smoke validation and ops triage.
+```
+apps/
+  api/        Fastify API, Better Auth, Postgres persistence with memory fallback
+  web/        Next.js 16 Studio UI (React 19, Sandpack)
+packages/
+  contracts/      Zod-backed domain schemas shared across API and Web
+  scene-engine/   Scene document model (website / prototype / slides)
+  code-sync/      scene ↔ code synchronization (fail-closed safe subset)
+  design-ingest/  GitHub, local-directory, and Playwright site-capture import
+  exporters/      HTML, source-bundle, prototype-flow, slides-deck, handoff ZIP
+  ui/             Shared UI primitives (Surface, Button, etc.)
+docs/
+  master-todo.md   Single execution board, always kept current
+docker-compose.yml, docker-compose.dev.yml, Dockerfile.*
+playwright.config.ts, playwright.docker.config.ts
+```
 
-Exports are still executed through the current synchronous download routes, but the API now records lightweight export jobs for `html`, `source-bundle`, `handoff-bundle`, `prototype-flow`, and `slides-deck`. Studio surfaces the recent export-job history from `/api/projects/:projectId/artifacts/:artifactId/export-jobs`, including completed filenames and failed export codes, without requiring a background worker yet.
+## Prerequisites
 
-MinIO/S3 is now used by the API as the asset backing store when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY` are configured. Site-capture design-system imports persist screenshot bytes into object storage, store asset metadata in the application database when Postgres is enabled, and expose those persisted screenshots back through `/api/design-systems/assets/:assetId` so the Studio can render the captured evidence.
+- Node.js 20+
+- `pnpm` 10.15+ (see `packageManager` in `package.json`)
+- Docker + Docker Compose v2
+- (Optional for site-capture and E2E) Playwright Chromium — installed via `pnpm exec playwright install chromium`
 
-Artifact workspaces now reuse that same asset pipeline. Studio can upload artifact-scoped image assets through `/api/projects/:projectId/artifacts/:artifactId/assets`, persist the binary in MinIO/S3 or the in-memory fallback, and immediately render the stored asset back into the Studio canvas. The first attached surface is the website/prototype/slides hero section, which keeps the change set small while proving artifact-level asset persistence end-to-end.
+## Quick Start — Local Development
 
-## Open-Source Stack
+Bring up Postgres / Redis / MinIO in Docker, run API and Web locally.
 
-- Better Auth for self-hosted authentication without a hosted dependency.
-- Sandpack for lightweight, in-browser code sandboxing and exportable artifacts.
-- LiteLLM (optional) as a gateway to normalize model APIs and centralize keys/routing.
-- Heavier editors are deferred to keep scope and infrastructure light while the artifact pipeline stabilizes.
+```bash
+cp .env.example .env                    # review values, set BETTER_AUTH_SECRET
+pnpm install
+pnpm docker:infra                       # postgres + redis + minio
+pnpm --filter @opendesign/api db:migrate
+pnpm dev                                # turbo: api on :4000, web on :3000
+```
 
-## Optional LiteLLM Gateway
+Open http://127.0.0.1:3000, create an account, create a project, open Studio.
 
-1. Start from the checked-in [`litellm-config.yaml`](/Users/leon/本地开发项目/opendesign/litellm-config.yaml) template and add your model list.
-2. Set `LITELLM_MASTER_KEY`, `LITELLM_SALT_KEY`, and any provider keys you need in `.env`.
-3. Start the gateway with `pnpm docker:gateway`.
+If `DATABASE_URL` is unreachable the API automatically falls back to an in-memory persistence mode — useful for quick demos, but no data survives restart. Check `/api/diagnostics` to confirm which mode is active.
 
-The gateway listens on `LITELLM_PORT` (default `4001`) and maps to container port `4000`.
+## Quick Start — Full Docker Studio
 
-## Container Commands
+Production-profile build and run with overrideable host ports:
 
-- `pnpm docker:infra`
-- `pnpm docker:dev`
-- `pnpm docker:dev:down`
-- `pnpm docker:studio`
-- `pnpm docker:gateway`
-- `pnpm docker:down`
+```bash
+cp .env.example .env
+# Optionally override host ports:
+# WEB_PORT=3100 API_PORT=4100 POSTGRES_PORT=15432 REDIS_PORT=16379 \
+# MINIO_API_PORT=19000 MINIO_CONSOLE_PORT=19001
+docker compose --profile studio build api web
+docker compose --profile studio up -d
+```
 
-Useful backend command:
+Tear down:
 
-- `pnpm --filter @opendesign/api db:migrate`
+```bash
+docker compose --profile studio down
+```
 
-Before `pnpm docker:studio` or `pnpm docker:dev`, set `BETTER_AUTH_SECRET` in `.env`. Compose now derives the browser-facing auth/app URLs from `OPENDESIGN_PUBLIC_HOST`, `API_PORT`, and `WEB_PORT`, so those values should match the host and published ports you expect the browser to use.
+A dev-style full-stack alternative lives in `docker-compose.dev.yml` (`pnpm docker:dev`) — it rebuilds sources on change and is the target for fast iteration against real containers.
 
-If the host already uses common local ports, override `WEB_PORT`, `API_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, `MINIO_API_PORT`, and `MINIO_CONSOLE_PORT` in `.env` before starting Compose. If the browser reaches Docker on something other than `127.0.0.1`, also set `OPENDESIGN_PUBLIC_HOST` before you build the `web` image so the baked `NEXT_PUBLIC_API_ORIGIN` matches the published API origin. When you override MinIO's host port, also update the host-facing `S3_ENDPOINT` in `.env` to match.
+## Environment Variables
 
-Site-capture imports now prefer a Playwright-driven browser capture path. In containers, `chromium` is installed and `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set automatically. On the host, you can set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` explicitly if your browser binary is not auto-discovered. Set `PLAYWRIGHT_SITE_CAPTURE_DISABLED=1` to force the older fetch-based capture path during debugging or deterministic test runs.
+See `.env.example` for the canonical list. Most impactful:
 
-## Playwright E2E
+| Variable | Purpose |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Required. Signing secret for Better Auth sessions. |
+| `BETTER_AUTH_URL`, `WEB_BASE_URL` | Public-facing URLs used for auth callbacks and CSRF/trusted-origin checks. |
+| `DATABASE_URL` | Postgres connection. Absent or unreachable → in-memory fallback. |
+| `REDIS_URL` | Redis connection for future background work. |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_REGION` | Asset storage. Defaults point at the bundled MinIO. |
+| `LITELLM_API_BASE_URL`, `OPENDESIGN_GENERATION_MODEL` | Generation gateway. Both must be set to leave the heuristic fallback. |
+| `LITELLM_MASTER_KEY` / `OPENAI_API_KEY` / `LITELLM_API_KEY` | Bearer key sent to the gateway. |
+| `OPENDESIGN_GENERATION_TIMEOUT_MS` | Generation hard timeout (default 15000). |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Override browser binary for site-capture and E2E. |
+| `PLAYWRIGHT_SITE_CAPTURE_DISABLED` | Force the fetch-based site-capture fallback. |
+| `OPENDESIGN_PUBLIC_HOST`, `WEB_PORT`, `API_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT` | Host bindings for the Docker studio profile. |
 
-- Install the browser once on the host with `pnpm exec playwright install chromium`.
-- Run the core end-to-end suite with `pnpm e2e`.
-- The checked-in config starts `apps/api` on `127.0.0.1:4100` and `apps/web` on `127.0.0.1:3100` so it does not collide with common local `3000/4000` processes.
-- The E2E path uses in-memory persistence by default, signs up a fresh browser-scoped account, and covers project creation, artifact creation, scene editing, code workspace save, snapshot/restore, and HTML/ZIP export.
+## Generation Pipeline
 
-## Workspace
+- Route: `POST /api/projects/:projectId/artifacts/:artifactId/generate`
+- Transport: Server-Sent Events with `planning` / `applying` / `completed` / `failed` frames
+- Provider: OpenAI-compatible chat-completions through LiteLLM; falls back to the local heuristic planner when the gateway or model is unconfigured
+- Scene patch is applied atomically, then a prompt snapshot is written so the run is always restorable
+- Fail-closed: invalid model output raises `INVALID_GENERATION_PLAN`; timeouts raise `GENERATION_TIMEOUT`; all errors include the request correlation id
 
-- `apps/web`: Next.js studio UI
-- `apps/api`: Fastify API
-- `packages/contracts`: shared schemas and domain types
-- `packages/scene-engine`: scene document utilities
-- `packages/code-sync`: scene/code sync interfaces
-- `packages/design-ingest`: design system ingestion interfaces
-- `packages/exporters`: export and handoff interfaces
-- `packages/ui`: shared UI primitives
+Point generation at any OpenAI-compatible gateway by setting `LITELLM_API_BASE_URL` and `OPENDESIGN_GENERATION_MODEL`. A sample LiteLLM config ships at `./litellm-config.yaml`; start it with `pnpm docker:gateway`.
 
-## Roadmap
+## Design-System Ingest
 
-- Master execution checklist: [docs/master-todo.md](/Users/leon/本地开发项目/opendesign/docs/master-todo.md)
+Three import sources resolve into the same `DesignSystemPack` shape (tokens, motifs, components, evidence):
+
+- **GitHub** — token / component extraction from public or token-authorized repos
+- **Local directory** — walk a checked-out design system on disk
+- **Site capture** — Playwright-first browser session that records screenshots + style evidence; explicit fetch fallback when Playwright is unavailable
+
+Screenshots are persisted through the asset pipeline (MinIO/S3 when configured, in-memory otherwise) and rendered inside the Studio design-system panel as evidence. Selected packs flow into the generation request as grounding context.
+
+## Asset Storage
+
+- API: `apps/api/src/asset-storage.ts` exposes an adapter that is either `s3` (when `S3_*` env is set) or `memory`.
+- Artifact-level uploads: `POST /api/projects/:projectId/artifacts/:artifactId/assets` — returns metadata resolvable via `GET .../assets/:assetId`.
+- Design-system screenshots are read via `GET /api/design-systems/assets/:assetId`.
+- Current asset provider shows up in `/api/diagnostics` under `assetStorage.provider`.
+
+## Testing
+
+Every package ships its own Vitest suite. The monorepo runs them via Turbo.
+
+```bash
+pnpm test                  # all unit tests
+pnpm typecheck             # tsc --noEmit across the monorepo
+pnpm build                 # Turbo build
+
+# Focused runs
+pnpm --filter @opendesign/api test -- tests/projects-artifacts.test.ts
+pnpm --filter @opendesign/exporters test -- tests/exporters.test.ts
+pnpm --dir packages/code-sync exec vitest run tests/code-sync.test.ts
+```
+
+End-to-end (Playwright):
+
+```bash
+pnpm exec playwright install chromium
+pnpm e2e                   # core Studio flows against local dev
+pnpm e2e:docker            # smoke against the live Dockerized studio profile
+```
+
+The Docker smoke config (`playwright.docker.config.ts`) verifies Better Auth session recovery, project/artifact persistence, snapshot visibility, export downloads, and in-test `docker compose restart api web`.
+
+## Operational Diagnostics
+
+The API exposes three operational endpoints and request-id propagation:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Liveness probe. |
+| `GET /api/ready` | Readiness — checks persistence, asset storage, and auth wiring. |
+| `GET /api/diagnostics` | Structured runtime profile — persistence mode, asset provider, auth base URL, trusted origins. |
+
+- Every response returns an `x-request-id` header. Caller-supplied values are preserved.
+- Structured validation errors carry the same id under `details.requestId`.
+- Export job records (`/api/projects/:projectId/artifacts/:artifactId/export-jobs`) include the correlation id for log-to-client triage.
+
+## Scripts Reference
+
+Root `package.json`:
+
+| Script | Effect |
+| --- | --- |
+| `pnpm dev` | Turbo dev across `apps/*` (api + web) |
+| `pnpm build` | Turbo build |
+| `pnpm test` | Turbo test (unit suites) |
+| `pnpm typecheck` | Turbo typecheck |
+| `pnpm e2e` | Playwright against local dev |
+| `pnpm e2e:docker` | Playwright smoke against Docker studio profile |
+| `pnpm docker:infra` | Bring up Postgres + Redis + MinIO only |
+| `pnpm docker:gateway` | Start the LiteLLM gateway container |
+| `pnpm docker:studio` | Build + run the full studio profile (api + web + infra) |
+| `pnpm docker:dev` | Run the dev-style full-stack compose file |
+| `pnpm docker:dev:down` | Stop and clear volumes for the dev stack |
+| `pnpm docker:down` | Stop the studio + gateway profiles |
+
+API-local:
+
+| Script | Effect |
+| --- | --- |
+| `pnpm --filter @opendesign/api db:migrate` | Apply Postgres migrations |
+| `pnpm --filter @opendesign/api dev` | Run the API standalone (`tsx watch`) |
+
+## Architecture Notes
+
+- **`packages/contracts`** is the single source of truth for domain types. API handlers, web client, and exporters all validate against the same Zod schemas.
+- **`packages/scene-engine`** models three artifact kinds with distinct node types and preview semantics. Studio's artifact-aware canvas and affordances key off the artifact `kind`.
+- **`packages/code-sync`** runs fail-closed: anything outside the supported `App.tsx` / declared sections scaffold surface rejects the save rather than corrupting scene state. Studio surfaces whether a save also synced scene.
+- **`packages/exporters`** assembles HTML, source bundle, prototype flow JSON, slides deck JSON, and the handoff ZIP (manifest, versions, comments, workspace snapshot, artifact-specific payload).
+- **Better Auth** is the session layer. Trusted origins are driven by `WEB_BASE_URL` and are inspected in `/api/diagnostics`.
+- **Persistence fallback**: every repository has a Postgres implementation and a parallel in-memory implementation, swapped at startup based on `DATABASE_URL` reachability.
+
+## Project Status
+
+Execution tracking lives in [`docs/master-todo.md`](docs/master-todo.md). Highlights:
+
+- All artifact types (website, prototype, slides) have dedicated scene nodes, previews, and structured exports.
+- Collaboration surface: share tokens + roles + element-aware comments + handoff bundles.
+- Ops surface: Playwright core flows + Docker production smoke + correlation ids + diagnostics.
+- Remaining polish and generation-loop refinements are tracked in the `Immediate Next Slice` section of the master TODO.
+
+Contributions should land against the `master-todo.md` board: pick the topmost `Ready` task, satisfy its Definition Of Done, run its Validation Commands, and record Validation Evidence in the same file.

@@ -148,29 +148,60 @@ export type HandoffArchiveBundle = {
   bytes: Uint8Array;
 };
 
+export type PrototypeFlowScreen = {
+  id: string;
+  nodeType: "screen";
+  name: string;
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  previousScreenId: string | null;
+  nextScreenId: string | null;
+};
+
+export type PrototypeFlowScreenCta = {
+  id: string;
+  nodeType: "screen-cta";
+  name: string;
+  headline?: string;
+  body?: string;
+  primaryAction?: string;
+  secondaryAction?: string;
+  attachedScreenId: string | null;
+};
+
+export type PrototypeFlowTransition = {
+  id: string;
+  nodeType: "screen-link";
+  name: string;
+  from: string;
+  to: string;
+  trigger: "tap" | "swipe" | "auto" | string;
+};
+
 export type PrototypeFlowExport = {
   version: 1;
   artifactKind: "prototype";
   artifactName: string;
   exportedAt: string;
   startScreenId: string | null;
-  screens: Array<{
-    id: string;
-    name: string;
-    template: string;
-    eyebrow?: string;
-    headline?: string;
-    body?: string;
-    title?: string;
-    items?: Array<{
-      label: string;
-      body: string;
-    }>;
-    primaryAction?: string;
-    secondaryAction?: string;
-    previousScreenId: string | null;
-    nextScreenId: string | null;
-  }>;
+  screens: PrototypeFlowScreen[];
+  transitions: PrototypeFlowTransition[];
+  screenCtas: PrototypeFlowScreenCta[];
+};
+
+export type SlidesDeckSlide = {
+  id: string;
+  nodeType: "slide-title" | "slide-content" | "slide-closing";
+  role: "title" | "content" | "closing";
+  name: string;
+  slideNumber: number;
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  bullets?: string[];
+  primaryAction?: string;
+  secondaryAction?: string;
 };
 
 export type SlidesDeckExport = {
@@ -183,21 +214,11 @@ export type SlidesDeckExport = {
     surface: string;
     accent: string;
   };
-  slides: Array<{
-    id: string;
-    name: string;
-    template: string;
-    eyebrow?: string;
-    headline?: string;
-    body?: string;
-    title?: string;
-    items?: Array<{
-      label: string;
-      body: string;
-    }>;
-    primaryAction?: string;
-    secondaryAction?: string;
+  slides: SlidesDeckSlide[];
+  outline: Array<{
     slideNumber: number;
+    role: "title" | "content" | "closing";
+    headline: string;
   }>;
 };
 
@@ -561,6 +582,121 @@ export const buildRenderableSections = (input: {
 
   return input.sceneNodes.map((node) => {
     const props = node.props as Record<string, unknown>;
+
+    // Typed prototype node kinds map onto the renderable section vocabulary
+    // used by the HTML/source renderers without requiring a props.template.
+    if (node.type === "screen") {
+      return {
+        id: node.id,
+        template: "hero",
+        name: node.name,
+        eyebrow:
+          typeof props.eyebrow === "string"
+            ? props.eyebrow
+            : defaultEyebrowByKind[input.artifactKind],
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : `${input.artifactName} screen headline.`,
+        body: typeof props.body === "string" ? props.body : input.prompt
+      };
+    }
+
+    if (node.type === "screen-cta") {
+      return {
+        id: node.id,
+        template: "cta",
+        name: node.name,
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : "Confirm the next flow step.",
+        body:
+          typeof props.body === "string"
+            ? props.body
+            : "Guide the user into the final confirmation step.",
+        primaryAction:
+          typeof props.primaryAction === "string" ? props.primaryAction : "Continue",
+        secondaryAction:
+          typeof props.secondaryAction === "string" ? props.secondaryAction : "Back"
+      };
+    }
+
+    if (node.type === "screen-link") {
+      // Transitions are a flow-level concern and are surfaced in the
+      // prototype flow export rather than the HTML render pipeline.
+      const from = typeof props.from === "string" ? props.from : "?";
+      const to = typeof props.to === "string" ? props.to : "?";
+      return {
+        id: node.id,
+        template: "generic",
+        name: node.name,
+        headline: `Transition ${from} → ${to}`,
+        body: typeof props.body === "string" ? props.body : input.prompt
+      };
+    }
+
+    if (node.type === "slide-title") {
+      return {
+        id: node.id,
+        template: "hero",
+        name: node.name,
+        eyebrow:
+          typeof props.eyebrow === "string" ? props.eyebrow : "Deck Surface",
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : `${input.artifactName} opens with`,
+        body: typeof props.body === "string" ? props.body : input.prompt
+      };
+    }
+
+    if (node.type === "slide-content") {
+      const bullets = readStringArrayProp(props, "bullets");
+      return {
+        id: node.id,
+        template: "feature-grid",
+        name: node.name,
+        title:
+          typeof props.title === "string"
+            ? props.title
+            : typeof props.headline === "string"
+              ? props.headline
+              : node.name,
+        items:
+          bullets && bullets.length > 0
+            ? bullets.map((body, index) => ({
+                label: `Point ${index + 1}`,
+                body
+              }))
+            : DEFAULT_FEATURE_GRID_ITEMS
+      };
+    }
+
+    if (node.type === "slide-closing") {
+      return {
+        id: node.id,
+        template: "cta",
+        name: node.name,
+        headline:
+          typeof props.headline === "string"
+            ? props.headline
+            : `${input.artifactName} next steps`,
+        body:
+          typeof props.body === "string"
+            ? props.body
+            : "Close with operating priorities and asks.",
+        primaryAction:
+          typeof props.primaryAction === "string"
+            ? props.primaryAction
+            : "Download deck",
+        secondaryAction:
+          typeof props.secondaryAction === "string"
+            ? props.secondaryAction
+            : "Share summary"
+      };
+    }
+
     const template = typeof props.template === "string" ? props.template : node.type;
 
     if (template === "hero") {
@@ -1057,15 +1193,16 @@ This source bundle is generated from OpenDesign's live scene document.
             preview: "vite preview"
           },
           dependencies: {
-            react: "^19.1.0",
-            "react-dom": "^19.1.0"
+            react: "^18.3.1",
+            "react-dom": "^18.3.1"
           },
           devDependencies: {
-            "@types/react": "^19.1.12",
-            "@types/react-dom": "^19.1.9",
-            "@vitejs/plugin-react": "^5.0.0",
-            typescript: "^5.9.2",
-            vite: "^7.1.3"
+            "@types/react": "^18.3.0",
+            "@types/react-dom": "^18.3.0",
+            "@vitejs/plugin-react": "^4.3.4",
+            typescript: "^4.9.5",
+            vite: "4.2.0",
+            "esbuild-wasm": "^0.17.12"
           }
         },
         null,
@@ -1398,16 +1535,96 @@ export const buildArtifactHandoffArchive = (
   };
 };
 
+function readStringProp(props: Record<string, unknown>, key: string): string | undefined {
+  const value = props[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function readStringArrayProp(
+  props: Record<string, unknown>,
+  key: string
+): string[] | undefined {
+  const value = props[key];
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value.filter((entry): entry is string => typeof entry === "string");
+  return items.length === value.length ? items : undefined;
+}
+
 export const buildPrototypeFlowExport = (input: {
   artifactName: string;
   prompt?: string;
   sceneDocument: SceneDocument;
 }): PrototypeFlowExport => {
-  const sections = buildRenderableSections({
-    artifactKind: "prototype",
-    artifactName: input.artifactName,
-    prompt: input.prompt ?? "OpenDesign prototype artifact",
-    sceneNodes: input.sceneDocument.nodes
+  const screens: PrototypeFlowScreen[] = [];
+  const transitions: PrototypeFlowTransition[] = [];
+  const screenCtas: PrototypeFlowScreenCta[] = [];
+
+  for (const node of input.sceneDocument.nodes) {
+    const props = node.props as Record<string, unknown>;
+
+    if (node.type === "screen") {
+      screens.push({
+        id: node.id,
+        nodeType: "screen",
+        name: node.name,
+        eyebrow: readStringProp(props, "eyebrow") ?? "Flow Surface",
+        headline:
+          readStringProp(props, "headline") ??
+          `${input.artifactName} screen headline`,
+        body: readStringProp(props, "body") ?? input.prompt,
+        previousScreenId: null,
+        nextScreenId: null
+      });
+      continue;
+    }
+
+    if (node.type === "screen-link") {
+      transitions.push({
+        id: node.id,
+        nodeType: "screen-link",
+        name: node.name,
+        from: readStringProp(props, "from") ?? "",
+        to: readStringProp(props, "to") ?? "",
+        trigger: readStringProp(props, "trigger") ?? "tap"
+      });
+      continue;
+    }
+
+    if (node.type === "screen-cta") {
+      screenCtas.push({
+        id: node.id,
+        nodeType: "screen-cta",
+        name: node.name,
+        headline: readStringProp(props, "headline"),
+        body: readStringProp(props, "body"),
+        primaryAction: readStringProp(props, "primaryAction") ?? "Continue",
+        secondaryAction: readStringProp(props, "secondaryAction") ?? "Back",
+        attachedScreenId: readStringProp(props, "attachedScreenId") ?? null
+      });
+      continue;
+    }
+
+    // Tolerate legacy/untyped nodes by treating them as generic screens so
+    // that existing non-typed fixtures continue to surface in the export.
+    screens.push({
+      id: node.id,
+      nodeType: "screen",
+      name: node.name,
+      eyebrow: readStringProp(props, "eyebrow") ?? "Flow Surface",
+      headline: readStringProp(props, "headline") ?? node.name,
+      body: readStringProp(props, "body") ?? input.prompt,
+      previousScreenId: null,
+      nextScreenId: null
+    });
+  }
+
+  // Derive implicit sequential traversal through declared screens. Explicit
+  // screen-link transitions take precedence for the routing graph.
+  screens.forEach((screen, index) => {
+    screen.previousScreenId = index > 0 ? screens[index - 1]!.id : null;
+    screen.nextScreenId = index < screens.length - 1 ? screens[index + 1]!.id : null;
   });
 
   return {
@@ -1415,12 +1632,10 @@ export const buildPrototypeFlowExport = (input: {
     artifactKind: "prototype",
     artifactName: input.artifactName,
     exportedAt: new Date().toISOString(),
-    startScreenId: sections[0]?.id ?? null,
-    screens: sections.map((section, index) => ({
-      ...section,
-      previousScreenId: index > 0 ? sections[index - 1]?.id ?? null : null,
-      nextScreenId: index < sections.length - 1 ? sections[index + 1]?.id ?? null : null
-    }))
+    startScreenId: screens[0]?.id ?? null,
+    screens,
+    transitions,
+    screenCtas
   };
 };
 
@@ -1429,11 +1644,38 @@ export const buildSlidesDeckExport = (input: {
   prompt?: string;
   sceneDocument: SceneDocument;
 }): SlidesDeckExport => {
-  const sections = buildRenderableSections({
-    artifactKind: "slides",
-    artifactName: input.artifactName,
-    prompt: input.prompt ?? "OpenDesign slides artifact",
-    sceneNodes: input.sceneDocument.nodes
+  const roleByType: Record<string, SlidesDeckSlide["role"]> = {
+    "slide-title": "title",
+    "slide-content": "content",
+    "slide-closing": "closing"
+  };
+
+  const slides: SlidesDeckSlide[] = input.sceneDocument.nodes.map((node, index) => {
+    const props = node.props as Record<string, unknown>;
+    const nodeType = (node.type as SlidesDeckSlide["nodeType"]) in roleByType
+      ? (node.type as SlidesDeckSlide["nodeType"])
+      : "slide-content";
+    const role = roleByType[nodeType] ?? "content";
+
+    return {
+      id: node.id,
+      nodeType,
+      role,
+      name: node.name,
+      slideNumber: index + 1,
+      eyebrow: readStringProp(props, "eyebrow") ?? "Deck Surface",
+      headline:
+        readStringProp(props, "headline") ??
+        (role === "title"
+          ? `${input.artifactName} opening slide`
+          : role === "closing"
+            ? `${input.artifactName} next steps`
+            : node.name),
+      body: readStringProp(props, "body") ?? input.prompt,
+      bullets: readStringArrayProp(props, "bullets"),
+      primaryAction: readStringProp(props, "primaryAction"),
+      secondaryAction: readStringProp(props, "secondaryAction")
+    };
   });
 
   return {
@@ -1446,9 +1688,11 @@ export const buildSlidesDeckExport = (input: {
       surface: "#fbf5e8",
       accent: "#0f766e"
     },
-    slides: sections.map((section, index) => ({
-      ...section,
-      slideNumber: index + 1
+    slides,
+    outline: slides.map((slide) => ({
+      slideNumber: slide.slideNumber,
+      role: slide.role,
+      headline: slide.headline ?? slide.name
     }))
   };
 };

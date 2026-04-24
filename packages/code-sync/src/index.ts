@@ -7,6 +7,17 @@ import type {
 import { buildArtifactSourceBundle } from "@opendesign/exporters";
 import { indexSceneNodesById } from "@opendesign/scene-engine";
 
+import {
+  buildPrototypeSceneNodesFromScreens,
+  buildSlidesSceneNodesFromSlides,
+  buildWebsiteSceneNodesFromSections,
+  extractModuleArrayLiteral
+} from "./scaffolds";
+import {
+  buildPrototypeScaffoldFiles,
+  buildSlidesScaffoldFiles
+} from "./scaffold-emit";
+
 export type SyncEndpointMode = "scene" | "code-supported" | "code-advanced";
 export type SyncChangeScope = "node" | "section" | "document";
 export type SyncMode = "full" | "constrained";
@@ -42,6 +53,12 @@ export type CodeToSceneSyncDecision = {
   reason: string;
   sceneDocument: SceneDocument | null;
 };
+
+// Human readable surface descriptor used in fail-closed messages. Keeping
+// this as a named constant means API consumers get a single, stable string to
+// grep for when diagnosing "why did my edit not sync back?".
+const UNSUPPORTED_SCAFFOLD_HINT =
+  "unsupported scaffold: expected `const sections = [...]`, `export const sections = [...]`, `const screens = [...]`, or `const slides = [...]` at module scope.";
 
 export const planSyncPatch = (input: {
   sourceMode: SyncEndpointMode;
@@ -107,7 +124,8 @@ function diffFilePaths(input: {
   return [...filePaths]
     .filter(
       (filePath) =>
-        (input.previousFiles[filePath] ?? null) !== (input.nextFiles[filePath] ?? null)
+        (input.previousFiles[filePath] ?? null) !==
+        (input.nextFiles[filePath] ?? null)
     )
     .sort((leftPath, rightPath) => leftPath.localeCompare(rightPath));
 }
@@ -124,27 +142,9 @@ function matchesGeneratedScaffold(input: {
   }
 
   return (
-    normalizedCurrentFiles === normalizeFiles(omitSyncPayloadFile(input.previousBundleFiles))
+    normalizedCurrentFiles ===
+    normalizeFiles(omitSyncPayloadFile(input.previousBundleFiles))
   );
-}
-
-function extractSectionsLiteral(appCode: string) {
-  const startMarker = "const sections = ";
-  const endMarker = ";\n\n  return (";
-  const startIndex = appCode.indexOf(startMarker);
-
-  if (startIndex === -1) {
-    return null;
-  }
-
-  const valueStart = startIndex + startMarker.length;
-  const endIndex = appCode.indexOf(endMarker, valueStart);
-
-  if (endIndex === -1) {
-    return null;
-  }
-
-  return appCode.slice(valueStart, endIndex).trim();
 }
 
 function readSyncPayloadSections(files: Record<string, string>) {
@@ -186,145 +186,157 @@ function readSyncPayloadSections(files: Record<string, string>) {
   };
 }
 
-function readStringRecord(
-  value: unknown
-): value is {
-  id: string;
-  template: string;
-} {
+type PreparedScaffoldFiles =
+  | { ok: true; files: Record<string, string> }
+  | { ok: false; reason: string };
+
+function prepareScaffoldFiles(input: {
+  artifactKind: ArtifactKind;
+  artifactName: string;
+  prompt: string;
+  sceneNodes: SceneNode[];
+}): PreparedScaffoldFiles {
+  if (input.artifactKind === "website") {
+    const bundle = buildArtifactSourceBundle({
+      artifactKind: "website",
+      artifactName: input.artifactName,
+      prompt: input.prompt,
+      sceneNodes: input.sceneNodes
+    });
+    return { ok: true, files: bundle.files };
+  }
+
+  if (input.artifactKind === "prototype") {
+    const result = buildPrototypeScaffoldFiles({
+      artifactName: input.artifactName,
+      sceneNodes: input.sceneNodes
+    });
+    if (!result.ok) {
+      return { ok: false, reason: result.reason };
+    }
+    return { ok: true, files: result.files };
+  }
+
+  const result = buildSlidesScaffoldFiles({
+    artifactName: input.artifactName,
+    sceneNodes: input.sceneNodes
+  });
+  if (!result.ok) {
+    return { ok: false, reason: result.reason };
+  }
+  return { ok: true, files: result.files };
+}
+
+function toSafeFilenameBase(name: string) {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { id?: unknown }).id === "string" &&
-    typeof (value as { template?: unknown }).template === "string"
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "artifact"
   );
 }
 
-function readFeatureItems(
-  value: unknown
-): Array<{
-  label: string;
-  body: string;
-}> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
+export function buildFreeformCodeWorkspace(input: {
+  artifactName: string;
+  freeformFiles: Record<string, string>;
+  sceneVersion: number;
+}): { files: Record<string, string>; baseSceneVersion: number } {
+  const filenameBase = toSafeFilenameBase(input.artifactName);
 
-  return value.filter(
-    (
-      item
-    ): item is {
-      label: string;
-      body: string;
-    } =>
-      typeof item === "object" &&
-      item !== null &&
-      typeof (item as { label?: unknown }).label === "string" &&
-      typeof (item as { body?: unknown }).body === "string"
-  );
-}
+  const skeletonFiles: Record<string, string> = {
+    "/index.html": `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${input.artifactName}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>
+`,
+    "/main.tsx": `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
-function readOptionalString(
-  value: unknown,
-  key: string
-): string | null {
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-
-  const candidate = (value as Record<string, unknown>)[key];
-  return typeof candidate === "string" ? candidate : null;
-}
-
-function buildSceneNodesFromSections(sections: unknown): SceneNode[] | null {
-  if (!Array.isArray(sections)) {
-    return null;
-  }
-
-  const nodes: SceneNode[] = [];
-
-  for (const section of sections) {
-    if (!readStringRecord(section)) {
-      return null;
-    }
-
-    const name =
-      readOptionalString(section, "name") ??
-      (section.template === "hero"
-        ? "Hero Section"
-        : section.template === "feature-grid"
-          ? "Feature Grid"
-          : section.template === "cta"
-            ? "Call To Action"
-            : "Section");
-
-    if (section.template === "hero") {
-      const eyebrow = readOptionalString(section, "eyebrow");
-      const headline = readOptionalString(section, "headline");
-      const body = readOptionalString(section, "body");
-
-      nodes.push({
-        id: section.id,
-        type: "section",
-        name,
-        props: {
-          template: "hero",
-          ...(eyebrow ? { eyebrow } : {}),
-          ...(headline ? { headline } : {}),
-          ...(body ? { body } : {})
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+`,
+    "/package.json": JSON.stringify(
+      {
+        name: filenameBase,
+        private: true,
+        version: "0.1.0",
+        type: "module",
+        scripts: {
+          dev: "vite",
+          build: "vite build",
+          preview: "vite preview"
         },
-        children: []
-      });
-      continue;
-    }
-
-    if (section.template === "feature-grid") {
-      const title = readOptionalString(section, "title");
-      const items = readFeatureItems(
-        typeof section === "object" && section !== null
-          ? (section as Record<string, unknown>).items
-          : undefined
-      );
-      nodes.push({
-        id: section.id,
-        type: "section",
-        name,
-        props: {
-          template: "feature-grid",
-          ...(title ? { title } : {}),
-          ...(items.length > 0 ? { items } : {})
+        dependencies: {
+          react: "^18.3.1",
+          "react-dom": "^18.3.1"
         },
-        children: []
-      });
-      continue;
-    }
+        devDependencies: {
+          "@types/react": "^18.3.0",
+          "@types/react-dom": "^18.3.0",
+          "@vitejs/plugin-react": "^4.3.4",
+          typescript: "^4.9.5",
+          vite: "4.2.0",
+          "esbuild-wasm": "^0.17.12"
+        }
+      },
+      null,
+      2
+    ),
+    "/vite.config.ts": `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-    if (section.template === "cta") {
-      const headline = readOptionalString(section, "headline");
-      const body = readOptionalString(section, "body");
-      const primaryAction = readOptionalString(section, "primaryAction");
-      const secondaryAction = readOptionalString(section, "secondaryAction");
-
-      nodes.push({
-        id: section.id,
-        type: "section",
-        name,
-        props: {
-          template: "cta",
-          ...(headline ? { headline } : {}),
-          ...(body ? { body } : {}),
-          ...(primaryAction ? { primaryAction } : {}),
-          ...(secondaryAction ? { secondaryAction } : {})
+export default defineConfig({
+  plugins: [react()]
+});
+`,
+    "/tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2020",
+          useDefineForClassFields: true,
+          lib: ["DOM", "DOM.Iterable", "ES2020"],
+          allowJs: false,
+          skipLibCheck: true,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          strict: true,
+          forceConsistentCasingInFileNames: true,
+          module: "ESNext",
+          moduleResolution: "Node",
+          resolveJsonModule: true,
+          isolatedModules: true,
+          noEmit: true,
+          jsx: "react-jsx"
         },
-        children: []
-      });
-      continue;
-    }
+        include: ["./*.ts", "./*.tsx"]
+      },
+      null,
+      2
+    )
+  };
 
-    return null;
-  }
+  const mergedFiles: Record<string, string> = {
+    ...skeletonFiles,
+    ...input.freeformFiles
+  };
 
-  return nodes;
+  return {
+    files: mergedFiles,
+    baseSceneVersion: input.sceneVersion
+  };
 }
 
 export const syncSceneToCodeWorkspace = (input: {
@@ -336,43 +348,66 @@ export const syncSceneToCodeWorkspace = (input: {
   nextSceneDocument: SceneDocument;
   currentCodeWorkspace: ArtifactCodeWorkspace | null;
 }): SceneToCodeSyncDecision => {
-  if (input.artifactKind !== "website") {
+  // Freeform scenes bypass template scaffold generation entirely.
+  const hasFreeformNode = input.nextSceneDocument.nodes.some(
+    (node) => node.type === "freeform"
+  );
+  if (hasFreeformNode) {
+    if (input.currentCodeWorkspace) {
+      return {
+        applied: false,
+        filesTouched: [],
+        reason:
+          "Freeform artifact code workspace is preserved — scene-to-code sync is not applicable for freeform generation.",
+        codeWorkspace: null
+      };
+    }
     return {
       applied: false,
       filesTouched: [],
-      reason: "Automatic scene-to-code sync currently supports website artifacts only.",
+      reason:
+        "Freeform artifact has no code workspace yet — freeform code is injected directly, not derived from scene nodes.",
       codeWorkspace: null
     };
   }
 
-  const previousBundle = buildArtifactSourceBundle({
-    artifactKind: input.artifactKind,
-    artifactName: input.artifactName,
-    prompt: input.previousIntent,
-    sceneNodes: input.previousSceneDocument.nodes
-  });
-  const nextBundle = buildArtifactSourceBundle({
+  const nextScaffold = prepareScaffoldFiles({
     artifactKind: input.artifactKind,
     artifactName: input.artifactName,
     prompt: input.nextIntent,
     sceneNodes: input.nextSceneDocument.nodes
   });
 
+  if (!nextScaffold.ok) {
+    return {
+      applied: false,
+      filesTouched: [],
+      reason: nextScaffold.reason,
+      codeWorkspace: null
+    };
+  }
+
+  const nextFiles = nextScaffold.files;
+
   if (!input.currentCodeWorkspace) {
     return {
       applied: true,
-      filesTouched: Object.keys(nextBundle.files).sort((leftPath, rightPath) =>
+      filesTouched: Object.keys(nextFiles).sort((leftPath, rightPath) =>
         leftPath.localeCompare(rightPath)
       ),
-      reason: "No saved code workspace exists yet, so the latest scene-derived scaffold is seeded automatically.",
+      reason:
+        "No saved code workspace exists yet, so the latest scene-derived scaffold is seeded automatically.",
       codeWorkspace: {
-        files: nextBundle.files,
+        files: nextFiles,
         baseSceneVersion: input.nextSceneDocument.version
       }
     };
   }
 
-  if (input.currentCodeWorkspace.baseSceneVersion !== input.previousSceneDocument.version) {
+  if (
+    input.currentCodeWorkspace.baseSceneVersion !==
+    input.previousSceneDocument.version
+  ) {
     return {
       applied: false,
       filesTouched: [],
@@ -382,10 +417,29 @@ export const syncSceneToCodeWorkspace = (input: {
     };
   }
 
+  const previousScaffold = prepareScaffoldFiles({
+    artifactKind: input.artifactKind,
+    artifactName: input.artifactName,
+    prompt: input.previousIntent,
+    sceneNodes: input.previousSceneDocument.nodes
+  });
+
+  if (!previousScaffold.ok) {
+    // The previous scene itself cannot be re-serialized losslessly, so we
+    // cannot verify the saved scaffold matches it. Preserve the saved code
+    // workspace rather than overwriting from an unverifiable baseline.
+    return {
+      applied: false,
+      filesTouched: [],
+      reason: `Cannot verify saved code workspace against previous scene: ${previousScaffold.reason}`,
+      codeWorkspace: null
+    };
+  }
+
   if (
     !matchesGeneratedScaffold({
       currentFiles: input.currentCodeWorkspace.files,
-      previousBundleFiles: previousBundle.files
+      previousBundleFiles: previousScaffold.files
     })
   ) {
     return {
@@ -401,126 +455,274 @@ export const syncSceneToCodeWorkspace = (input: {
     applied: true,
     filesTouched: diffFilePaths({
       previousFiles: input.currentCodeWorkspace.files,
-      nextFiles: nextBundle.files
+      nextFiles
     }),
     reason:
       "Saved code workspace still matches the previous scene-derived scaffold, so it is regenerated from the latest scene document.",
     codeWorkspace: {
-      files: nextBundle.files,
+      files: nextFiles,
       baseSceneVersion: input.nextSceneDocument.version
     }
   };
 };
+
+// ---------------------------------------------------------------------------
+// Code → Scene back-sync. Each branch either produces a valid SceneNode[]
+// (success path), or returns a decision with applied=false and a specific
+// human readable `reason` so the scene stays untouched (fail-closed).
+// ---------------------------------------------------------------------------
+
+type AppCodeParseResult =
+  | { status: "parsed"; nodes: SceneNode[]; reasonPrefix: string }
+  | { status: "failed"; decision: CodeToSceneSyncDecision };
+
+function failClosed(reason: string): CodeToSceneSyncDecision {
+  return { applied: false, reason, sceneDocument: null };
+}
+
+function parseWebsiteAppCode(appCode: string): AppCodeParseResult {
+  const extracted = extractModuleArrayLiteral(appCode, "sections");
+
+  if (!extracted) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        `App.tsx no longer matches a supported website scaffold. ${UNSUPPORTED_SCAFFOLD_HINT}`
+      )
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted.literal);
+  } catch {
+    return {
+      status: "failed",
+      decision: failClosed(
+        "App.tsx sections data is no longer valid JSON, so scene sync is unsupported."
+      )
+    };
+  }
+
+  const nodes = buildWebsiteSceneNodesFromSections(parsed);
+  if (!nodes) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        "App.tsx contains unsupported section data, so scene sync is limited to the saved code workspace only."
+      )
+    };
+  }
+
+  return {
+    status: "parsed",
+    nodes,
+    reasonPrefix:
+      "Saved App.tsx still matches a supported legacy website scaffold pattern, so section data synced back into the scene document."
+  };
+}
+
+function parsePrototypeAppCode(appCode: string): AppCodeParseResult {
+  const extracted = extractModuleArrayLiteral(appCode, "screens");
+
+  if (!extracted) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        `App.tsx no longer matches a supported prototype scaffold. ${UNSUPPORTED_SCAFFOLD_HINT}`
+      )
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted.literal);
+  } catch {
+    return {
+      status: "failed",
+      decision: failClosed(
+        "App.tsx screens data is no longer valid JSON, so scene sync is unsupported."
+      )
+    };
+  }
+
+  const result = buildPrototypeSceneNodesFromScreens(parsed);
+  if (!result.ok) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        `App.tsx prototype screens data is unsupported: ${result.error.message}`
+      )
+    };
+  }
+
+  return {
+    status: "parsed",
+    nodes: result.nodes,
+    reasonPrefix:
+      "Saved App.tsx still matches the supported prototype scaffold, so screen data synced back into the scene document."
+  };
+}
+
+function parseSlidesAppCode(appCode: string): AppCodeParseResult {
+  const extracted = extractModuleArrayLiteral(appCode, "slides");
+
+  if (!extracted) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        `App.tsx no longer matches a supported slides scaffold. ${UNSUPPORTED_SCAFFOLD_HINT}`
+      )
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted.literal);
+  } catch {
+    return {
+      status: "failed",
+      decision: failClosed(
+        "App.tsx slides data is no longer valid JSON, so scene sync is unsupported."
+      )
+    };
+  }
+
+  const result = buildSlidesSceneNodesFromSlides(parsed);
+  if (!result.ok) {
+    return {
+      status: "failed",
+      decision: failClosed(
+        `App.tsx slides data is unsupported: ${result.error.message}`
+      )
+    };
+  }
+
+  return {
+    status: "parsed",
+    nodes: result.nodes,
+    reasonPrefix:
+      "Saved App.tsx still matches the supported slides scaffold, so slide data synced back into the scene document."
+  };
+}
+
+function parseAppCodeForArtifactKind(input: {
+  artifactKind: ArtifactKind;
+  appCode: string;
+}): AppCodeParseResult {
+  if (input.artifactKind === "website") {
+    return parseWebsiteAppCode(input.appCode);
+  }
+  if (input.artifactKind === "prototype") {
+    return parsePrototypeAppCode(input.appCode);
+  }
+  return parseSlidesAppCode(input.appCode);
+}
 
 export const syncCodeToSceneDocument = (input: {
   artifactKind: ArtifactKind;
   currentSceneDocument: SceneDocument;
   files: Record<string, string>;
 }): CodeToSceneSyncDecision => {
-  if (input.artifactKind !== "website") {
-    return {
-      applied: false,
-      reason: "Code-to-scene sync currently supports website artifacts only.",
-      sceneDocument: null
-    };
-  }
-
   const appCode = input.files["/App.tsx"];
   const syncPayloadDecision = readSyncPayloadSections(input.files);
-  let parsedSections: unknown = null;
-  let syncReasonPrefix = "";
 
-  if (syncPayloadDecision.status === "valid") {
-    parsedSections = syncPayloadDecision.sections;
-    syncReasonPrefix =
-      "Saved code workspace still matches the supported stable sync payload, so section data synced back into the scene document.";
-  } else if (syncPayloadDecision.status === "missing") {
-    if (typeof appCode !== "string" || appCode.trim().length === 0) {
-      return {
-        applied: false,
-        reason:
-          "Code workspace is missing both /opendesign.sync.json and /App.tsx, so scene sync is unsupported.",
-        sceneDocument: null
-      };
-    }
+  // The stable sync payload is the preferred round-trip channel for every
+  // artifact kind — it is produced by the same exporter that consumes the
+  // scene so it has no ambiguity. It only applies to website artifacts today
+  // because only the website scaffold uses the legacy
+  // `{ template: "hero" | "feature-grid" | "cta" }` vocabulary that
+  // buildWebsiteSceneNodesFromSections understands.
+  if (
+    input.artifactKind === "website" &&
+    syncPayloadDecision.status === "valid"
+  ) {
+    const nodes = buildWebsiteSceneNodesFromSections(
+      syncPayloadDecision.sections
+    );
 
-    const sectionsLiteral = extractSectionsLiteral(appCode);
-
-    if (!sectionsLiteral) {
-      return {
-        applied: false,
-        reason:
-          "App.tsx no longer matches the supported legacy scaffold pattern, so scene sync is unsupported.",
-        sceneDocument: null
-      };
+    if (!nodes) {
+      return failClosed(
+        "opendesign.sync.json contains unsupported section data, so scene sync is limited to the saved code workspace only."
+      );
     }
 
     try {
-      parsedSections = JSON.parse(sectionsLiteral);
+      indexSceneNodesById(nodes);
     } catch {
-      return {
-        applied: false,
-        reason:
-          "App.tsx sections data is no longer valid JSON, so scene sync is unsupported.",
-        sceneDocument: null
-      };
+      return failClosed(
+        "opendesign.sync.json produced duplicate section ids, so scene sync is unsupported."
+      );
     }
 
-    syncReasonPrefix =
-      "Saved App.tsx still matches the supported legacy scaffold pattern, so section data synced back into the scene document.";
-  } else {
+    if (
+      JSON.stringify(nodes) === JSON.stringify(input.currentSceneDocument.nodes)
+    ) {
+      return failClosed(
+        "Supported opendesign.sync.json section data already matches the current scene."
+      );
+    }
+
     return {
-      applied: false,
+      applied: true,
       reason:
-        "opendesign.sync.json is present but invalid, so scene sync is limited to the saved code workspace only.",
-      sceneDocument: null
+        "Saved code workspace still matches the supported stable sync payload, so section data synced back into the scene document.",
+      sceneDocument: {
+        ...input.currentSceneDocument,
+        version: input.currentSceneDocument.version + 1,
+        nodes
+      }
     };
   }
 
-  const nodes = buildSceneNodesFromSections(parsedSections);
+  if (
+    input.artifactKind === "website" &&
+    syncPayloadDecision.status !== "missing"
+  ) {
+    return failClosed(
+      "opendesign.sync.json is present but invalid, so scene sync is limited to the saved code workspace only."
+    );
+  }
 
-  if (!nodes) {
-    return {
-      applied: false,
-      reason:
-        syncPayloadDecision.status === "valid"
-          ? "opendesign.sync.json contains unsupported section data, so scene sync is limited to the saved code workspace only."
-          : "App.tsx contains unsupported section data, so scene sync is limited to the saved code workspace only.",
-      sceneDocument: null
-    };
+  if (typeof appCode !== "string" || appCode.trim().length === 0) {
+    return failClosed(
+      `Code workspace is missing /App.tsx, so scene sync is unsupported. ${UNSUPPORTED_SCAFFOLD_HINT}`
+    );
+  }
+
+  const parsed = parseAppCodeForArtifactKind({
+    artifactKind: input.artifactKind,
+    appCode
+  });
+
+  if (parsed.status === "failed") {
+    return parsed.decision;
   }
 
   try {
-    indexSceneNodesById(nodes);
+    indexSceneNodesById(parsed.nodes);
   } catch {
-    return {
-      applied: false,
-      reason:
-        syncPayloadDecision.status === "valid"
-          ? "opendesign.sync.json produced duplicate section ids, so scene sync is unsupported."
-          : "App.tsx produced duplicate section ids, so scene sync is unsupported.",
-      sceneDocument: null
-    };
+    return failClosed(
+      "App.tsx produced duplicate scene node ids, so scene sync is unsupported."
+    );
   }
 
-  if (JSON.stringify(nodes) === JSON.stringify(input.currentSceneDocument.nodes)) {
-    return {
-      applied: false,
-      reason:
-        syncPayloadDecision.status === "valid"
-          ? "Supported opendesign.sync.json section data already matches the current scene."
-          : "Supported legacy App.tsx section data already matches the current scene.",
-      sceneDocument: null
-    };
+  if (
+    JSON.stringify(parsed.nodes) ===
+    JSON.stringify(input.currentSceneDocument.nodes)
+  ) {
+    return failClosed(
+      "Supported App.tsx scene data already matches the current scene."
+    );
   }
 
   return {
     applied: true,
-    reason: syncReasonPrefix,
+    reason: parsed.reasonPrefix,
     sceneDocument: {
       ...input.currentSceneDocument,
       version: input.currentSceneDocument.version + 1,
-      nodes
+      nodes: parsed.nodes
     }
   };
 };

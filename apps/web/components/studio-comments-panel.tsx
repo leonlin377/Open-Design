@@ -31,15 +31,15 @@ export function StudioCommentsPanel({
   return (
     <>
       <Surface className="kv">
-        <span>Artifact Intent</span>
+        <span>Intent</span>
         {workspaceIntent}
       </Surface>
       <Surface className="kv">
-        <span>Active Frame</span>
+        <span>Active frame</span>
         {frameLabel}
       </Surface>
       <Surface className="kv">
-        <span>Sync Strategy</span>
+        <span>Sync strategy</span>
         {syncStrategy}
       </Surface>
       <Surface className="project-card" as="section">
@@ -82,7 +82,9 @@ export function StudioCommentsPanel({
           <p className="footer-note">Resolve feedback as the artifact converges.</p>
         </div>
         <div className="stack-form">
-          {comments.length === 0 ? <div className="footer-note">No comments yet.</div> : null}
+          {comments.length === 0 ? (
+            <div className="footer-note">Nothing here yet. Add the first note to get the review going.</div>
+          ) : null}
           {comments.map((comment) => (
             <Surface key={comment.id} className="kv">
               <span>{comment.status} · {comment.anchor.elementId ?? "artifact-canvas"}</span>

@@ -10,3 +10,5 @@ output
 pnpm-debug.log*
 *.tsbuildinfo
 storage
+apps/desktop/src-tauri/target/
+apps/desktop/dist/

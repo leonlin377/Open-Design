@@ -2,9 +2,18 @@ import { describe, expect, test } from "vitest";
 
 import {
   appendRootSceneNode,
+  buildPrototypeScreen,
+  buildPrototypeScreenCta,
+  buildPrototypeScreenLink,
+  buildSlide,
+  buildWebsiteSection,
   createEmptySceneDocument,
   indexSceneNodesById,
-  updateRootSceneNode
+  updateRootSceneNode,
+  validatePrototypeSceneDocument,
+  validateSceneDocumentByKind,
+  validateSlidesSceneDocument,
+  validateWebsiteSceneDocument
 } from "../src/index";
 
 describe("createEmptySceneDocument", () => {
@@ -175,5 +184,146 @@ describe("updateRootSceneNode", () => {
         }
       })
     ).toThrowError(/not found/i);
+  });
+});
+
+describe("per-artifact-kind template factories", () => {
+  test("buildPrototypeScreen produces a type=screen node", () => {
+    const node = buildPrototypeScreen({
+      id: "screen_1",
+      name: "Welcome",
+      headline: "Start"
+    });
+
+    expect(node.type).toBe("screen");
+    expect(node.name).toBe("Welcome");
+    expect(node.props.headline).toBe("Start");
+  });
+
+  test("buildPrototypeScreenLink produces a type=screen-link node with endpoints", () => {
+    const node = buildPrototypeScreenLink({
+      id: "link_1",
+      from: "screen_1",
+      to: "screen_2"
+    });
+
+    expect(node.type).toBe("screen-link");
+    expect(node.props.from).toBe("screen_1");
+    expect(node.props.to).toBe("screen_2");
+    expect(node.props.trigger).toBe("tap");
+  });
+
+  test("buildPrototypeScreenCta produces a type=screen-cta node with actions", () => {
+    const node = buildPrototypeScreenCta({
+      id: "cta_1",
+      primaryAction: "Next"
+    });
+
+    expect(node.type).toBe("screen-cta");
+    expect(node.props.primaryAction).toBe("Next");
+  });
+
+  test("buildSlide produces a type matching the requested slide role", () => {
+    const title = buildSlide({ id: "s1", role: "slide-title", headline: "Atlas Q2" });
+    const content = buildSlide({
+      id: "s2",
+      role: "slide-content",
+      bullets: ["A", "B"]
+    });
+    const closing = buildSlide({ id: "s3", role: "slide-closing" });
+
+    expect(title.type).toBe("slide-title");
+    expect(content.type).toBe("slide-content");
+    expect(content.props.bullets).toEqual(["A", "B"]);
+    expect(closing.type).toBe("slide-closing");
+  });
+});
+
+describe("per-artifact-kind scene document validators", () => {
+  test("validatePrototypeSceneDocument accepts prototype scenes with typed nodes", () => {
+    const base = createEmptySceneDocument({
+      id: "scene_proto",
+      artifactId: "artifact_proto",
+      kind: "prototype"
+    });
+    const scene = appendRootSceneNode(base, buildPrototypeScreen({ id: "screen_1" }));
+    const withLink = appendRootSceneNode(
+      scene,
+      buildPrototypeScreenLink({ id: "link_1", from: "screen_1", to: "screen_1" })
+    );
+
+    const validated = validatePrototypeSceneDocument(withLink);
+    expect(validated.kind).toBe("prototype");
+    expect(validated.nodes.map((node) => node.type)).toEqual(["screen", "screen-link"]);
+  });
+
+  test("validateSlidesSceneDocument accepts slides with slide-* typed nodes", () => {
+    const base = createEmptySceneDocument({
+      id: "scene_slides",
+      artifactId: "artifact_slides",
+      kind: "slides"
+    });
+    const scene = [
+      buildSlide({ id: "s1", role: "slide-title" }),
+      buildSlide({ id: "s2", role: "slide-content" }),
+      buildSlide({ id: "s3", role: "slide-closing" })
+    ].reduce(appendRootSceneNode, base);
+
+    const validated = validateSlidesSceneDocument(scene);
+    expect(validated.nodes.map((node) => node.type)).toEqual([
+      "slide-title",
+      "slide-content",
+      "slide-closing"
+    ]);
+  });
+
+  test("rejects a prototype scene that embeds a website template node type", () => {
+    const base = createEmptySceneDocument({
+      id: "scene_bad",
+      artifactId: "artifact_bad",
+      kind: "prototype"
+    });
+    const scene = appendRootSceneNode(
+      base,
+      buildWebsiteSection({ id: "hero_1", template: "hero" })
+    );
+
+    expect(() => validatePrototypeSceneDocument(scene)).toThrowError(
+      /Prototype scene nodes/
+    );
+  });
+
+  test("rejects a website scene that embeds a prototype template node type", () => {
+    const base = createEmptySceneDocument({
+      id: "scene_bad",
+      artifactId: "artifact_bad",
+      kind: "website"
+    });
+    const scene = appendRootSceneNode(base, buildPrototypeScreen({ id: "screen_1" }));
+
+    expect(() => validateWebsiteSceneDocument(scene)).toThrowError(
+      /Website scene nodes/
+    );
+  });
+
+  test("validateSceneDocumentByKind dispatches by the document kind discriminator", () => {
+    const websiteScene = appendRootSceneNode(
+      createEmptySceneDocument({
+        id: "scene_web",
+        artifactId: "artifact_web",
+        kind: "website"
+      }),
+      buildWebsiteSection({ id: "hero_1", template: "hero" })
+    );
+
+    const validated = validateSceneDocumentByKind(websiteScene);
+    expect(validated.kind).toBe("website");
+
+    // Cross-kind: label the scene as prototype but contents are website-style
+    const mislabeled = {
+      ...websiteScene,
+      kind: "prototype" as const
+    };
+    expect(() => validateSceneDocumentByKind(mislabeled)).toThrowError();
   });
 });

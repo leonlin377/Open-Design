@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ArtifactGenerateStreamEvent } from "@opendesign/contracts";
 import { Button, Surface } from "@opendesign/ui";
@@ -16,9 +16,15 @@ type StudioGeneratePanelProps = {
   initialPrompt: string;
 };
 
+type RetryHandle =
+  | { retryable: true; prompt: string; designSystemPackId?: string }
+  | { retryable: false }
+  | null;
+
 async function readGenerationEventStream(
   response: Response,
-  onEvent: (event: ArtifactGenerateStreamEvent) => void
+  onEvent: (event: ArtifactGenerateStreamEvent) => void,
+  signal: AbortSignal
 ) {
   if (!response.body) {
     throw new Error("Generation stream ended before any events were received.");
@@ -27,6 +33,12 @@ async function readGenerationEventStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const onAbort = () => {
+    reader.cancel().catch(() => {
+      /* reader already closed */
+    });
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
 
   function flushFrames(input: string) {
     const frames = input.split(/\r?\n\r?\n/);
@@ -47,50 +59,69 @@ async function readGenerationEventStream(
     }
   }
 
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    flushFrames(buffer);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      flushFrames(buffer);
 
-    if (done) {
-      break;
+      if (done) {
+        break;
+      }
     }
-  }
 
-  if (buffer.trim().length > 0) {
-    flushFrames(`${buffer}\n\n`);
+    if (buffer.trim().length > 0) {
+      flushFrames(`${buffer}\n\n`);
+    }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
 }
 
+type StreamOutcome =
+  | { kind: "completed"; payload: ApiArtifactGenerateResponse }
+  | { kind: "failed"; message: string; retry: RetryHandle };
+
 async function consumeGenerationStream(
   response: Response,
-  onProgress: (message: string) => void
-): Promise<ApiArtifactGenerateResponse> {
+  onProgress: (message: string) => void,
+  signal: AbortSignal
+): Promise<StreamOutcome> {
   let completedPayload: ApiArtifactGenerateResponse | null = null;
   let failureMessage: string | null = null;
+  let retry: RetryHandle = null;
 
-  await readGenerationEventStream(response, (event) => {
-    onProgress(event.message);
+  await readGenerationEventStream(
+    response,
+    (event) => {
+      onProgress(event.message);
 
-    if (event.type === "failed") {
-      failureMessage = readApiErrorMessage(event.error, "Artifact generation failed.");
-      return;
-    }
+      if (event.type === "failed") {
+        failureMessage = readApiErrorMessage(event.error, "Artifact generation failed.");
+        retry = event.retry ?? null;
+        return;
+      }
 
-    if (event.type === "completed") {
-      completedPayload = event.result;
-    }
-  });
+      if (event.type === "completed") {
+        completedPayload = event.result;
+      }
+    },
+    signal
+  );
 
   if (failureMessage) {
-    throw new Error(failureMessage);
+    return { kind: "failed", message: failureMessage, retry };
   }
 
   if (!completedPayload) {
-    throw new Error("Generation stream ended before a completion event was received.");
+    return {
+      kind: "failed",
+      message: "Generation stream ended before a completion event was received.",
+      retry: null
+    };
   }
 
-  return completedPayload;
+  return { kind: "completed", payload: completedPayload };
 }
 
 export function StudioGeneratePanel({
@@ -107,6 +138,9 @@ export function StudioGeneratePanel({
     tone: "success" | "warning" | "error";
     message: string;
   } | null>(null);
+  const [retryHandle, setRetryHandle] = useState<RetryHandle>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const affordance = getArtifactEditorAffordance(artifactKind);
   const unitPluralLabel = `${affordance.unitLabel}s`;
   const apiOrigin = useMemo(
@@ -118,64 +152,127 @@ export function StudioGeneratePanel({
     setPrompt(initialPrompt);
   }, [initialPrompt]);
 
-  function handleGenerate() {
-    startTransition(async () => {
-      try {
-        setFeedback(null);
-        setProgressMessage("Connecting to the generation pipeline.");
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
-        const response = await fetch(
-          `${apiOrigin}/api/projects/${projectId}/artifacts/${artifactId}/generate`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              accept: "text/event-stream",
-              "content-type": "application/json"
-            },
-            body: JSON.stringify({
-              prompt
-            })
+  const runGeneration = useCallback(
+    (promptToUse: string) => {
+      startTransition(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        try {
+          setFeedback(null);
+          setRetryHandle(null);
+          setProgressMessage("Connecting to the generation pipeline.");
+
+          const response = await fetch(
+            `${apiOrigin}/api/projects/${projectId}/artifacts/${artifactId}/generate`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                accept: "text/event-stream",
+                "content-type": "application/json"
+              },
+              body: JSON.stringify({ prompt: promptToUse }),
+              signal: controller.signal
+            }
+          );
+
+          if (!response.ok) {
+            throw await buildApiRequestError(response, "Artifact generation failed.");
           }
-        );
 
-        if (!response.ok) {
-          throw await buildApiRequestError(response, "Artifact generation failed.");
+          const outcome = await consumeGenerationStream(
+            response,
+            (message) => setProgressMessage(message),
+            controller.signal
+          );
+
+          if (outcome.kind === "failed") {
+            setRetryHandle(outcome.retry);
+            setFeedback({ tone: "error", message: outcome.message });
+            setProgressMessage(null);
+            return;
+          }
+
+          const appendedNodeCount =
+            outcome.payload.generation.scenePatch.appendedNodes.length;
+          const unitLabel =
+            appendedNodeCount === 1
+              ? affordance.unitLabel
+              : `${affordance.unitLabel}s`;
+
+          setFeedback(
+            outcome.payload.generation.diagnostics.warning
+              ? {
+                  tone: "warning",
+                  message: `${outcome.payload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${unitLabel} for this pass.`
+                }
+              : {
+                  tone: "success",
+                  message: `Generated ${appendedNodeCount} ${unitLabel} via ${outcome.payload.generation.plan.provider} and refreshed the Studio workspace.`
+                }
+          );
+          setRetryHandle(null);
+          setProgressMessage(null);
+          router.refresh();
+        } catch (error) {
+          setProgressMessage(null);
+          if (controller.signal.aborted) {
+            setFeedback({
+              tone: "warning",
+              message: "Generation cancelled."
+            });
+            setRetryHandle({ retryable: true, prompt: promptToUse });
+            return;
+          }
+          setFeedback({
+            tone: "error",
+            message:
+              error instanceof Error ? error.message : "Artifact generation failed."
+          });
+        } finally {
+          setCancelling(false);
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null;
+          }
         }
+      });
+    },
+    [affordance.unitLabel, apiOrigin, artifactId, projectId, router]
+  );
 
-        const completedPayload = await consumeGenerationStream(response, (message) => {
-          setProgressMessage(message);
-        });
+  async function handleCancel() {
+    if (!pending || cancelling) {
+      return;
+    }
+    setCancelling(true);
+    try {
+      // Server-side cancel — aborts the upstream fetch and emits a failed
+      // event on the stream. We also abort the local fetch to drop the socket.
+      await fetch(
+        `${apiOrigin}/api/projects/${projectId}/artifacts/${artifactId}/generate/cancel`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      ).catch(() => {
+        /* ignored — the local abort below still ends the stream */
+      });
+    } finally {
+      abortControllerRef.current?.abort();
+    }
+  }
 
-        const appendedNodeCount =
-          completedPayload.generation.scenePatch.appendedNodes.length;
-        const unitLabel =
-          appendedNodeCount === 1
-            ? affordance.unitLabel
-            : `${affordance.unitLabel}s`;
-
-        setFeedback(
-          completedPayload.generation.diagnostics.warning
-            ? {
-                tone: "warning",
-                message: `${completedPayload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${unitLabel} for this pass.`
-              }
-            : {
-                tone: "success",
-                message: `Generated ${appendedNodeCount} ${unitLabel} via ${completedPayload.generation.plan.provider} and refreshed the Studio workspace.`
-              }
-        );
-        setProgressMessage(null);
-        router.refresh();
-      } catch (error) {
-        setProgressMessage(null);
-        setFeedback({
-          tone: "error",
-          message:
-            error instanceof Error ? error.message : "Artifact generation failed."
-        });
-      }
-    });
+  function handleRetry() {
+    if (!retryHandle?.retryable) {
+      return;
+    }
+    runGeneration(retryHandle.prompt);
   }
 
   return (
@@ -185,22 +282,23 @@ export function StudioGeneratePanel({
         <p className="footer-note">
           Send a prompt into the generation pipeline. LiteLLM streams are used when
           configured; otherwise the backend falls back to the local heuristic planner.
+          Cancel an in-flight pass or retry a recoverable failure without retyping.
         </p>
       </div>
       <div className="studio-status-row">
         <span className={pending ? "status-pill warning" : "status-pill success"}>
-          {pending ? "Generating" : "Generation Ready"}
+          {pending ? (cancelling ? "Cancelling" : "Generating") : "Ready"}
         </span>
         <span className="footer-note">
           {pending
-            ? progressMessage ?? "Waiting for the generation pass to finish and refresh the workspace."
+            ? progressMessage ?? "Waiting for the pass to finish and refresh the workspace."
             : `A completed pass appends new ${unitPluralLabel} and creates a prompt snapshot.`}
         </span>
       </div>
       {!pending ? (
         <Surface className="kv" as="section">
-          <span>Suggested starting prompts</span>
-          {affordance.starterPrompts.join(" / ")}
+          <span>Suggested prompts</span>
+          {affordance.starterPrompts.join(" · ")}
         </Surface>
       ) : null}
       {feedback ? (
@@ -223,14 +321,30 @@ export function StudioGeneratePanel({
             required
           />
         </label>
-        <Button
-          variant="primary"
-          type="button"
-          onClick={handleGenerate}
-          disabled={pending || prompt.trim().length === 0}
-        >
-          {pending ? "Generating..." : "Generate Pass"}
-        </Button>
+        <div className="studio-generate-actions">
+          <Button
+            variant="primary"
+            type="button"
+            onClick={() => runGeneration(prompt)}
+            disabled={pending || prompt.trim().length === 0}
+          >
+            {pending ? (cancelling ? "Cancelling…" : "Generating…") : "Generate Pass"}
+          </Button>
+          {pending ? (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={handleCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? "Cancelling…" : "Cancel"}
+            </Button>
+          ) : retryHandle?.retryable ? (
+            <Button variant="outline" type="button" onClick={handleRetry}>
+              Retry last prompt
+            </Button>
+          ) : null}
+        </div>
       </div>
     </Surface>
   );

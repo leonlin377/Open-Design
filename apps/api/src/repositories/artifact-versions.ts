@@ -92,6 +92,18 @@ function mapVersionStateRecord(record: {
 export class InMemoryArtifactVersionRepository implements ArtifactVersionRepository {
   private versionStates: ArtifactVersionState[] = [];
 
+  /**
+   * Internal helper used by transactional write-paths to snapshot the current
+   * version states so they can be restored if the surrounding workflow fails.
+   */
+  _captureSnapshot(): ArtifactVersionState[] {
+    return this.versionStates.slice();
+  }
+
+  _restoreSnapshot(snapshot: ArtifactVersionState[]): void {
+    this.versionStates = snapshot.slice();
+  }
+
   async listByArtifactId(artifactId: string): Promise<ArtifactVersionSnapshot[]> {
     return this.versionStates
       .filter((version) => version.snapshot.artifactId === artifactId)

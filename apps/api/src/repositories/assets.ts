@@ -82,7 +82,13 @@ export class InMemoryAssetRepository implements AssetRepository {
     contentType: string;
     sizeBytes: number;
   }): Promise<AssetRecord> {
-    const timestamp = new Date().toISOString();
+    // Ensure strictly-monotonic createdAt so back-to-back creates within the
+    // same millisecond still sort deterministically by insertion order.
+    const now = new Date().toISOString();
+    const lastTimestamp = this.lastCreatedAt ?? "";
+    const timestamp = now > lastTimestamp ? now : this.bumpTimestamp(lastTimestamp);
+    this.lastCreatedAt = timestamp;
+
     const record: AssetRecord = {
       id: crypto.randomUUID(),
       ownerUserId: input.ownerUserId ?? null,
@@ -99,6 +105,16 @@ export class InMemoryAssetRepository implements AssetRepository {
 
     this.assets.set(record.id, record);
     return record;
+  }
+
+  private lastCreatedAt: string | null = null;
+
+  private bumpTimestamp(previous: string): string {
+    const parsed = Date.parse(previous);
+    if (!Number.isFinite(parsed)) {
+      return new Date().toISOString();
+    }
+    return new Date(parsed + 1).toISOString();
   }
 
   async getById(id: string, input?: { ownerUserId?: string | null }): Promise<AssetRecord | null> {

@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src-tauri/**/*.ts"],
+  "exclude": ["src-tauri/target", "node_modules", "dist"]
+}

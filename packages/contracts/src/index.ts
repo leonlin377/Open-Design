@@ -1,7 +1,47 @@
 import { z } from "zod";
 
 export const ArtifactKindSchema = z.enum(["website", "prototype", "slides"]);
+
+// Website template kinds — preserved for backward compatibility with existing
+// website-specific append/template APIs and scene patch schemas.
 export const SceneTemplateKindSchema = z.enum(["hero", "feature-grid", "cta"]);
+export const WebsiteSceneTemplateKindSchema = SceneTemplateKindSchema;
+
+// Prototype node kinds — a prototype scene is a flow of screens wired together
+// by `screen-link` transitions, optionally featuring `screen-cta` action beats.
+export const PrototypeSceneTemplateKindSchema = z.enum([
+  "screen",
+  "screen-link",
+  "screen-cta"
+]);
+
+// Slides node kinds — a deck exposes typed slide roles so exporters can emit a
+// well-structured deck outline instead of a generic section list.
+export const SlidesSceneTemplateKindSchema = z.enum([
+  "slide-title",
+  "slide-content",
+  "slide-closing"
+]);
+
+// Superset of every scene template kind, keyed back to its artifact kind via
+// SCENE_TEMPLATE_KINDS_BY_ARTIFACT_KIND. Consumers that need to branch on the
+// active artifact kind should use the per-kind schemas above; this union is
+// only for places that legitimately accept any template kind (e.g. generation
+// plans whose output depends on the target artifact kind).
+export const ArtifactSceneTemplateKindSchema = z.union([
+  WebsiteSceneTemplateKindSchema,
+  PrototypeSceneTemplateKindSchema,
+  SlidesSceneTemplateKindSchema
+]);
+
+export const SCENE_TEMPLATE_KINDS_BY_ARTIFACT_KIND = {
+  website: WebsiteSceneTemplateKindSchema,
+  prototype: PrototypeSceneTemplateKindSchema,
+  slides: SlidesSceneTemplateKindSchema
+} as const;
+
+export const getSceneTemplateKindSchemaFor = (kind: z.infer<typeof ArtifactKindSchema>) =>
+  SCENE_TEMPLATE_KINDS_BY_ARTIFACT_KIND[kind];
 
 export const ViewportRectSchema = z.object({
   x: z.number().finite(),
@@ -54,6 +94,127 @@ export const SceneDocumentSchema = z.object({
     designSystemPackId: z.string().min(1).optional()
   })
 });
+
+// Per-artifact-kind scene node schemas enforce that the runtime `type` field
+// is drawn from the correct typed vocabulary for that artifact kind. A
+// website node with type="screen" (or vice versa) must fail validation.
+const WEBSITE_NODE_TYPES = new Set([
+  "section",
+  "hero",
+  "feature-grid",
+  "cta",
+  "frame",
+  "root",
+  "freeform"
+]);
+const PROTOTYPE_NODE_TYPES: ReadonlySet<string> = new Set<string>(
+  PrototypeSceneTemplateKindSchema.options
+);
+const SLIDES_NODE_TYPES: ReadonlySet<string> = new Set<string>(
+  SlidesSceneTemplateKindSchema.options
+);
+
+export const WebsiteSceneNodeSchema: z.ZodType<SceneNodeShape> = z.lazy(() =>
+  z
+    .object({
+      id: z.string().min(1),
+      type: z.string().min(1),
+      name: z.string().min(1),
+      props: z.record(z.string(), z.unknown()).default({}),
+      children: z.array(WebsiteSceneNodeSchema).default([])
+    })
+    .superRefine((value, ctx) => {
+      if (!WEBSITE_NODE_TYPES.has(value.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["type"],
+          message: `Website scene nodes cannot use node type "${value.type}".`
+        });
+      }
+    })
+);
+
+export const PrototypeSceneNodeSchema: z.ZodType<SceneNodeShape> = z.lazy(() =>
+  z
+    .object({
+      id: z.string().min(1),
+      type: z.string().min(1),
+      name: z.string().min(1),
+      props: z.record(z.string(), z.unknown()).default({}),
+      children: z.array(PrototypeSceneNodeSchema).default([])
+    })
+    .superRefine((value, ctx) => {
+      if (!PROTOTYPE_NODE_TYPES.has(value.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["type"],
+          message: `Prototype scene nodes must use one of ${[...PROTOTYPE_NODE_TYPES].join(", ")}; got "${value.type}".`
+        });
+      }
+    })
+);
+
+export const SlidesSceneNodeSchema: z.ZodType<SceneNodeShape> = z.lazy(() =>
+  z
+    .object({
+      id: z.string().min(1),
+      type: z.string().min(1),
+      name: z.string().min(1),
+      props: z.record(z.string(), z.unknown()).default({}),
+      children: z.array(SlidesSceneNodeSchema).default([])
+    })
+    .superRefine((value, ctx) => {
+      if (!SLIDES_NODE_TYPES.has(value.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["type"],
+          message: `Slides scene nodes must use one of ${[...SLIDES_NODE_TYPES].join(", ")}; got "${value.type}".`
+        });
+      }
+    })
+);
+
+export const WebsiteSceneDocumentSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  kind: z.literal("website"),
+  version: z.number().int().positive(),
+  nodes: z.array(WebsiteSceneNodeSchema),
+  metadata: z.object({
+    themeId: z.string().min(1).optional(),
+    designSystemPackId: z.string().min(1).optional()
+  })
+});
+
+export const PrototypeSceneDocumentSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  kind: z.literal("prototype"),
+  version: z.number().int().positive(),
+  nodes: z.array(PrototypeSceneNodeSchema),
+  metadata: z.object({
+    themeId: z.string().min(1).optional(),
+    designSystemPackId: z.string().min(1).optional()
+  })
+});
+
+export const SlidesSceneDocumentSchema = z.object({
+  id: z.string().min(1),
+  artifactId: z.string().min(1),
+  kind: z.literal("slides"),
+  version: z.number().int().positive(),
+  nodes: z.array(SlidesSceneNodeSchema),
+  metadata: z.object({
+    themeId: z.string().min(1).optional(),
+    designSystemPackId: z.string().min(1).optional()
+  })
+});
+
+export const TypedSceneDocumentSchema = z.discriminatedUnion("kind", [
+  WebsiteSceneDocumentSchema,
+  PrototypeSceneDocumentSchema,
+  SlidesSceneDocumentSchema
+]);
 
 export const ArtifactAssetKindSchema = z.enum([
   "design-system-screenshot",
@@ -158,11 +319,15 @@ export const ArtifactGenerationDesignSystemSchema = z.object({
   componentCount: z.number().int().nonnegative()
 });
 
+export const ArtifactGenerationModeSchema = z.enum(["template", "freeform"]);
+
 export const ArtifactGenerationPlanSchema = z.object({
   prompt: z.string().min(1),
   intent: z.string().min(1),
   rationale: z.string().min(1),
-  sections: z.array(SceneTemplateKindSchema).min(1).max(6),
+  mode: ArtifactGenerationModeSchema.default("template"),
+  sections: z.array(ArtifactSceneTemplateKindSchema).min(1).max(6).optional(),
+  freeformFiles: z.record(z.string(), z.string()).optional(),
   provider: ArtifactGenerationProviderSchema,
   designSystem: ArtifactGenerationDesignSystemSchema.optional()
 });
@@ -177,11 +342,11 @@ export const ArtifactScenePatchNodeSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
   name: z.string().min(1),
-  template: SceneTemplateKindSchema
+  template: z.union([ArtifactSceneTemplateKindSchema, z.literal("freeform")])
 });
 
 export const ArtifactScenePatchSchema = z.object({
-  mode: z.enum(["append-root-sections", "no-op"]),
+  mode: z.enum(["append-root-sections", "freeform-inject", "no-op"]),
   rationale: z.string().min(1),
   appendedNodes: z.array(ArtifactScenePatchNodeSchema)
 });
@@ -224,7 +389,10 @@ export const ApiErrorCodeSchema = z.enum([
   "EXPORT_NOT_SUPPORTED",
   "GENERATION_TIMEOUT",
   "GENERATION_PROVIDER_FAILURE",
-  "INVALID_GENERATION_PLAN"
+  "INVALID_GENERATION_PLAN",
+  "GENERATION_CANCELLED",
+  "GENERATION_ALREADY_RUNNING",
+  "GENERATION_QUOTA_EXCEEDED"
 ]);
 
 export const ApiErrorSchema = z.object({
@@ -375,7 +543,19 @@ export const ArtifactGenerateStreamEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("failed"),
     message: z.string().min(1),
-    error: ApiErrorSchema
+    error: ApiErrorSchema,
+    retry: z
+      .discriminatedUnion("retryable", [
+        z.object({
+          retryable: z.literal(true),
+          prompt: z.string().min(1),
+          designSystemPackId: z.string().min(1).optional()
+        }),
+        z.object({
+          retryable: z.literal(false)
+        })
+      ])
+      .optional()
   })
 ]);
 
@@ -415,6 +595,14 @@ export const DesignSystemPackSchema = z.object({
 
 export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
 export type SceneTemplateKind = z.infer<typeof SceneTemplateKindSchema>;
+export type WebsiteSceneTemplateKind = z.infer<typeof WebsiteSceneTemplateKindSchema>;
+export type PrototypeSceneTemplateKind = z.infer<typeof PrototypeSceneTemplateKindSchema>;
+export type SlidesSceneTemplateKind = z.infer<typeof SlidesSceneTemplateKindSchema>;
+export type ArtifactSceneTemplateKind = z.infer<typeof ArtifactSceneTemplateKindSchema>;
+export type WebsiteSceneDocument = z.infer<typeof WebsiteSceneDocumentSchema>;
+export type PrototypeSceneDocument = z.infer<typeof PrototypeSceneDocumentSchema>;
+export type SlidesSceneDocument = z.infer<typeof SlidesSceneDocumentSchema>;
+export type TypedSceneDocument = z.infer<typeof TypedSceneDocumentSchema>;
 export type ArtifactCommentStatus = z.infer<typeof ArtifactCommentStatusSchema>;
 export type ArtifactVersionSource = z.infer<typeof ArtifactVersionSourceSchema>;
 export type ArtifactSyncPlan = z.infer<typeof ArtifactSyncPlanSchema>;
@@ -428,6 +616,7 @@ export type ArtifactGenerationTransport = z.infer<typeof ArtifactGenerationTrans
 export type ArtifactGenerationDesignSystem = z.infer<
   typeof ArtifactGenerationDesignSystemSchema
 >;
+export type ArtifactGenerationMode = z.infer<typeof ArtifactGenerationModeSchema>;
 export type ArtifactGenerationPlan = z.infer<typeof ArtifactGenerationPlanSchema>;
 export type ArtifactGenerationDiagnostics = z.infer<
   typeof ArtifactGenerationDiagnosticsSchema
@@ -464,3 +653,10 @@ export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
 export type SceneNode = z.infer<typeof SceneNodeSchema>;
 export type SceneDocument = z.infer<typeof SceneDocumentSchema>;
 export type DesignSystemPack = z.infer<typeof DesignSystemPackSchema>;
+
+// Round-4 parity additions
+export * from "./chat";
+export * from "./artifact-theme";
+export * from "./image-generation";
+export * from "./remix";
+export * from "./generation-extras";

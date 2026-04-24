@@ -6,8 +6,28 @@ import {
   type ApiArtifactAsset
 } from "../lib/opendesign-api";
 import { getArtifactEditorAffordance } from "./studio-artifact-affordances";
+import { StudioImagePickerButton } from "./studio-image-picker";
 
 const sceneTemplates = ["hero", "feature-grid", "cta"] as const;
+
+// Human-readable descriptions for typed prototype/slides node kinds that
+// cannot be mapped onto the legacy website template vocabulary.
+const typedNodeDescriptions: Record<string, string> = {
+  screen: "Flow state with headline, body, and orientation copy.",
+  "screen-link": "Read-only transition between two flow screens (from → to).",
+  "screen-cta": "Action state with primary and secondary CTA labels.",
+  "slide-title": "Opening slide with title, thesis, and framing copy.",
+  "slide-content": "Supporting slide with bullets, evidence, or structured points.",
+  "slide-closing": "Closing slide with takeaway, ask, or final CTA."
+};
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
 
 const defaultFeatureGridItems = [
   {
@@ -91,7 +111,7 @@ export function StudioSceneSectionsPanel({
         {sceneNodes.length === 0 ? (
           <Surface className="onboarding-card starter-checklist" as="section">
             <div className="onboarding-card-head">
-              <Badge tone="outline">Starter checklist</Badge>
+              <Badge tone="outline">Get started</Badge>
               <strong>{affordance.emptyStateLabel}</strong>
             </div>
             <div className="onboarding-steps compact">
@@ -124,6 +144,22 @@ export function StudioSceneSectionsPanel({
                   body: featureItems[index]?.body ?? defaultFeatureGridItems[index]!.body
                 }))
               : [];
+          const isWebsiteTemplate =
+            template === "hero" || template === "feature-grid" || template === "cta";
+          const descriptionText = isWebsiteTemplate
+            ? affordance.templateDescriptions[template as (typeof sceneTemplates)[number]]
+            : (typedNodeDescriptions[template] ?? `Typed ${template} node.`);
+          const bullets = readStringList(node.props.bullets);
+          // Prototype `screen-link` nodes carry `from`/`to`/`trigger` props but
+          // have no editable text fields; surface them as a read-only summary
+          // card rather than corrupt the update form with empty text inputs.
+          const isReadOnlyTransition = template === "screen-link";
+          const transitionFrom =
+            typeof node.props.from === "string" ? node.props.from : null;
+          const transitionTo =
+            typeof node.props.to === "string" ? node.props.to : null;
+          const transitionTrigger =
+            typeof node.props.trigger === "string" ? node.props.trigger : null;
 
           return (
             <Surface key={node.id} className="project-card" as="section">
@@ -132,18 +168,16 @@ export function StudioSceneSectionsPanel({
                 <p className="footer-note">
                   {template} · {node.id.slice(-8)}
                 </p>
-                <p className="footer-note">
-                  {
-                    affordance.templateDescriptions[
-                      (template === "hero" ||
-                      template === "feature-grid" ||
-                      template === "cta"
-                        ? template
-                        : "hero") as (typeof sceneTemplates)[number]
-                    ]
-                  }
-                </p>
+                <p className="footer-note">{descriptionText}</p>
               </div>
+              {isReadOnlyTransition ? (
+                <div className="project-meta">
+                  <span>From: {transitionFrom ?? "(unset)"}</span>
+                  <span>To: {transitionTo ?? "(unset)"}</span>
+                  <span>Trigger: {transitionTrigger ?? "tap"}</span>
+                </div>
+              ) : null}
+              {!isReadOnlyTransition ? (
               <form action={updateSceneNodeAction} className="stack-form">
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="artifactId" value={artifactId} />
@@ -260,15 +294,33 @@ export function StudioSceneSectionsPanel({
                         placeholder="Describe the attached hero asset"
                       />
                     </label>
-                    {imageAsset ? (
-                      <input type="hidden" name="imageAssetId" value={imageAsset.id} />
-                    ) : null}
+                    <StudioImagePickerButton
+                      projectId={projectId}
+                      artifactId={artifactId}
+                      {...(shareToken ? { shareToken } : {})}
+                      nodeId={node.id}
+                      currentImageAssetId={imageAsset ? imageAsset.id : null}
+                      currentImageAlt={imageAlt}
+                      existingAssets={assets}
+                      updateSceneNodeAction={updateSceneNodeAction}
+                    />
                   </div>
                 ) : null}
                 <Button variant="ghost" size="sm" type="submit">
                   {affordance.updateButtonLabel}
                 </Button>
               </form>
+              ) : null}
+              {bullets.length > 0 ? (
+                <Surface className="kv" as="section">
+                  <span>Bullets (read-only)</span>
+                  <ul className="footer-note">
+                    {bullets.map((bullet, index) => (
+                      <li key={`${node.id}-bullet-${index}`}>{bullet}</li>
+                    ))}
+                  </ul>
+                </Surface>
+              ) : null}
               {template === "hero" ? (
                 <form action={uploadArtifactAssetAction} className="stack-form">
                   <input type="hidden" name="projectId" value={projectId} />

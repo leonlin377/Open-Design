@@ -52,6 +52,14 @@ import {
   PostgresExportJobRepository,
   type ExportJobRepository
 } from "./repositories/export-jobs";
+import {
+  InMemoryChatRepository,
+  type ChatRepository
+} from "./repositories/chat";
+import {
+  InMemoryArtifactThemeRepository,
+  type ArtifactThemeRepository
+} from "./repositories/artifact-themes";
 
 const { Pool } = pg;
 
@@ -79,7 +87,15 @@ export interface AppPersistence {
   shares: ShareTokenRepository;
   assets: AssetRepository;
   exportJobs: ExportJobRepository;
+  chat: ChatRepository;
+  themes: ArtifactThemeRepository;
   assetStorage: AssetStorage;
+  /**
+   * Liveness probe for the persistence layer. Memory mode resolves immediately;
+   * postgres mode issues a trivial `select 1`. Rejects with an Error when the
+   * backing store is unreachable.
+   */
+  ping(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -367,6 +383,9 @@ export async function createAppPersistence(input: {
 
   if (!env.DATABASE_URL) {
     const { auth, baseURL } = createAuth({ env });
+    const inMemoryWorkspaces = new InMemoryArtifactWorkspaceRepository();
+    const inMemoryVersions = new InMemoryArtifactVersionRepository();
+    inMemoryWorkspaces.setVersionRepository(inMemoryVersions);
 
     return {
       mode: "memory",
@@ -375,14 +394,17 @@ export async function createAppPersistence(input: {
       authTrustedOrigins: readAuthTrustedOrigins(auth),
       projects: new InMemoryProjectRepository(),
       artifacts: new InMemoryArtifactRepository(),
-      workspaces: new InMemoryArtifactWorkspaceRepository(),
-      versions: new InMemoryArtifactVersionRepository(),
+      workspaces: inMemoryWorkspaces,
+      versions: inMemoryVersions,
       comments: new InMemoryArtifactCommentRepository(),
       designSystems: new InMemoryDesignSystemRepository(),
       shares: new InMemoryShareTokenRepository(),
       assets: new InMemoryAssetRepository(),
       exportJobs: new InMemoryExportJobRepository(),
+      chat: new InMemoryChatRepository(),
+      themes: new InMemoryArtifactThemeRepository(),
       assetStorage,
+      ping: async () => {},
       close: async () => {}
     };
   }
@@ -412,7 +434,18 @@ export async function createAppPersistence(input: {
     shares: new PostgresShareTokenRepository(pool),
     assets: new PostgresAssetRepository(pool),
     exportJobs: new PostgresExportJobRepository(pool),
+    // TODO(persistence): swap to PostgresChatRepository(pool) once the
+    // chat_threads/chat_messages migration lands. Until then the in-memory
+    // repository is the source of truth in both modes so chat stays usable.
+    chat: new InMemoryChatRepository(),
+    // TODO(persistence): swap to a PostgresArtifactThemeRepository once the
+    // artifact_themes migration lands. The in-memory repository is the
+    // durable store for themes in both modes until that ships.
+    themes: new InMemoryArtifactThemeRepository(),
     assetStorage,
+    ping: async () => {
+      await pool.query("select 1");
+    },
     close: async () => {
       await pool.end();
     }

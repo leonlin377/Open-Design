@@ -1,0 +1,16 @@
+{
+  "name": "@opendesign/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OpenDesign Studio — Tauri 2 desktop shell wrapping the Next.js Studio web app.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
+    "typescript": "^5.9.2"
+  }
+}

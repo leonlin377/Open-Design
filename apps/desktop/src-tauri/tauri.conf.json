@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OpenDesign Studio",
+  "version": "0.1.0",
+  "identifier": "app.opendesign.studio",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "http://127.0.0.1:3005",
+    "frontendDist": "http://127.0.0.1:3005"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "OpenDesign Studio",
+        "url": "http://127.0.0.1:3005",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 720,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "titleBarStyle": "Visible"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "dangerousDisableAssetCspModification": false
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "deb", "rpm", "msi", "nsis"],
+    "category": "DeveloperTool",
+    "shortDescription": "OpenDesign Studio desktop shell",
+    "longDescription": "OpenDesign Studio is a Tauri-powered desktop shell wrapping the OpenDesign Next.js Studio web app.",
+    "copyright": "Copyright (c) OpenDesign Contributors",
+    "publisher": "OpenDesign",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.15",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": "entitlements.plist",
+      "hardenedRuntime": true
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
+  },
+  "plugins": {}
+}

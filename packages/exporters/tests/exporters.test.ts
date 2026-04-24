@@ -133,7 +133,7 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Shape the first review-ready section.");
   });
 
-  test("renders a prototype flow storyboard from prototype screens", () => {
+  test("renders a prototype flow storyboard from typed prototype screens and ctas", () => {
     const bundle = buildArtifactHtmlExport({
       artifactName: "Atlas Prototype",
       prompt: "Map a mobile checkout flow.",
@@ -148,7 +148,6 @@ describe("buildArtifactHtmlExport", () => {
             type: "screen",
             name: "Welcome Screen",
             props: {
-              template: "hero",
               eyebrow: "Flow Surface",
               headline: "Start the checkout flow.",
               body: "Lead users into a focused mobile handoff."
@@ -157,10 +156,9 @@ describe("buildArtifactHtmlExport", () => {
           },
           {
             id: "screen_2",
-            type: "screen",
+            type: "screen-cta",
             name: "Offer Screen",
             props: {
-              template: "cta",
               headline: "Confirm the selected plan.",
               body: "Guide the user into the final confirmation step.",
               primaryAction: "Continue",
@@ -179,7 +177,7 @@ describe("buildArtifactHtmlExport", () => {
     expect(bundle.html).toContain("Screen 1");
   });
 
-  test("renders a slides deck storyboard from slide nodes", () => {
+  test("renders a slides deck storyboard from typed slide nodes", () => {
     const bundle = buildArtifactHtmlExport({
       artifactName: "Atlas Deck",
       prompt: "Summarize the board update.",
@@ -191,10 +189,9 @@ describe("buildArtifactHtmlExport", () => {
         nodes: [
           {
             id: "slide_1",
-            type: "slide",
+            type: "slide-title",
             name: "Title Slide",
             props: {
-              template: "hero",
               eyebrow: "Deck Surface",
               headline: "Atlas Q2 board update.",
               body: "Open with the highest-signal company narrative."
@@ -203,24 +200,14 @@ describe("buildArtifactHtmlExport", () => {
           },
           {
             id: "slide_2",
-            type: "slide",
+            type: "slide-content",
             name: "System Slide",
             props: {
-              template: "feature-grid",
               title: "Operating system lanes",
-              items: [
-                {
-                  label: "Revenue",
-                  body: "Revenue quality remained ahead of plan."
-                },
-                {
-                  label: "Product",
-                  body: "Core activation loops held steady."
-                },
-                {
-                  label: "Outlook",
-                  body: "The next quarter needs sharper focus."
-                }
+              bullets: [
+                "Revenue quality remained ahead of plan.",
+                "Core activation loops held steady.",
+                "The next quarter needs sharper focus."
               ]
             },
             children: []
@@ -270,7 +257,7 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/opendesign.sync.json"]).toContain('"template": "hero"');
   });
 
-  test("renders a navigable prototype source bundle from prototype screens", () => {
+  test("renders a navigable prototype source bundle from typed prototype screens", () => {
     const bundle = buildArtifactSourceBundle({
       artifactKind: "prototype",
       artifactName: "Atlas Prototype",
@@ -281,7 +268,6 @@ describe("buildArtifactSourceBundle", () => {
           type: "screen",
           name: "Welcome Screen",
           props: {
-            template: "hero",
             eyebrow: "Flow Surface",
             headline: "Start the checkout flow.",
             body: "Lead users into a focused mobile handoff."
@@ -290,10 +276,9 @@ describe("buildArtifactSourceBundle", () => {
         },
         {
           id: "screen_2",
-          type: "screen",
+          type: "screen-cta",
           name: "Offer Screen",
           props: {
-            template: "cta",
             headline: "Confirm the selected plan.",
             body: "Guide the user into the final confirmation step."
           },
@@ -308,7 +293,7 @@ describe("buildArtifactSourceBundle", () => {
     expect(bundle.files["/App.tsx"]).toContain("Welcome Screen");
   });
 
-  test("renders a navigable slides source bundle from slide nodes", () => {
+  test("renders a navigable slides source bundle from typed slide nodes", () => {
     const bundle = buildArtifactSourceBundle({
       artifactKind: "slides",
       artifactName: "Atlas Deck",
@@ -316,10 +301,9 @@ describe("buildArtifactSourceBundle", () => {
       sceneNodes: [
         {
           id: "slide_1",
-          type: "slide",
+          type: "slide-title",
           name: "Title Slide",
           props: {
-            template: "hero",
             eyebrow: "Deck Surface",
             headline: "Atlas Q2 board update.",
             body: "Open with the highest-signal company narrative."
@@ -328,10 +312,9 @@ describe("buildArtifactSourceBundle", () => {
         },
         {
           id: "slide_2",
-          type: "slide",
-          name: "System Slide",
+          type: "slide-closing",
+          name: "Closing Slide",
           props: {
-            template: "cta",
             headline: "Next actions for the board.",
             body: "Close with operating priorities and asks."
           },
@@ -530,18 +513,28 @@ describe("buildArtifactHandoffBundle", () => {
               type: "screen",
               name: "Welcome Screen",
               props: {
-                template: "hero",
                 headline: "Start the checkout flow."
               },
               children: []
             },
             {
+              id: "link_1",
+              type: "screen-link",
+              name: "Welcome to Confirm",
+              props: {
+                from: "screen_1",
+                to: "screen_2",
+                trigger: "tap"
+              },
+              children: []
+            },
+            {
               id: "screen_2",
-              type: "screen",
+              type: "screen-cta",
               name: "Confirm Screen",
               props: {
-                template: "cta",
-                headline: "Confirm the selected plan."
+                headline: "Confirm the selected plan.",
+                primaryAction: "Continue"
               },
               children: []
             }
@@ -595,7 +588,7 @@ describe("buildArtifactHandoffBundle", () => {
 });
 
 describe("artifact-specific structured exports", () => {
-  test("builds a prototype flow manifest with sequential screen links", () => {
+  test("builds a prototype flow manifest with typed screens, screen-ctas, and transitions", () => {
     const bundle = buildPrototypeFlowExport({
       artifactName: "Atlas Prototype",
       prompt: "Map a mobile checkout flow.",
@@ -610,8 +603,18 @@ describe("artifact-specific structured exports", () => {
             type: "screen",
             name: "Welcome Screen",
             props: {
-              template: "hero",
               headline: "Start the checkout flow."
+            },
+            children: []
+          },
+          {
+            id: "link_1",
+            type: "screen-link",
+            name: "Welcome to Confirm",
+            props: {
+              from: "screen_1",
+              to: "screen_2",
+              trigger: "tap"
             },
             children: []
           },
@@ -620,8 +623,19 @@ describe("artifact-specific structured exports", () => {
             type: "screen",
             name: "Confirm Screen",
             props: {
-              template: "cta",
               headline: "Confirm the selected plan."
+            },
+            children: []
+          },
+          {
+            id: "cta_1",
+            type: "screen-cta",
+            name: "Confirm CTA",
+            props: {
+              headline: "Tap to confirm.",
+              primaryAction: "Continue",
+              secondaryAction: "Back",
+              attachedScreenId: "screen_2"
             },
             children: []
           }
@@ -635,17 +649,34 @@ describe("artifact-specific structured exports", () => {
     expect(bundle.screens).toHaveLength(2);
     expect(bundle.screens[0]).toMatchObject({
       id: "screen_1",
+      nodeType: "screen",
       nextScreenId: "screen_2",
       previousScreenId: null
     });
     expect(bundle.screens[1]).toMatchObject({
       id: "screen_2",
+      nodeType: "screen",
       nextScreenId: null,
       previousScreenId: "screen_1"
     });
+    expect(bundle.transitions).toHaveLength(1);
+    expect(bundle.transitions[0]).toMatchObject({
+      id: "link_1",
+      nodeType: "screen-link",
+      from: "screen_1",
+      to: "screen_2",
+      trigger: "tap"
+    });
+    expect(bundle.screenCtas).toHaveLength(1);
+    expect(bundle.screenCtas[0]).toMatchObject({
+      id: "cta_1",
+      nodeType: "screen-cta",
+      primaryAction: "Continue",
+      attachedScreenId: "screen_2"
+    });
   });
 
-  test("builds a slides deck manifest with numbered slides", () => {
+  test("builds a slides deck manifest with typed slide roles and outline", () => {
     const bundle = buildSlidesDeckExport({
       artifactName: "Atlas Deck",
       prompt: "Summarize the board update.",
@@ -657,21 +688,32 @@ describe("artifact-specific structured exports", () => {
         nodes: [
           {
             id: "slide_1",
-            type: "slide",
+            type: "slide-title",
             name: "Title Slide",
             props: {
-              template: "hero",
               headline: "Atlas Q2 board update."
             },
             children: []
           },
           {
             id: "slide_2",
-            type: "slide",
+            type: "slide-content",
             name: "System Slide",
             props: {
-              template: "feature-grid",
-              title: "Operating system lanes"
+              headline: "Operating system lanes",
+              bullets: [
+                "Revenue stayed ahead of plan.",
+                "Activation loops held steady."
+              ]
+            },
+            children: []
+          },
+          {
+            id: "slide_3",
+            type: "slide-closing",
+            name: "Closing Slide",
+            props: {
+              headline: "Next steps for the board."
             },
             children: []
           }
@@ -682,14 +724,33 @@ describe("artifact-specific structured exports", () => {
 
     expect(bundle.artifactKind).toBe("slides");
     expect(bundle.aspectRatio).toBe("16:9");
-    expect(bundle.slides).toHaveLength(2);
+    expect(bundle.slides).toHaveLength(3);
     expect(bundle.slides[0]).toMatchObject({
       id: "slide_1",
+      nodeType: "slide-title",
+      role: "title",
       slideNumber: 1
     });
     expect(bundle.slides[1]).toMatchObject({
       id: "slide_2",
-      slideNumber: 2
+      nodeType: "slide-content",
+      role: "content",
+      slideNumber: 2,
+      bullets: [
+        "Revenue stayed ahead of plan.",
+        "Activation loops held steady."
+      ]
     });
+    expect(bundle.slides[2]).toMatchObject({
+      id: "slide_3",
+      nodeType: "slide-closing",
+      role: "closing",
+      slideNumber: 3
+    });
+    expect(bundle.outline).toEqual([
+      { slideNumber: 1, role: "title", headline: "Atlas Q2 board update." },
+      { slideNumber: 2, role: "content", headline: "Operating system lanes" },
+      { slideNumber: 3, role: "closing", headline: "Next steps for the board." }
+    ]);
   });
 });
