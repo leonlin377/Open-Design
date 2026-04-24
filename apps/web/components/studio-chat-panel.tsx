@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Surface } from "@opendesign/ui";
+import { useT } from "../lib/i18n";
 import type {
   ChatMessage,
   ChatSelectedNode,
@@ -64,9 +65,11 @@ export function StudioChatPanel({
   initiallyOpen = true,
   apiOrigin
 }: StudioChatPanelProps) {
+  const t = useT();
   const [open, setOpen] = useState(initiallyOpen);
   const [thread, setThread] = useState<ChatThread | null>(null);
   const [prompt, setPrompt] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [streaming, setStreaming] = useState(false);
   const [partial, setPartial] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>(null);
@@ -74,6 +77,10 @@ export function StudioChatPanel({
   const [scopeToSelection, setScopeToSelection] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [thread?.messages.length, partial]);
 
   const effectiveSelectedNode = useMemo<ChatSelectedNode | null>(
     () => (selectedNode && scopeToSelection ? selectedNode : null),
@@ -248,7 +255,7 @@ export function StudioChatPanel({
           type="button"
           onClick={() => setOpen(true)}
         >
-          Open Chat
+          {t("studio.chat.open")}
         </Button>
       </aside>
     );
@@ -259,14 +266,13 @@ export function StudioChatPanel({
       <Surface className="project-card" as="section">
         <div className="studio-chat-header">
           <div>
-            <h3>Chat about {artifactName}</h3>
+            <h3>{t("studio.chat.title", { name: artifactName })}</h3>
             <p className="footer-note">
-              Ask the assistant about this artifact, request edits in natural
-              language, or focus on the selected scene element.
+              {t("studio.chat.description")}
             </p>
           </div>
           <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-            Collapse
+            {t("studio.chat.collapse")}
           </Button>
         </div>
 
@@ -278,18 +284,33 @@ export function StudioChatPanel({
               onChange={(event) => setScopeToSelection(event.target.checked)}
             />
             <span>
-              Ask about selected element: <strong>{selectedNode.nodeName}</strong>{" "}
-              ({selectedNode.nodeType})
+              {t("studio.chat.scope.label", { name: selectedNode.nodeName, type: selectedNode.nodeType })}
             </span>
           </label>
         ) : null}
 
         <div className="studio-chat-messages" role="log" aria-live="polite">
           {thread == null ? (
-            <div className="footer-note">Loading thread…</div>
+            <div className="chat-skeleton">
+              <div className="chat-skeleton-line" style={{ width: "60%" }} />
+              <div className="chat-skeleton-line" style={{ width: "80%" }} />
+              <div className="chat-skeleton-line" style={{ width: "40%" }} />
+            </div>
           ) : visibleMessages.length === 0 && !streaming ? (
-            <div className="footer-note">
-              No messages yet. Ask the assistant about the current artifact.
+            <div className="chat-empty-state">
+              <p>{t("studio.chat.empty")}</p>
+              <div className="chat-empty-suggestions">
+                {[t("studio.chat.empty.suggestion.1"), t("studio.chat.empty.suggestion.2")].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className="chat-suggestion-chip"
+                    onClick={() => setPrompt(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             visibleMessages.map((message, index) => (
@@ -313,10 +334,15 @@ export function StudioChatPanel({
             <div className="studio-chat-message assistant streaming">
               <div className="studio-chat-role">Assistant</div>
               <div className="studio-chat-content">
-                {partial.length > 0 ? partial : "Composing a reply…"}
+                {partial.length > 0 ? partial : (
+                  <div className="chat-typing-indicator" aria-label={t("studio.chat.typing")}>
+                    <span /><span /><span />
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
+          <div ref={messagesEndRef} />
         </div>
 
         {feedback ? (
@@ -329,8 +355,8 @@ export function StudioChatPanel({
           <label className="field">
             <span>
               {effectiveSelectedNode
-                ? `Message (focused on ${effectiveSelectedNode.nodeName})`
-                : "Message"}
+                ? t("studio.chat.scope.label", { name: effectiveSelectedNode.nodeName, type: effectiveSelectedNode.nodeType })
+                : t("studio.chat.send")}
             </span>
             <textarea
               rows={3}
@@ -338,8 +364,8 @@ export function StudioChatPanel({
               onChange={(event) => setPrompt(event.target.value)}
               placeholder={
                 effectiveSelectedNode
-                  ? "Ask about this element — e.g. 'Tighten the copy and suggest a stronger CTA.'"
-                  : "Ask about this artifact — e.g. 'Summarize the scene and suggest edits.'"
+                  ? t("studio.chat.placeholder.selection")
+                  : t("studio.chat.placeholder")
               }
               disabled={streaming}
             />
@@ -350,15 +376,15 @@ export function StudioChatPanel({
               type="submit"
               disabled={streaming || prompt.trim().length === 0}
             >
-              {streaming ? "Streaming…" : "Send"}
+              {streaming ? t("studio.chat.streaming") : t("studio.chat.send")}
             </Button>
             {streaming ? (
               <Button variant="outline" type="button" onClick={handleCancel}>
-                Cancel
+                {t("studio.chat.cancel")}
               </Button>
             ) : retry ? (
               <Button variant="outline" type="button" onClick={handleRetry}>
-                Retry
+                {t("studio.chat.retry")}
               </Button>
             ) : null}
           </div>

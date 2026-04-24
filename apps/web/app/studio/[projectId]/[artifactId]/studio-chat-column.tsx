@@ -136,6 +136,7 @@ export function StudioChatColumn({
     : children;
   const tabKey = `opendesign:studio:chat-compose-tab:${storageKey}`;
   const [active, setActive] = useState<ComposeTabId>("prompt");
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const [popoverGroup, setPopoverGroup] = useState<"design" | "history" | null>(
     null
   );
@@ -217,8 +218,20 @@ export function StudioChatColumn({
   ];
 
   return (
+    <>
+    <button
+      type="button"
+      className="studio-chat-mobile-toggle"
+      onClick={() => setMobileExpanded((v) => !v)}
+      aria-label={t("studio.chat.mobile.toggle")}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+      {t("studio.chat.mobile.toggle")}
+    </button>
     <aside
-      className="studio-chat-column"
+      className={`studio-chat-column${mobileExpanded ? " expanded" : ""}`}
       aria-label={t("studio.chat.icon")}
       data-popover-open={popoverGroup ? "true" : "false"}
     >
@@ -309,5 +322,6 @@ export function StudioChatColumn({
         ) : null}
       </footer>
     </aside>
+    </>
   );
 }

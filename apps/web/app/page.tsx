@@ -20,7 +20,7 @@ export default function HomePage() {
   const t = useT();
 
   return (
-    <Container width="lg" as="main" className="page">
+    <Container width="lg" as="main" className="page" id="main-content">
       <header className="page-colophon">
         <div className="page-colophon-left">
           <span className="live-dot" aria-hidden />

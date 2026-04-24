@@ -5,6 +5,7 @@ import "./motion.css";
 import { ClientProviders } from "./client-providers";
 import { fontClassNames } from "./fonts";
 import { detectLocaleServer } from "../lib/i18n/detect";
+import { dictionaries } from "../lib/i18n/dictionary";
 
 export const metadata: Metadata = {
   title: "OpenDesign Studio",
@@ -25,6 +26,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const locale = await detectLocaleServer();
+  const dict = dictionaries[locale === "zh-CN" ? "zh-CN" : "en-US"];
 
   return (
     <html
@@ -36,6 +38,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body>
+        <a href="#main-content" className="skip-link">{dict["a11y.skip"]}</a>
         <ClientProviders initialLocale={locale}>{children}</ClientProviders>
       </body>
     </html>

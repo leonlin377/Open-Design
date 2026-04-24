@@ -196,6 +196,28 @@ export type Dictionary = {
   "quickstart.prompt.slides.1": string;
   "quickstart.prompt.slides.2": string;
 
+  // Studio chat panel
+  "studio.chat.title": string;
+  "studio.chat.description": string;
+  "studio.chat.empty": string;
+  "studio.chat.empty.suggestion.1": string;
+  "studio.chat.empty.suggestion.2": string;
+  "studio.chat.loading": string;
+  "studio.chat.typing": string;
+  "studio.chat.collapse": string;
+  "studio.chat.open": string;
+  "studio.chat.send": string;
+  "studio.chat.streaming": string;
+  "studio.chat.cancel": string;
+  "studio.chat.retry": string;
+  "studio.chat.scope.label": string;
+  "studio.chat.placeholder": string;
+  "studio.chat.placeholder.selection": string;
+  "studio.chat.mobile.toggle": string;
+
+  // Accessibility
+  "a11y.skip": string;
+
   // Studio generate panel
   "studio.generate.title": string;
   "studio.generate.description": string;
@@ -437,6 +459,28 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     "quickstart.prompt.slides.1": "A startup pitch deck with problem, solution, traction, and ask slides",
     "quickstart.prompt.slides.2": "A quarterly review deck with metrics, highlights, and next steps",
 
+    // Studio chat panel
+    "studio.chat.title": "Chat about {{name}}",
+    "studio.chat.description": "Ask the assistant about this artifact, request edits, or focus on a selected element.",
+    "studio.chat.empty": "No messages yet. Try one of these to get started:",
+    "studio.chat.empty.suggestion.1": "What elements are in this design?",
+    "studio.chat.empty.suggestion.2": "How can I improve the layout?",
+    "studio.chat.loading": "Loading conversation…",
+    "studio.chat.typing": "Assistant is typing",
+    "studio.chat.collapse": "Collapse",
+    "studio.chat.open": "Open Chat",
+    "studio.chat.send": "Send",
+    "studio.chat.streaming": "Streaming…",
+    "studio.chat.cancel": "Cancel",
+    "studio.chat.retry": "Retry",
+    "studio.chat.scope.label": "Ask about selected element: {{name}} ({{type}})",
+    "studio.chat.placeholder": "Ask about this artifact…",
+    "studio.chat.placeholder.selection": "Ask about this element…",
+    "studio.chat.mobile.toggle": "Chat",
+
+    // Accessibility
+    "a11y.skip": "Skip to main content",
+
     // Studio generate panel
     "studio.generate.title": "Create your design",
     "studio.generate.description": "Describe what you want and we'll generate it for you.",
@@ -666,6 +710,28 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     "quickstart.prompt.prototype.2": "一个引导向导，包含步骤进度条和完成界面",
     "quickstart.prompt.slides.1": "一个创业路演演示文稿，包含问题、方案、数据和融资需求",
     "quickstart.prompt.slides.2": "一个季度汇报演示文稿，包含指标、亮点和下一步计划",
+
+    // Studio chat panel
+    "studio.chat.title": "关于 {{name}} 的对话",
+    "studio.chat.description": "向 AI 助手提问、请求编辑或聚焦到选中的元素。",
+    "studio.chat.empty": "还没有消息。试试以下问题：",
+    "studio.chat.empty.suggestion.1": "这个设计中有哪些元素？",
+    "studio.chat.empty.suggestion.2": "如何改进布局？",
+    "studio.chat.loading": "正在加载对话…",
+    "studio.chat.typing": "助手正在输入",
+    "studio.chat.collapse": "收起",
+    "studio.chat.open": "打开对话",
+    "studio.chat.send": "发送",
+    "studio.chat.streaming": "回复中…",
+    "studio.chat.cancel": "取消",
+    "studio.chat.retry": "重试",
+    "studio.chat.scope.label": "针对选中元素提问：{{name}}（{{type}}）",
+    "studio.chat.placeholder": "关于这个设计的问题…",
+    "studio.chat.placeholder.selection": "关于这个元素的问题…",
+    "studio.chat.mobile.toggle": "对话",
+
+    // Accessibility
+    "a11y.skip": "跳到主要内容",
 
     // Studio generate panel
     "studio.generate.title": "创建你的设计",

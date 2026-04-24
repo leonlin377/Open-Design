@@ -456,7 +456,7 @@ function StudioShellInner({
   );
 
   return (
-    <main className="studio-shell-v2">
+    <main className="studio-shell-v2" id="main-content">
       {topbar}
       <div className="studio-shell-body">
         <StudioChatColumn
