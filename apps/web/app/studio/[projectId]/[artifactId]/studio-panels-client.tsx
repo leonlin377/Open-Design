@@ -167,7 +167,7 @@ export function RefineTrigger({ projectId, artifactId }: RefineTriggerProps) {
         className="button-link ghost"
         onClick={() => setOpen((prev) => !prev)}
       >
-        {open ? "Close refine" : "Refine this section"}
+        {open ? t("studio.panels.refine.close") : t("studio.panels.refine.section")}
       </button>
       {open ? (
         <StudioRefinePopover

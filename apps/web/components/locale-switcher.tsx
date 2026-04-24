@@ -26,7 +26,7 @@ export function LocaleSwitcher() {
         type="button"
         className={`locale-button ${currentLocale === "en-US" ? "is-active" : ""}`}
         onClick={() => handleChange("en-US")}
-        aria-label="Switch to English"
+        aria-label={t("locale.switch.en")}
       >
         {t("locale.en")}
       </button>
@@ -34,7 +34,7 @@ export function LocaleSwitcher() {
         type="button"
         className={`locale-button ${currentLocale === "zh-CN" ? "is-active" : ""}`}
         onClick={() => handleChange("zh-CN")}
-        aria-label="Switch to Chinese"
+        aria-label={t("locale.switch.zh")}
       >
         {t("locale.zh")}
       </button>

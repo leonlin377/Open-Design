@@ -59,6 +59,10 @@ export type Dictionary = {
   // Studio topbar
   "studio.topbar.rename.title": string;
   "studio.topbar.menu.title": string;
+  "studio.topbar.viewport.phone": string;
+  "studio.topbar.viewport.tablet": string;
+  "studio.topbar.viewport.desktop": string;
+  "studio.topbar.preview": string;
 
   // Studio publish flow
   "studio.publish.confirm": string;
@@ -94,6 +98,16 @@ export type Dictionary = {
   "studio.compose.variations": string;
   "studio.compose.refine": string;
   "studio.compose.refine.empty": string;
+
+  // Studio refine bubble
+  "studio.refine.title": string;
+  "studio.refine.element": string;
+  "studio.refine.close": string;
+  "studio.refine.send": string;
+
+  // Studio panels
+  "studio.panels.refine.close": string;
+  "studio.panels.refine.section": string;
 
   // Studio library rail
   "studio.library.components": string;
@@ -160,6 +174,46 @@ export type Dictionary = {
   // Locale switcher
   "locale.en": string;
   "locale.zh": string;
+  "locale.switch.en": string;
+  "locale.switch.zh": string;
+
+  // Landing page buttons
+  "landing.button.studio": string;
+
+  // Quick Start composer
+  "quickstart.placeholder": string;
+  "quickstart.button.generate": string;
+  "quickstart.button.generating": string;
+  "quickstart.button.browse": string;
+  "quickstart.type.website": string;
+  "quickstart.type.prototype": string;
+  "quickstart.type.slides": string;
+  "quickstart.suggested.title": string;
+  "quickstart.prompt.website.1": string;
+  "quickstart.prompt.website.2": string;
+  "quickstart.prompt.prototype.1": string;
+  "quickstart.prompt.prototype.2": string;
+  "quickstart.prompt.slides.1": string;
+  "quickstart.prompt.slides.2": string;
+
+  // Studio generate panel
+  "studio.generate.title": string;
+  "studio.generate.description": string;
+  "studio.generate.status.ready": string;
+  "studio.generate.status.generating": string;
+  "studio.generate.status.cancelling": string;
+  "studio.generate.button": string;
+  "studio.generate.button.generating": string;
+  "studio.generate.button.cancelling": string;
+  "studio.generate.cancel": string;
+  "studio.generate.retry": string;
+  "studio.generate.success": string;
+  "studio.generate.success.warning": string;
+  "studio.generate.cancelled": string;
+  "studio.generate.connecting": string;
+  "studio.generate.waiting": string;
+  "studio.generate.prompt.label": string;
+  "studio.generate.error.default": string;
 };
 
 export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
@@ -242,6 +296,10 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     // Studio topbar
     "studio.topbar.rename.title": "Rename artifact",
     "studio.topbar.menu.title": "More actions",
+    "studio.topbar.viewport.phone": "Phone",
+    "studio.topbar.viewport.tablet": "Tablet",
+    "studio.topbar.viewport.desktop": "Desktop",
+    "studio.topbar.preview": "Preview",
 
     // Studio publish flow
     "studio.publish.confirm":
@@ -278,6 +336,16 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     "studio.compose.variations": "Variations",
     "studio.compose.refine": "Refine",
     "studio.compose.refine.empty": "Select an element to refine",
+
+    // Studio refine bubble
+    "studio.refine.title": "Refine {{name}}",
+    "studio.refine.element": "element",
+    "studio.refine.close": "Close refine",
+    "studio.refine.send": "Send refine",
+
+    // Studio panels
+    "studio.panels.refine.close": "Close refine",
+    "studio.panels.refine.section": "Refine this section",
 
     // Studio library rail
     "studio.library.components": "Components",
@@ -347,6 +415,46 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     // Locale switcher
     "locale.en": "EN",
     "locale.zh": "中",
+    "locale.switch.en": "Switch to English",
+    "locale.switch.zh": "Switch to Chinese",
+
+    // Landing page buttons
+    "landing.button.studio": "Open Studio",
+
+    // Quick Start composer
+    "quickstart.placeholder": "Describe what you want to create...",
+    "quickstart.button.generate": "Generate",
+    "quickstart.button.generating": "Creating...",
+    "quickstart.button.browse": "or browse existing projects",
+    "quickstart.type.website": "Website",
+    "quickstart.type.prototype": "Prototype",
+    "quickstart.type.slides": "Slides",
+    "quickstart.suggested.title": "Try one of these",
+    "quickstart.prompt.website.1": "A cinematic launch page with a hero, proof points, and a conversion CTA",
+    "quickstart.prompt.website.2": "A SaaS pricing page with feature comparison and FAQ section",
+    "quickstart.prompt.prototype.1": "A product flow with login, dashboard, and settings screens",
+    "quickstart.prompt.prototype.2": "An onboarding wizard with progress steps and a completion screen",
+    "quickstart.prompt.slides.1": "A startup pitch deck with problem, solution, traction, and ask slides",
+    "quickstart.prompt.slides.2": "A quarterly review deck with metrics, highlights, and next steps",
+
+    // Studio generate panel
+    "studio.generate.title": "Create your design",
+    "studio.generate.description": "Describe what you want and we'll generate it for you.",
+    "studio.generate.status.ready": "Ready",
+    "studio.generate.status.generating": "Generating",
+    "studio.generate.status.cancelling": "Cancelling",
+    "studio.generate.button": "Generate",
+    "studio.generate.button.generating": "Generating...",
+    "studio.generate.button.cancelling": "Cancelling...",
+    "studio.generate.cancel": "Cancel",
+    "studio.generate.retry": "Retry",
+    "studio.generate.success": "Generated {{count}} {{unit}} successfully.",
+    "studio.generate.success.warning": "{{warning}} Generated {{count}} {{unit}}.",
+    "studio.generate.cancelled": "Generation cancelled.",
+    "studio.generate.connecting": "Connecting...",
+    "studio.generate.waiting": "Generating your design...",
+    "studio.generate.prompt.label": "Prompt",
+    "studio.generate.error.default": "Generation failed.",
   },
 
   "zh-CN": {
@@ -420,6 +528,10 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     // Studio topbar
     "studio.topbar.rename.title": "重命名制品",
     "studio.topbar.menu.title": "更多操作",
+    "studio.topbar.viewport.phone": "手机",
+    "studio.topbar.viewport.tablet": "平板",
+    "studio.topbar.viewport.desktop": "桌面",
+    "studio.topbar.preview": "预览",
 
     // Studio publish flow
     "studio.publish.confirm": "将当前场景作为托管预览发布？这将创建一个可分享的快照。",
@@ -455,6 +567,16 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     "studio.compose.variations": "变体",
     "studio.compose.refine": "优化",
     "studio.compose.refine.empty": "请先在画布上选择一个元素",
+
+    // Studio refine bubble
+    "studio.refine.title": "优化 {{name}}",
+    "studio.refine.element": "元素",
+    "studio.refine.close": "关闭优化",
+    "studio.refine.send": "发送优化",
+
+    // Studio panels
+    "studio.panels.refine.close": "关闭优化",
+    "studio.panels.refine.section": "优化此部分",
 
     // Studio library rail
     "studio.library.components": "组件",
@@ -523,5 +645,45 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     // Locale switcher
     "locale.en": "EN",
     "locale.zh": "中",
+    "locale.switch.en": "切换到英文",
+    "locale.switch.zh": "切换到中文",
+
+    // Landing page buttons
+    "landing.button.studio": "打开 Studio",
+
+    // Quick Start composer
+    "quickstart.placeholder": "描述你想创建的内容...",
+    "quickstart.button.generate": "生成",
+    "quickstart.button.generating": "创建中...",
+    "quickstart.button.browse": "或浏览已有项目",
+    "quickstart.type.website": "网站",
+    "quickstart.type.prototype": "原型",
+    "quickstart.type.slides": "幻灯片",
+    "quickstart.suggested.title": "试试这些",
+    "quickstart.prompt.website.1": "一个具有视觉冲击力的落地页，包含 Hero 区域、产品亮点和转化按钮",
+    "quickstart.prompt.website.2": "一个 SaaS 定价页面，包含功能对比和常见问题",
+    "quickstart.prompt.prototype.1": "一个产品流程，包含登录、仪表盘和设置界面",
+    "quickstart.prompt.prototype.2": "一个引导向导，包含步骤进度条和完成界面",
+    "quickstart.prompt.slides.1": "一个创业路演演示文稿，包含问题、方案、数据和融资需求",
+    "quickstart.prompt.slides.2": "一个季度汇报演示文稿，包含指标、亮点和下一步计划",
+
+    // Studio generate panel
+    "studio.generate.title": "创建你的设计",
+    "studio.generate.description": "描述你想要的内容，我们将为你生成。",
+    "studio.generate.status.ready": "就绪",
+    "studio.generate.status.generating": "生成中",
+    "studio.generate.status.cancelling": "取消中",
+    "studio.generate.button": "生成",
+    "studio.generate.button.generating": "生成中...",
+    "studio.generate.button.cancelling": "取消中...",
+    "studio.generate.cancel": "取消",
+    "studio.generate.retry": "重试",
+    "studio.generate.success": "已成功生成 {{count}} 个{{unit}}。",
+    "studio.generate.success.warning": "{{warning}} 已生成 {{count}} 个{{unit}}。",
+    "studio.generate.cancelled": "生成已取消。",
+    "studio.generate.connecting": "连接中...",
+    "studio.generate.waiting": "正在生成你的设计...",
+    "studio.generate.prompt.label": "提示词",
+    "studio.generate.error.default": "生成失败。",
   }
 };

@@ -191,9 +191,9 @@ export function StudioTopbar({
     label: string;
     Icon: () => ReactNode;
   }> = [
-    { id: "phone", label: "Phone", Icon: IconSmartphone },
-    { id: "tablet", label: "Tablet", Icon: IconTablet },
-    { id: "desktop", label: "Desktop", Icon: IconMonitor }
+    { id: "phone", label: t("studio.topbar.viewport.phone"), Icon: IconSmartphone },
+    { id: "tablet", label: t("studio.topbar.viewport.tablet"), Icon: IconTablet },
+    { id: "desktop", label: t("studio.topbar.viewport.desktop"), Icon: IconMonitor }
   ];
 
   return (
@@ -286,8 +286,8 @@ export function StudioTopbar({
           >
             <TabsTrigger
               value="preview"
-              title="Preview"
-              aria-label="Preview"
+              title={t("studio.topbar.preview")}
+              aria-label={t("studio.topbar.preview")}
               className={
                 viewMode === "preview"
                   ? "studio-topbar-seg-btn is-active"

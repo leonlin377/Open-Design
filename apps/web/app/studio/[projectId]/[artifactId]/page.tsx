@@ -83,11 +83,13 @@ type StudioPageProps = {
   }>;
   searchParams: Promise<{
     tab?: string | string[];
+    quickPrompt?: string;
   }>;
 };
 
-export default async function StudioPage({ params }: StudioPageProps) {
+export default async function StudioPage({ params, searchParams }: StudioPageProps) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const [session, project, workspacePayload, designSystems] = await Promise.all([
     getSession(),
     getProject(resolvedParams.projectId),
@@ -293,6 +295,7 @@ export default async function StudioPage({ params }: StudioPageProps) {
       artifactId={artifact.id}
       artifactKind={artifactKind}
       initialPrompt={workspace.intent}
+      autoGeneratePrompt={resolvedSearchParams.quickPrompt}
     />
   );
 

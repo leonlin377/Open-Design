@@ -42,6 +42,36 @@ export async function createArtifactAction(formData: FormData) {
   redirect(`/studio/${projectId}/${artifact.id}`);
 }
 
+export async function quickStartAction(formData: FormData) {
+  const prompt = String(formData.get("prompt") ?? "").trim();
+  const kind = (String(formData.get("kind") ?? "website").trim() as
+    | "website"
+    | "prototype"
+    | "slides");
+
+  if (!prompt) {
+    throw new Error("Prompt is required.");
+  }
+
+  const projectName =
+    prompt
+      .slice(0, 40)
+      .replace(/[^\w\s一-鿿]/g, "")
+      .trim() || "Quick Project";
+
+  const project = await createProject({ name: projectName });
+  const artifact = await createArtifact({
+    projectId: project.id,
+    kind,
+    name: `${projectName} ${kind[0].toUpperCase()}${kind.slice(1)}`
+  });
+
+  revalidatePath("/projects");
+  redirect(
+    `/studio/${project.id}/${artifact.id}?quickPrompt=${encodeURIComponent(prompt)}`
+  );
+}
+
 export async function createProjectShareTokenAction(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const role = String(formData.get("role") ?? "viewer").trim() as

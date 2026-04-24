@@ -36,6 +36,7 @@ import {
   type ArtifactRefineStreamEvent
 } from "../../../../lib/opendesign-generation-extras";
 import { useSelection } from "./selection-context";
+import { useT } from "../../../../lib/i18n";
 
 type StudioInlineRefineBubbleProps = {
   projectId: string;
@@ -53,6 +54,7 @@ export function StudioInlineRefineBubble({
   onClose
 }: StudioInlineRefineBubbleProps) {
   const router = useRouter();
+  const t = useT();
   const { selected, getViewportRect } = useSelection();
   const [instruction, setInstruction] = useState("");
   const [status, setStatus] = useState<
@@ -165,7 +167,7 @@ export function StudioInlineRefineBubble({
       ref={rootRef}
       className="studio-inline-refine-bubble"
       role="dialog"
-      aria-label={`Refine ${nodeName ?? "element"}`}
+      aria-label={t("studio.refine.title", { name: nodeName ?? t("studio.refine.element") })}
       style={style}
     >
       <Surface
@@ -202,7 +204,7 @@ export function StudioInlineRefineBubble({
           variant="ghost"
           size="sm"
           onClick={onClose}
-          aria-label="Close refine"
+          aria-label={t("studio.refine.close")}
           style={{
             width: 22,
             height: 22,
@@ -251,7 +253,7 @@ export function StudioInlineRefineBubble({
           size="sm"
           className="studio-inline-refine-bubble-send"
           disabled={pending || instruction.trim().length === 0}
-          aria-label="Send refine"
+          aria-label={t("studio.refine.send")}
           style={{
             width: 28,
             height: 28,

@@ -13,6 +13,7 @@ import {
 } from "@opendesign/ui";
 import { ThemeToggle } from "../components/theme-toggle";
 import { LocaleSwitcher } from "../components/locale-switcher";
+import { QuickStartComposer } from "../components/quick-start-composer";
 import { useT } from "../lib/i18n";
 
 export default function HomePage() {
@@ -43,15 +44,7 @@ export default function HomePage() {
         <Text variant="body-l" tone="secondary" className="hero-lede">
           {t("landing.description")}
         </Text>
-        <Inline gap={4} wrap className="hero-actions">
-          <Link href="/projects" className="button-link primary">
-            <span>{t("landing.button.enter")}</span>
-            <span className="button-arrow" aria-hidden>→</span>
-          </Link>
-          <Link href="/projects" className="button-link ghost">
-            {t("landing.button.browse")}
-          </Link>
-        </Inline>
+        <QuickStartComposer />
       </section>
 
       <section className="craft-strip">
@@ -116,7 +109,7 @@ export default function HomePage() {
               <Heading level={3} variant="title-m">{track.title}</Heading>
               <Text as="p" variant="body" tone="secondary">{track.body}</Text>
               <Link href="/projects" className="feature-card-link">
-                <span>Open Studio</span>
+                <span>{t("landing.button.studio")}</span>
                 <span className="feature-card-link-arrow" aria-hidden>→</span>
               </Link>
             </Surface>

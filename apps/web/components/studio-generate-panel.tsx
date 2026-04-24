@@ -3,17 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ArtifactGenerateStreamEvent } from "@opendesign/contracts";
-import { Button, Surface } from "@opendesign/ui";
+import { Button, Chip, Inline, Surface } from "@opendesign/ui";
 import type { ApiArtifact } from "../lib/opendesign-api";
 import type { ApiArtifactGenerateResponse } from "../lib/opendesign-api";
 import { buildApiRequestError, readApiErrorMessage } from "../lib/api-errors";
 import { getArtifactEditorAffordance } from "./studio-artifact-affordances";
+import { useT } from "../lib/i18n";
 
 type StudioGeneratePanelProps = {
   projectId: string;
   artifactId: string;
   artifactKind: ApiArtifact["kind"];
   initialPrompt: string;
+  autoGeneratePrompt?: string;
 };
 
 type RetryHandle =
@@ -128,10 +130,11 @@ export function StudioGeneratePanel({
   projectId,
   artifactId,
   artifactKind,
-  initialPrompt
+  initialPrompt,
+  autoGeneratePrompt
 }: StudioGeneratePanelProps) {
   const router = useRouter();
-  const [prompt, setPrompt] = useState(initialPrompt);
+  const [prompt, setPrompt] = useState(autoGeneratePrompt || initialPrompt);
   const [pending, startTransition] = useTransition();
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -141,6 +144,8 @@ export function StudioGeneratePanel({
   const [retryHandle, setRetryHandle] = useState<RetryHandle>(null);
   const [cancelling, setCancelling] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const autoFiredRef = useRef(false);
+  const t = useT();
   const affordance = getArtifactEditorAffordance(artifactKind);
   const unitPluralLabel = `${affordance.unitLabel}s`;
   const apiOrigin = useMemo(
@@ -149,8 +154,10 @@ export function StudioGeneratePanel({
   );
 
   useEffect(() => {
-    setPrompt(initialPrompt);
-  }, [initialPrompt]);
+    if (!autoGeneratePrompt) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt, autoGeneratePrompt]);
 
   useEffect(() => {
     return () => {
@@ -166,7 +173,7 @@ export function StudioGeneratePanel({
         try {
           setFeedback(null);
           setRetryHandle(null);
-          setProgressMessage("Connecting to the generation pipeline.");
+          setProgressMessage(t("studio.generate.connecting"));
 
           const response = await fetch(
             `${apiOrigin}/api/projects/${projectId}/artifacts/${artifactId}/generate`,
@@ -210,11 +217,18 @@ export function StudioGeneratePanel({
             outcome.payload.generation.diagnostics.warning
               ? {
                   tone: "warning",
-                  message: `${outcome.payload.generation.diagnostics.warning} Generated ${appendedNodeCount} ${unitLabel} for this pass.`
+                  message: t("studio.generate.success.warning", {
+                    warning: outcome.payload.generation.diagnostics.warning,
+                    count: String(appendedNodeCount),
+                    unit: unitLabel
+                  })
                 }
               : {
                   tone: "success",
-                  message: `Generated ${appendedNodeCount} ${unitLabel} via ${outcome.payload.generation.plan.provider} and refreshed the Studio workspace.`
+                  message: t("studio.generate.success", {
+                    count: String(appendedNodeCount),
+                    unit: unitLabel
+                  })
                 }
           );
           setRetryHandle(null);
@@ -225,7 +239,7 @@ export function StudioGeneratePanel({
           if (controller.signal.aborted) {
             setFeedback({
               tone: "warning",
-              message: "Generation cancelled."
+              message: t("studio.generate.cancelled")
             });
             setRetryHandle({ retryable: true, prompt: promptToUse });
             return;
@@ -233,7 +247,7 @@ export function StudioGeneratePanel({
           setFeedback({
             tone: "error",
             message:
-              error instanceof Error ? error.message : "Artifact generation failed."
+              error instanceof Error ? error.message : t("studio.generate.error.default")
           });
         } finally {
           setCancelling(false);
@@ -245,6 +259,19 @@ export function StudioGeneratePanel({
     },
     [affordance.unitLabel, apiOrigin, artifactId, projectId, router]
   );
+
+  useEffect(() => {
+    if (autoGeneratePrompt && !autoFiredRef.current) {
+      autoFiredRef.current = true;
+      const timer = setTimeout(() => {
+        runGeneration(autoGeneratePrompt);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("quickPrompt");
+        window.history.replaceState(null, "", url.toString());
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoGeneratePrompt, runGeneration]);
 
   async function handleCancel() {
     if (!pending || cancelling) {
@@ -278,46 +305,48 @@ export function StudioGeneratePanel({
   return (
     <Surface className="project-card" as="section">
       <div>
-        <h3>Generate {artifactKind === "slides" ? "Deck" : artifactKind === "prototype" ? "Flow" : "Artifact"}</h3>
-        <p className="footer-note">
-          Send a prompt into the generation pipeline. LiteLLM streams are used when
-          configured; otherwise the backend falls back to the local heuristic planner.
-          Cancel an in-flight pass or retry a recoverable failure without retyping.
-        </p>
+        <h3>{t("studio.generate.title")}</h3>
+        <p className="footer-note">{t("studio.generate.description")}</p>
       </div>
       <div className="studio-status-row">
         <span className={pending ? "status-pill warning" : "status-pill success"}>
-          {pending ? (cancelling ? "Cancelling" : "Generating") : "Ready"}
+          {pending
+            ? (cancelling ? t("studio.generate.status.cancelling") : t("studio.generate.status.generating"))
+            : t("studio.generate.status.ready")}
         </span>
         <span className="footer-note">
           {pending
-            ? progressMessage ?? "Waiting for the pass to finish and refresh the workspace."
-            : `A completed pass appends new ${unitPluralLabel} and creates a prompt snapshot.`}
+            ? progressMessage ?? t("studio.generate.waiting")
+            : null}
         </span>
       </div>
       {!pending ? (
-        <Surface className="kv" as="section">
-          <span>Suggested prompts</span>
-          {affordance.starterPrompts.join(" · ")}
-        </Surface>
+        <Inline gap={2} wrap className="studio-generate-suggestions">
+          {affordance.starterPrompts.map((sp) => (
+            <Chip
+              key={sp}
+              tone="outline"
+              onClick={() => {
+                setPrompt(sp);
+              }}
+              className="studio-generate-suggestion-chip"
+            >
+              {sp.length > 60 ? `${sp.slice(0, 57)}...` : sp}
+            </Chip>
+          ))}
+        </Inline>
       ) : null}
       {feedback ? (
         <div className={`studio-feedback ${feedback.tone}`}>{feedback.message}</div>
       ) : null}
       <div className="stack-form">
         <label className="field">
-          <span>Prompt</span>
+          <span>{t("studio.generate.prompt.label")}</span>
           <textarea
             rows={4}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder={
-              artifactKind === "prototype"
-                ? "Design a navigable product flow with an entry screen, a comparison screen, and a decisive action screen."
-                : artifactKind === "slides"
-                  ? "Design a narrative deck with a title slide, a structured system slide, and a strong closing ask."
-                  : "Design a cinematic launch surface with a strong hero, proof points, and a conversion CTA."
-            }
+            placeholder={affordance.starterPrompts[0]}
             required
           />
         </label>
@@ -328,7 +357,9 @@ export function StudioGeneratePanel({
             onClick={() => runGeneration(prompt)}
             disabled={pending || prompt.trim().length === 0}
           >
-            {pending ? (cancelling ? "Cancelling…" : "Generating…") : "Generate Pass"}
+            {pending
+              ? (cancelling ? t("studio.generate.button.cancelling") : t("studio.generate.button.generating"))
+              : t("studio.generate.button")}
           </Button>
           {pending ? (
             <Button
@@ -337,11 +368,11 @@ export function StudioGeneratePanel({
               onClick={handleCancel}
               disabled={cancelling}
             >
-              {cancelling ? "Cancelling…" : "Cancel"}
+              {cancelling ? t("studio.generate.button.cancelling") : t("studio.generate.cancel")}
             </Button>
           ) : retryHandle?.retryable ? (
             <Button variant="outline" type="button" onClick={handleRetry}>
-              Retry last prompt
+              {t("studio.generate.retry")}
             </Button>
           ) : null}
         </div>
