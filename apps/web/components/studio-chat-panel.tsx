@@ -78,9 +78,13 @@ export function StudioChatPanel({
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
+  const messageCount = thread?.messages.length ?? 0;
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread?.messages.length, partial]);
+  }, [messageCount]);
+  useEffect(() => {
+    if (partial) messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [partial]);
 
   const effectiveSelectedNode = useMemo<ChatSelectedNode | null>(
     () => (selectedNode && scopeToSelection ? selectedNode : null),
@@ -355,7 +359,7 @@ export function StudioChatPanel({
           <label className="field">
             <span>
               {effectiveSelectedNode
-                ? t("studio.chat.scope.label", { name: effectiveSelectedNode.nodeName, type: effectiveSelectedNode.nodeType })
+                ? t("studio.chat.placeholder.selection")
                 : t("studio.chat.send")}
             </span>
             <textarea

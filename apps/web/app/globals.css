@@ -1484,11 +1484,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--ink-4) transparent; }
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .studio-inline-refine-bubble {
-    animation-duration: 1ms;
-  }
-}
+/* (global prefers-reduced-motion rule at end of file) */
 
 /* Responsive: tablet (768–960px) — narrow chat column ------------------- */
 
@@ -1523,6 +1519,9 @@ html { scrollbar-width: thin; scrollbar-color: var(--ink-4) transparent; }
   }
   .studio-chat-mobile-toggle {
     display: flex;
+  }
+  .studio-chat-column.expanded .studio-chat-mobile-toggle {
+    display: none;
   }
 }
 
@@ -2929,8 +2928,8 @@ html { scrollbar-width: thin; scrollbar-color: var(--ink-4) transparent; }
   *,
   *::before,
   *::after {
+    animation: none !important;
     transition-duration: 1ms !important;
-    animation-duration: 1ms !important;
   }
 }
 
