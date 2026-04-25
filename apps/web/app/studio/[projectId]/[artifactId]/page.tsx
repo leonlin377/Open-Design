@@ -21,7 +21,7 @@ import { StudioRemixButton } from "../../../../components/studio-remix-button";
 import { StudioExportExtrasButtons } from "../../../../components/studio-export-extras-buttons";
 import { fetchArtifactTheme } from "../../../../lib/opendesign-theme";
 import { RefineTrigger } from "./studio-panels-client";
-import { StudioShell } from "./studio-shell";
+import { StudioShell, StudioShellV3 } from "./studio-shell";
 import {
   type ApiArtifactVersionDiff,
   getArtifactWorkspace,
@@ -365,6 +365,33 @@ export default async function StudioPage({ params, searchParams }: StudioPagePro
 
   const publishHref = `/studio/${project.id}/${artifact.id}/export/source-bundle`;
   const canvasBreadcrumb = `opendesign.live/${project.id}/${artifact.id}`;
+
+  const useV3 = process.env.NEXT_PUBLIC_STUDIO_V3 === "true";
+
+  if (useV3) {
+    return (
+      <StudioShellV3
+        storageKey={shellStorageKey}
+        projectId={project.id}
+        artifactId={artifact.id}
+        artifactKind={artifactKind}
+        artifactName={artifact.name}
+        canvasBreadcrumb={canvasBreadcrumb}
+        codeWorkspaceFiles={sourceBundle.files}
+        sceneCanvas={sceneCanvas}
+        resourcePanels={{
+          layersPanel,
+          designSystemPanel,
+          palettePanel,
+          versionsPanel,
+          exportPanel,
+          commentsPanel
+        }}
+        topbarExtraMenu={topbarExtraMenu}
+        publishHref={publishHref}
+      />
+    );
+  }
 
   return (
     <StudioShell

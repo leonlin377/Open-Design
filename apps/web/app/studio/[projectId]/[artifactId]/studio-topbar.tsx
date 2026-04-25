@@ -43,14 +43,14 @@ type StudioTopbarProps = {
   artifactKind: ArtifactKind;
   artifactName: string;
   onRenameArtifact?: (nextName: string) => Promise<void> | void;
-  /** Viewport + view-mode + publish wiring (owned by the shell). */
   viewport: SandpackViewport;
   onViewportChange: (next: SandpackViewport) => void;
   viewMode: CanvasViewMode;
   onViewModeChange: (next: CanvasViewMode) => void;
   onPublish: () => void;
-  /** Rendered inside the overflow menu. Caller owns action wiring. */
   extraMenu?: ReactNode;
+  conversationOpen?: boolean;
+  onConversationToggle?: () => void;
 };
 
 const SVG_COMMON = {
@@ -159,7 +159,9 @@ export function StudioTopbar({
   viewMode,
   onViewModeChange,
   onPublish,
-  extraMenu
+  extraMenu,
+  conversationOpen,
+  onConversationToggle
 }: StudioTopbarProps) {
   const t = useT();
   const [name, setName] = useState(artifactName);
@@ -310,6 +312,19 @@ export function StudioTopbar({
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {onConversationToggle ? (
+          <button
+            type="button"
+            className={`studio-topbar-conversation-toggle${conversationOpen ? " is-active" : ""}`}
+            onClick={onConversationToggle}
+            aria-label={t("studio.conversation.toggle")}
+            title={t("studio.conversation.toggle")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+        ) : null}
         <Button
           variant="primary"
           size="sm"

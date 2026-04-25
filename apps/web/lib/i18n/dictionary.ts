@@ -218,6 +218,23 @@ export type Dictionary = {
   // Accessibility
   "a11y.skip": string;
 
+  // Studio unified conversation (V3)
+  "studio.unified.placeholder": string;
+  "studio.unified.placeholder.refine": string;
+  "studio.unified.mode.chat": string;
+  "studio.unified.mode.generate": string;
+  "studio.unified.mode.refine": string;
+  "studio.unified.refining": string;
+  "studio.unified.send": string;
+  "studio.thread.generated": string;
+  "studio.thread.refined": string;
+  "studio.thread.generating": string;
+  "studio.thread.refining": string;
+  "studio.thread.empty": string;
+  "studio.thread.empty.hint": string;
+  "studio.conversation.toggle": string;
+  "studio.conversation.label": string;
+
   // Studio generate panel
   "studio.generate.title": string;
   "studio.generate.description": string;
@@ -481,6 +498,23 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
     // Accessibility
     "a11y.skip": "Skip to main content",
 
+    // Studio unified conversation (V3)
+    "studio.unified.placeholder": "Describe what you want, or ask a question...",
+    "studio.unified.placeholder.refine": "What to change about this element...",
+    "studio.unified.mode.chat": "Chat",
+    "studio.unified.mode.generate": "Generate",
+    "studio.unified.mode.refine": "Refine",
+    "studio.unified.refining": "Refining: {{name}}",
+    "studio.unified.send": "Send",
+    "studio.thread.generated": "Generated {{count}} {{unit}}",
+    "studio.thread.refined": "Refined: {{name}}",
+    "studio.thread.generating": "Generating your design...",
+    "studio.thread.refining": "Refining {{name}}...",
+    "studio.thread.empty": "What would you like to create?",
+    "studio.thread.empty.hint": "Try one of these",
+    "studio.conversation.toggle": "Toggle chat",
+    "studio.conversation.label": "Conversation",
+
     // Studio generate panel
     "studio.generate.title": "Create your design",
     "studio.generate.description": "Describe what you want and we'll generate it for you.",
@@ -732,6 +766,23 @@ export const dictionaries: Record<"en-US" | "zh-CN", Dictionary> = {
 
     // Accessibility
     "a11y.skip": "跳到主要内容",
+
+    // Studio unified conversation (V3)
+    "studio.unified.placeholder": "描述你想要的，或提个问题...",
+    "studio.unified.placeholder.refine": "想改这个元素的什么...",
+    "studio.unified.mode.chat": "对话",
+    "studio.unified.mode.generate": "生成",
+    "studio.unified.mode.refine": "优化",
+    "studio.unified.refining": "优化中: {{name}}",
+    "studio.unified.send": "发送",
+    "studio.thread.generated": "已生成 {{count}} 个{{unit}}",
+    "studio.thread.refined": "已优化: {{name}}",
+    "studio.thread.generating": "正在生成设计...",
+    "studio.thread.refining": "正在优化 {{name}}...",
+    "studio.thread.empty": "想创建什么？",
+    "studio.thread.empty.hint": "试试这些",
+    "studio.conversation.toggle": "切换对话",
+    "studio.conversation.label": "对话",
 
     // Studio generate panel
     "studio.generate.title": "创建你的设计",
