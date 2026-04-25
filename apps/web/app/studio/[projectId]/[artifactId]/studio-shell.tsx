@@ -37,6 +37,7 @@ import {
 import { StudioInlineRefineBubble } from "./studio-inline-refine-bubble";
 import { StudioTopbar, type CanvasViewMode } from "./studio-topbar";
 import { StudioConversationPanel } from "./studio-conversation-panel";
+import { StudioBottomBar } from "./studio-bottom-bar";
 import { SelectionProvider, useSelection } from "./selection-context";
 import type { ArtifactKind } from "@opendesign/contracts";
 
@@ -671,6 +672,158 @@ function StudioShellV3Inner({
           </div>
         </section>
       </div>
+      <ParentSelectionOverlay />
+      <StudioToastBanner
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        dismissLabel={t("studio.publish.toast.dismiss")}
+        openLabel={t("studio.publish.share.open")}
+      />
+    </main>
+  );
+}
+
+// =========================================================================
+// V4 Shell — maximized canvas + bottom command bar + floating toolbar
+// =========================================================================
+
+type StudioShellV4Props = {
+  storageKey: string;
+  projectId: string;
+  artifactId: string;
+  artifactKind: ArtifactKind;
+  artifactName: string;
+  canvasBreadcrumb: string;
+  codeWorkspaceFiles: Record<string, string>;
+  sceneCanvas: ReactNode;
+  resourcePanels: {
+    layersPanel: ReactNode;
+    designSystemPanel: ReactNode;
+    palettePanel: ReactNode;
+    versionsPanel: ReactNode;
+    exportPanel: ReactNode;
+    commentsPanel: ReactNode;
+  };
+  topbarExtraMenu: ReactNode;
+  publishHref: string;
+};
+
+export function StudioShellV4(props: StudioShellV4Props) {
+  return (
+    <SelectionProvider>
+      <StudioShellV4Inner {...props} />
+    </SelectionProvider>
+  );
+}
+
+function StudioShellV4Inner({
+  storageKey,
+  projectId,
+  artifactId,
+  artifactKind,
+  artifactName,
+  canvasBreadcrumb,
+  codeWorkspaceFiles,
+  sceneCanvas,
+  resourcePanels,
+  topbarExtraMenu,
+  publishHref
+}: StudioShellV4Props) {
+  const t = useT();
+  const { selected } = useSelection();
+  const selectedNodeId = selected?.nodeId || null;
+  const selectedNodeName = selected?.textPreview || selected?.elementTag || null;
+  const [viewport, setViewport] = useState<SandpackViewport>("desktop");
+  const [viewMode, setViewMode] = useState<CanvasViewMode>("preview");
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [publishing, setPublishing] = useState(false);
+
+  useEffect(() => {
+    try {
+      const vp = window.localStorage.getItem(LOCAL_VIEWPORT_KEY(storageKey));
+      if (vp === "phone" || vp === "tablet" || vp === "desktop") setViewport(vp);
+      const vm = window.localStorage.getItem(LOCAL_VIEW_MODE_KEY(storageKey));
+      if (vm === "preview" || vm === "scene") setViewMode(vm);
+    } catch { /* ignore */ }
+  }, [storageKey]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(LOCAL_VIEWPORT_KEY(storageKey), viewport); } catch { /* ignore */ }
+  }, [viewport, storageKey]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(LOCAL_VIEW_MODE_KEY(storageKey), viewMode); } catch { /* ignore */ }
+  }, [viewMode, storageKey]);
+
+  useEffect(() => {
+    if (!selectedNodeId) setRefineOpen(false);
+  }, [selectedNodeId]);
+
+  const handlePublish = useCallback(async () => {
+    if (typeof window === "undefined" || publishing) return;
+    const confirmed = window.confirm(t("studio.publish.confirm"));
+    if (!confirmed) return;
+    setPublishing(true);
+    try {
+      const outcome = await publishArtifactSnapshot({ projectId, artifactId, fallbackUrl: publishHref });
+      if (outcome.kind === "published") {
+        setToast({ tone: "success", title: t("studio.publish.success.title"), description: t("studio.publish.success.description", { url: outcome.shareUrl }), href: outcome.shareUrl });
+      } else {
+        setToast({ tone: "success", title: t("studio.publish.success.title"), description: t("studio.publish.success.description", { url: outcome.fallbackUrl }), href: outcome.fallbackUrl });
+      }
+    } catch (error) {
+      setToast({ tone: "error", title: t("studio.publish.error.title"), description: error instanceof Error ? error.message : t("studio.publish.error.generic") });
+      try { window.open(publishHref, "_blank", "noopener,noreferrer"); } catch { /* ignore */ }
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishing, publishHref, projectId, artifactId, t]);
+
+  return (
+    <main className="studio-shell-v4" id="main-content">
+      <StudioTopbar
+        projectId={projectId}
+        projectName=""
+        artifactId={artifactId}
+        artifactKind={artifactKind}
+        artifactName={artifactName}
+        viewport={viewport}
+        onViewportChange={setViewport}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onPublish={handlePublish}
+        extraMenu={topbarExtraMenu}
+      />
+      <div className="studio-shell-body">
+        <section className="studio-canvas-region" aria-label={t("studio.canvas.label")}>
+          <div className="studio-canvas-surface" id="artifact-canvas" data-view-mode={viewMode}>
+            {viewMode === "preview" ? (
+              <StudioSandpackCanvas files={codeWorkspaceFiles} viewport={viewport} breadcrumb={canvasBreadcrumb} />
+            ) : sceneCanvas}
+            {selectedNodeId && !refineOpen ? (
+              <button type="button" className="studio-inline-refine-trigger" onClick={() => setRefineOpen(true)}>
+                <Text as="span" variant="body-s">Refine selection</Text>
+              </button>
+            ) : null}
+            {selectedNodeId && refineOpen ? (
+              <StudioInlineRefineBubble
+                projectId={projectId}
+                artifactId={artifactId}
+                nodeId={selectedNodeId}
+                nodeName={selectedNodeName ?? undefined}
+                onClose={() => setRefineOpen(false)}
+              />
+            ) : null}
+          </div>
+        </section>
+      </div>
+      <StudioBottomBar
+        projectId={projectId}
+        artifactId={artifactId}
+        artifactKind={artifactKind}
+        resourcePanels={resourcePanels}
+      />
       <ParentSelectionOverlay />
       <StudioToastBanner
         toast={toast}

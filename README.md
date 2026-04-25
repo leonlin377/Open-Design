@@ -72,12 +72,17 @@ playwright.config.ts, playwright.docker.config.ts
 Bring up Postgres / Redis / MinIO in Docker, run API and Web locally.
 
 ```bash
-cp .env.example .env                    # review values, set BETTER_AUTH_SECRET
+cp .env.example .env                                    # review values, set BETTER_AUTH_SECRET
+cp apps/web/.env.local.example apps/web/.env.local      # REQUIRED: web compile-time vars (NEXT_PUBLIC_*)
 pnpm install
-pnpm docker:infra                       # postgres + redis + minio
+pnpm docker:infra                                       # postgres + redis + minio
 pnpm --filter @opendesign/api db:migrate
-pnpm dev                                # turbo: api on :4000, web on :3000
+pnpm dev                                                # turbo: api on :4000, web on :3000
 ```
+
+> **Note — `apps/web/.env.local` is gitignored and must be created on every new machine.**
+> It holds `NEXT_PUBLIC_*` variables that Next.js bakes in at compile time. Without it the
+> V3 Studio layout will not activate, even if the code is up to date.
 
 Open http://127.0.0.1:3000, create an account, create a project, open Studio.
 
